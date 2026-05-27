@@ -1,11 +1,13 @@
 export { array } from "./array.js";
 export { bool } from "./bool.js";
 export { date } from "./date.js";
+export { email } from "./email.js";
 export { enums } from "./enum.js";
 export { float } from "./float.js";
 export { int } from "./int.js";
 export { str } from "./str.js";
 export { text } from "./text.js";
+export { url } from "./url.js";
 export { uuid } from "./uuid.js";
 
 /**

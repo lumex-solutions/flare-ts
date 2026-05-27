@@ -1,6 +1,20 @@
 // @flare-ts/lib/schema: primitives, schema, and all related types
 
-export { array, bool, date, defaultTo, enums, float, int, optional, str, text, uuid } from "./primitives/index.js";
+export {
+  array,
+  bool,
+  date,
+  defaultTo,
+  email,
+  enums,
+  float,
+  int,
+  optional,
+  str,
+  text,
+  url,
+  uuid,
+} from "./primitives/index.js";
 
 export type { ArrayTypedPrimitive, Primitive, PrimitiveJsonSchema, TypedPrimitive } from "./primitives/index.js";
 
