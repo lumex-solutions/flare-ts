@@ -1,0 +1,32 @@
+# Wrangler configuration for @flare-ts/core workerd-pool Vitest tests.
+#
+# This file is referenced by core/vitest.config.cloudflare.ts and is used
+# exclusively for the `core:cloudflare` test project. It is NOT the production
+# deployment config — see sandbox-cf/wrangler.toml for that.
+#
+# The `nodejs_compat` flag is required for AsyncLocalStorage (loggerALS),
+# node:crypto, and other Node-compatible APIs used by Flare's CF adapter.
+
+name = "flare-core-test"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ---------------------------------------------------------------------------
+# Test environment bindings
+# ---------------------------------------------------------------------------
+# Declare KV, D1, R2, Durable Objects, and queue bindings here when tests
+# need them. Miniflare will create in-memory implementations automatically.
+#
+# Example:
+#   [[kv_namespaces]]
+#   binding = "TEST_KV"
+#   id = "test-kv"
+#
+#   [[d1_databases]]
+#   binding = "TEST_DB"
+#   database_id = "test-db"
+#   database_name = "test"
+
+[env.test]
+# Test-only environment variables accessible via `env` in worker handlers.
+# These override any values from the parent stanza during test runs.

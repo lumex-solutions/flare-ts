@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "paths": {
+      "@flare-ts/lib": ["../lib/dist/index.d.ts"],
+      "@flare-ts/lib/schema": ["../lib/dist/schema/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

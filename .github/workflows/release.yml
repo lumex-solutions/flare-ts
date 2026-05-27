@@ -1,0 +1,61 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      # OIDC trusted publishing requires npm 11 or later.
+      - name: Upgrade npm
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm run build
+
+      - name: Run tests
+        run: pnpm test
+
+      # pnpm pack rewrites the `workspace:` protocol in core's dependency on lib
+      # to a concrete version range. We then publish the resulting tarball with
+      # the npm CLI so the OIDC trusted-publishing exchange runs through npm.
+      # No --provenance flag: trusted publishing emits provenance automatically.
+      # No NPM_TOKEN: OIDC uses a short-lived token, not a stored secret.
+
+      - name: Publish @flare-ts/lib
+        working-directory: lib
+        run: |
+          pnpm pack --pack-destination .
+          npm publish flare-ts-lib-*.tgz
+
+      - name: Publish @flare-ts/core
+        working-directory: core
+        run: |
+          pnpm pack --pack-destination .
+          npm publish flare-ts-core-*.tgz

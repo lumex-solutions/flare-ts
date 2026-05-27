@@ -1,0 +1,87 @@
+{
+  "name": "@flare-ts/core",
+  "version": "0.1.0",
+  "description": "Decorator-driven TypeScript framework for edge and serverless runtimes.",
+  "license": "MIT",
+  "author": "Lumex Solutions",
+  "homepage": "https://github.com/lumex-solutions/flare-ts#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lumex-solutions/flare-ts.git",
+    "directory": "core"
+  },
+  "bugs": {
+    "url": "https://github.com/lumex-solutions/flare-ts/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "flare.schema.json"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./decorators": {
+      "types": "./dist/decorators.d.ts",
+      "import": "./dist/decorators.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "import": "./dist/errors.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
+    },
+    "./bun": {
+      "types": "./dist/bun.d.ts",
+      "import": "./dist/bun.js"
+    },
+    "./deno": {
+      "types": "./dist/deno.d.ts",
+      "import": "./dist/deno.js"
+    },
+    "./cloudflare": {
+      "types": "./dist/cloudflare.d.ts",
+      "import": "./dist/cloudflare.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js"
+    },
+    "./flare.schema.json": "./flare.schema.json"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\" && esbuild \"src/**/*.ts\" --format=esm --outdir=dist --platform=neutral --target=es2022 && tsc -p tsconfig.build.json",
+    "build:watch": "esbuild \"src/**/*.ts\" --format=esm --outdir=dist --platform=neutral --target=es2022 --watch",
+    "test": "vitest run --config vitest.config.ts",
+    "test:watch": "vitest --config vitest.config.ts",
+    "test:cf": "vitest run --config vitest.config.cloudflare.ts",
+    "test:cf:watch": "vitest --config vitest.config.cloudflare.ts",
+    "test:all": "vitest run --config vitest.config.ts && vitest run --config vitest.config.cloudflare.ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.12.21",
+    "@cloudflare/workers-types": "^4.20260510.0",
+    "@types/node": "^20.11.1",
+    "esbuild": "^0.27.4",
+    "typescript": "^5.8.2",
+    "vitest": "^2.1.9",
+    "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "@flare-ts/lib": "workspace:*"
+  }
+}

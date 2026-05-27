@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ESNext", "WebWorker", "DOM.AsyncIterable"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noEmit": true,
+    "declaration": false,
+    "types": ["node"],
+    "skipLibCheck": true,
+    "paths": {
+      "@flare-ts/lib": ["./lib/src/index.ts"],
+      "@flare-ts/lib/schema": ["./lib/src/schema/index.ts"],
+      "@flare-ts/core": ["./core/src/index.ts"],
+      "@flare-ts/core/decorators": ["./core/src/decorators.ts"],
+      "@flare-ts/core/errors": ["./core/src/errors.ts"]
+    }
+  },
+  "include": [
+    "core/src/**/*.ts",
+    "lib/src/**/*.ts"
+  ],
+  "exclude": ["dist", "node_modules", "out"]
+}

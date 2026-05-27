@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://flare-ts.dev/schemas/flare.schema.json",
+  "title": "Flare Configuration",
+  "description": "Configuration file for a Flare application (flare.json).",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "host": {
+      "type": "object",
+      "description": "HTTP server and runtime settings.",
+      "additionalProperties": false,
+      "properties": {
+        "env": {
+          "type": "string",
+          "description": "Current runtime environment name. Influences log format and other environment-specific defaults.",
+          "default": "development",
+          "examples": ["development", "staging", "production"]
+        },
+        "port": {
+          "type": "integer",
+          "description": "HTTP listen port.",
+          "default": 3000,
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "host": {
+          "type": "string",
+          "description": "HTTP listen hostname or IP address.",
+          "default": "localhost",
+          "examples": ["localhost", "0.0.0.0", "127.0.0.1"]
+        },
+        "shutdownTimeout": {
+          "type": "integer",
+          "description": "Graceful shutdown timeout in milliseconds. The server stops accepting new connections and waits up to this long for in-flight requests to complete.",
+          "default": 10000,
+          "minimum": 0
+        },
+        "maxBodyBytes": {
+          "type": "integer",
+          "description": "Global default maximum request body size in bytes. Can be overridden per-route via the route contract's maxBodyBytes field.",
+          "default": 2097152,
+          "minimum": 0
+        },
+        "requestIdHeader": {
+          "type": "boolean",
+          "description": "When true (default), Flare emits an X-Request-Id header on every response.",
+          "default": true
+        },
+        "requestTiming": {
+          "type": "boolean",
+          "description": "When true, Flare captures Date.now() at request start and exposes it as request.startTime.",
+          "default": false
+        },
+        "keepAliveTimeout": {
+          "type": "integer",
+          "description": "Server-level keep-alive timeout in milliseconds. Should exceed your load balancer's idle timeout to avoid 502/504 races.",
+          "default": 65000,
+          "minimum": 0
+        },
+        "headersTimeout": {
+          "type": "integer",
+          "description": "Maximum time in milliseconds the server waits for complete HTTP request headers.",
+          "default": 60000,
+          "minimum": 0
+        },
+        "requestTimeout": {
+          "type": "integer",
+          "description": "Maximum time in milliseconds for an entire request (headers + body). Set to 0 to disable.",
+          "default": 300000,
+          "minimum": 0
+        }
+      }
+    },
+    "log": {
+      "type": "object",
+      "description": "Logger settings.",
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "string",
+          "description": "Minimum log level to emit across all transports. Per-transport overrides take precedence.",
+          "default": "info",
+          "enum": ["trace", "debug", "info", "warn", "error", "fatal"]
+        },
+        "format": {
+          "type": "string",
+          "description": "Default log output format. Defaults to \"pretty\" when host.env is \"development\", otherwise \"json\".",
+          "default": "json",
+          "enum": ["pretty", "json"]
+        },
+        "enableContext": {
+          "type": "boolean",
+          "description": "When true, the logger uses AsyncLocalStorage to attach request context (source, requestId) to every log record emitted inside a request.",
+          "default": false
+        },
+        "transports": {
+          "type": "object",
+          "description": "Per-transport configuration keyed by the transport's static transportName.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["level"],
+            "properties": {
+              "level": {
+                "type": "string",
+                "description": "Minimum log level for this transport. Overrides the top-level log.level for this transport only.",
+                "enum": ["trace", "debug", "info", "warn", "error", "fatal"]
+              }
+            }
+          },
+          "examples": [{ "console": { "level": "debug" } }]
+        }
+      }
+    }
+  }
+}

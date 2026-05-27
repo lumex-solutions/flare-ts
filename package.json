@@ -1,0 +1,53 @@
+{
+  "name": "@flare-ts/workspace",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "build": "pnpm --filter @flare-ts/lib run build && pnpm --filter @flare-ts/core run build",
+    "test": "vitest run --workspace vitest.workspace.ts",
+    "test:node": "vitest run --workspace vitest.workspace.ts --project lib --project core:node",
+    "test:cloudflare": "vitest run --workspace vitest.workspace.ts --project core:cloudflare",
+    "test:lib": "vitest run --workspace vitest.workspace.ts --project lib",
+    "test:core": "vitest run --workspace vitest.workspace.ts --project core:node --project core:cloudflare",
+    "test:coverage": "pnpm test:coverage:lib && pnpm test:coverage:core",
+    "test:coverage:lib": "vitest run --root lib -c vitest.config.ts --coverage",
+    "test:coverage:core": "vitest run --root core -c vitest.config.ts --coverage",
+    "format": "dprint fmt",
+    "format:check": "dprint check",
+    "lint": "eslint . --cache --cache-location .cache/.eslintcache",
+    "lint:fix": "eslint . --fix --cache --cache-location .cache/.eslintcache",
+    "fix": "pnpm run lint:fix && pnpm run format",
+    "check": "pnpm run lint && tsc -p core/tsconfig.json --noEmit && tsc -p lib/tsconfig.json --noEmit && pnpm run format:check",
+    "gen:deno-types": "node scripts/gen-deno-types.mjs"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@cloudflare/workerd-windows-64",
+      "@cloudflare/workerd-linux-64",
+      "@cloudflare/workerd-linux-arm64",
+      "@cloudflare/workerd-darwin-64",
+      "@cloudflare/workerd-darwin-arm64",
+      "workerd"
+    ]
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.31.0",
+    "@types/node": "^20.11.1",
+    "@typescript-eslint/eslint-plugin": "^8.59.3",
+    "@typescript-eslint/parser": "^8.59.3",
+    "@vitest/coverage-v8": "^2.1.9",
+    "dprint": "^0.54.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-n": "^18.0.1",
+    "eslint-plugin-perfectionist": "^5.9.0",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

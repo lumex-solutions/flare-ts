@@ -1,0 +1,10 @@
+{
+  "name": "flare-example-workers",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@flare-ts/core": "workspace:*",
+    "@flare-ts/lib": "workspace:*"
+  }
+}

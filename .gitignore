@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+*.tgz
+.cache/
+coverage/
+reports/
+profiles/
+
+# Editor / agent / tooling state
+.claude/
+.agents/
+
+# Private workspace
+_internal/

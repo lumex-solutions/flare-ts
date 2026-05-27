@@ -1,0 +1,7 @@
+packages:
+  - "core"
+  - "lib"
+  - "examples/*"
+allowBuilds:
+  esbuild: true
+  sharp: true
