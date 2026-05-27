@@ -1,7 +1,8 @@
 # Flare (`@flare-ts`)
 
 [![CI](https://github.com/lumex-solutions/flare-ts/actions/workflows/test.yml/badge.svg)](https://github.com/lumex-solutions/flare-ts/actions/workflows/test.yml)
-[![npm](https://img.shields.io/npm/v/@flare-ts/core.svg)](https://www.npmjs.com/package/@flare-ts/core)
+[![npm @flare-ts/core](https://img.shields.io/npm/v/@flare-ts/core.svg?label=%40flare-ts%2Fcore)](https://www.npmjs.com/package/@flare-ts/core)
+[![npm @flare-ts/lib](https://img.shields.io/npm/v/@flare-ts/lib.svg?label=%40flare-ts%2Flib)](https://www.npmjs.com/package/@flare-ts/lib)
 [![node](https://img.shields.io/node/v/@flare-ts/core.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/types-included-blue.svg)](https://www.typescriptlang.org)
 
