@@ -6,7 +6,7 @@ import type { FlareAppCF } from "../../../src/lib/host/runtime/cloudflare.js";
 import { FlareResponse } from "../../../src/lib/arcs/http/transport/flare-response.js";
 import { FlareHost } from "../../../src/lib/host/flare-host.js";
 import { LoggerTransport } from "../../../src/lib/logger/transport.js";
-import { loggerALS, type LogRecord } from "../../../src/lib/logger/types.js";
+import type { LogRecord } from "../../../src/lib/logger/types.js";
 import { cfProdAdapter } from "../helpers/cf-test-adapter.js";
 
 const REQUEST_ID_RE = /^[0-9a-f]{8}-\d+$/;
@@ -183,7 +183,7 @@ describe("Cross-Feature Interactions", () => {
     }
   });
 
-  it("(with logger) when log.enableContext === true, requestId appears in log records via loggerALS; matches the response header", async () => {
+  it("(with logger) when log.enableContext === true, requestId appears in log records automatically; matches the response header", async () => {
     const records: LogRecord[] = [];
 
     class CapturingTransport extends LoggerTransport {
@@ -202,12 +202,7 @@ describe("Cross-Feature Interactions", () => {
 
     host.http.get("/log-me", (ctx) => {
       const rid = ctx.req.requestId;
-      loggerALS.run(
-        { context: { source: "flare:http", requestId: rid, method: "GET", url: "/log-me" } },
-        () => {
-          host.logger.info("inside-handler");
-        },
-      );
+      host.logger.info("inside-handler");
       return new FlareResponse(200, { id: rid });
     });
 

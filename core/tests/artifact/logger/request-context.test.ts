@@ -14,7 +14,9 @@ import { node } from "../../../src/lib/host/runtime/node.js";
 import { LoggerTransport } from "../../../src/lib/logger/transport.js";
 import { ConsoleTransport } from "../../../src/lib/logger/transports/console.js";
 import {
+  captureLogStore,
   loggerALS,
+  runWithLogStore,
   type HostLogContext,
   type HttpLogContext,
   type LogContext,
@@ -384,7 +386,7 @@ describe("Failure Modes", () => {
     resetRecords();
   });
 
-  it("ALS does NOT flow into a callback invoked outside the original loggerALS.run scope; the documented mitigation of snapshotting + re-running restores context", async () => {
+  it("ALS does NOT flow into a callback invoked outside the original loggerALS.run scope; captureLogStore + runWithLogStore restores context", async () => {
     // The spec calls out CF's `ctx.waitUntil` as the platform constraint:
     // work scheduled there does not inherit the ALS store. The underlying
     // mechanism is generic — any callback invoked OUTSIDE an active
@@ -417,18 +419,18 @@ describe("Failure Modes", () => {
       // documented platform-constraint shape for CFW `waitUntil`: the
       // callback's execution stack is no longer inside `loggerALS.run`.
       let deferred: (() => void) | undefined;
-      let snapshot: { context: LogContext; } | undefined;
+      let snapshot: ReturnType<typeof captureLogStore>;
 
       loggerALS.run({ context: ctx }, () => {
         // Sanity: inside the run, the store is visible to the logger.
         host.logger.info("inside-run");
-        snapshot = { context: loggerALS.getStore()!.context };
+        snapshot = captureLogStore();
         deferred = () => {
           // No surrounding loggerALS.run when this fires -> no store visible.
           host.logger.info("detached-no-ctx");
 
           // Documented mitigation: snapshot and re-run.
-          loggerALS.run(snapshot!, () => {
+          runWithLogStore(snapshot, () => {
             host.logger.info("detached-re-entered");
           });
         };

@@ -50,4 +50,5 @@ export type { StateGetter, StateToken, TypedStateToken } from "./lib/arcs/http/s
 
 export { Logger } from "./lib/logger/logger.js";
 export { CFWLoggerTransport, LoggerTransport } from "./lib/logger/transport.js";
-export type { HttpErrorContext, LogLevel, LogRecord } from "./lib/logger/types.js";
+export { captureLogStore, runWithLogStore } from "./lib/logger/types.js";
+export type { HttpErrorContext, LogLevel, LogRecord, LogStore } from "./lib/logger/types.js";

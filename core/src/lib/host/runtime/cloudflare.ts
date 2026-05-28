@@ -1,7 +1,7 @@
 import type { JsonObject } from "@flare-ts/lib";
 import type { ResponseLike } from "../../arcs/http/transport/types/response.js";
 import type { FlareHostConfig } from "../../config/flare-config.js";
-import type { CFWLoggerTransportClass } from "../../logger/types.js";
+import type { CFWLoggerTransportClass, LogContext } from "../../logger/types.js";
 import type { FlareTestRequestInput } from "../../testing/types/flare-test-req.js";
 import type { IFlareHost } from "../flare-host.js";
 import type { HostRuntimeAdapter } from "../types/adapter.js";
@@ -10,6 +10,7 @@ import { FlareRequest } from "../../arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../arcs/http/transport/flare-response.js";
 import { CFWRequestAdapter } from "../../arcs/http/transport/runtime/cloudflare.js";
 import { CFWLogger } from "../../logger/logger.js";
+import { loggerALS } from "../../logger/types.js";
 import { CFWConsoleTransport } from "../../logger/transports/console.js";
 import { FlareAppBase } from "../flare-app.js";
 import { SET_HOST_STATE } from "../types/const.js";
@@ -143,7 +144,18 @@ export class FlareAppCF extends FlareAppBase {
     const ctx = new FlareHttpContext(flareReq);
 
     try {
-      const response = this.http.fetch(ctx);
+      let response: ResponseLike | Promise<ResponseLike>;
+      if (this.host.config.log?.enableContext) {
+        const logContext: LogContext = {
+          source: "flare:http",
+          requestId: flareReq.requestId,
+          method: flareReq.method,
+          url: flareReq.url,
+        };
+        response = loggerALS.run({ context: logContext }, () => this.http.fetch(ctx));
+      } else {
+        response = this.http.fetch(ctx);
+      }
       const resolved = response instanceof Promise ? await response : response;
       return this.#buildResponse(resolved, ctx);
     } catch (error) {

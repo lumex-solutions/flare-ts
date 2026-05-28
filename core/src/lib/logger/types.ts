@@ -5,7 +5,7 @@
  *
  * AsyncLocalStorage context does not automatically flow into CF Workers `waitUntil()`
  * callbacks. If deferred work needs request context, snapshot the current store and re-enter it
- * with `loggerALS.run(store, () => ...)` inside the callback.
+ * with {@link runWithLogStore} inside the callback.
  */
 // eslint-disable-next-line no-restricted-imports
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -107,3 +107,25 @@ export type CFWLoggerTransportClass = {
  * on every emit when `log.enableContext` is `true`.
  */
 export const loggerALS = new AsyncLocalStorage<LogStore>();
+
+/**
+ * Snapshots the currently active log store so detached callbacks (for example,
+ * Cloudflare `waitUntil`) can re-enter the same logging scope later.
+ */
+export function captureLogStore(): LogStore | undefined {
+  const store = loggerALS.getStore();
+  if (!store) return undefined;
+  return {
+    context: { ...store.context },
+    ...(store.state ? { state: { ...store.state } } : {}),
+  };
+}
+
+/**
+ * Runs `fn` inside the provided log store. When `store` is undefined, runs
+ * `fn` without entering AsyncLocalStorage.
+ */
+export function runWithLogStore<T>(store: LogStore | undefined, fn: () => T): T {
+  if (!store) return fn();
+  return loggerALS.run(store, fn);
+}
