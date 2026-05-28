@@ -29,7 +29,7 @@ export type RequestContext = {
  * schema is declared, making the field inaccessible at the type level.
  */
 export type TypedBody<T extends RequestDescriptor> = T["body"] extends SchemaToken<infer U> ? U
-  : T["body"] extends AsyncIterable<Uint8Array> ? AsyncIterable<Uint8Array>
+  : T["body"] extends TypedPrimitive<"stream"> ? AsyncIterable<Uint8Array>
   : never;
 
 /**

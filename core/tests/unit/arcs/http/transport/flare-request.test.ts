@@ -241,17 +241,39 @@ describe("text / json / stream", () => {
     await expect(invalidReq.json()).rejects.toThrow("Invalid JSON body");
   });
 
-  it("stream: returns nativeRequest.body for Request; nativeRequest for Node IncomingMessage", () => {
+  it("stream: returns an async iterable for Request and iterable-native requests", async () => {
     const native = new Request("https://example.com/", {
       method: "POST",
       body: "hi",
     });
     const reqWithRequest = new FlareRequest(makeAdapter(), "POST", "/", "r", native);
-    expect(reqWithRequest.stream()).toBe(native.body);
+    const streamed = reqWithRequest.stream();
+    expect(typeof streamed[Symbol.asyncIterator]).toBe("function");
+    expect(reqWithRequest.stream()).toBe(streamed);
 
     const iter = asyncIterableOf([new Uint8Array([1])]);
     const reqWithIter = new FlareRequest(makeAdapter(), "POST", "/", "r", iter);
-    expect(reqWithIter.stream()).toBe(iter);
+    const streamedIter = reqWithIter.stream();
+    expect(typeof streamedIter[Symbol.asyncIterator]).toBe("function");
+    expect(reqWithIter.stream()).toBe(streamedIter);
+
+    const chunks: number[] = [];
+    for await (const chunk of streamedIter) {
+      chunks.push(...chunk);
+    }
+    expect(chunks).toEqual([1]);
+  });
+
+  it("stream: enforces max body bytes while iterating", async () => {
+    const req = new FlareRequest(makeAdapter(), "POST", "/", "r", asyncIterableOf([new Uint8Array(4), new Uint8Array(4)]));
+    req[SET_MAX_BODY_BYTES](6);
+    const stream = req.stream();
+    const readAll = async () => {
+      for await (const _ of stream) {
+        // drain
+      }
+    };
+    await expect(readAll()).rejects.toBeInstanceOf(FlareError);
   });
 
   it("stream: throws after buffer(), text(), json(), or SET_RAW_BODY", async () => {

@@ -4,9 +4,11 @@
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
 import type { FlareAppCF } from "../../../src/lib/host/runtime/cloudflare.js";
+import { flareContract } from "../../../src/index.js";
 import { FlareResponse } from "../../../src/lib/arcs/http/transport/flare-response.js";
 import { FlareHost } from "../../../src/lib/host/flare-host.js";
 import { FlareService } from "../../../src/lib/services/composition/flare-service.js";
+import { stream } from "../../../src/index.js";
 import { cfProdAdapter } from "../helpers/cf-test-adapter.js";
 import { registerMinimalPingRoute } from "../helpers/minimal-route.js";
 
@@ -417,6 +419,36 @@ describe("Cross-Feature Interactions", () => {
       expect(observed!.bodyJson).toEqual({ hello: "world", n: 42 });
       expect(observed!.nativeIsCfRequest).toBe(true);
       expect(observed!.signalIsCfSignal).toBe(true);
+    },
+  );
+
+  it(
+    "(with http-arc/contracts) stream contract exposes the same iterable on extract().body and ctx.req.stream()",
+    async () => {
+      const StreamContract = flareContract({
+        upload: { body: stream, maxBodyBytes: 1024 },
+      });
+
+      let observed: { sameReference: boolean; total: number; } | undefined;
+
+      const host = new FlareHost(cfProdAdapter({
+        host: { env: "test", requestIdHeader: false, maxBodyBytes: 64 },
+        log: { level: "fatal", format: "json" },
+      }));
+      host.http.post("/upload", { contract: StreamContract.upload }, async (ctx) => {
+        const { body } = ctx.extract(StreamContract.upload);
+        observed = { sameReference: body === ctx.req.stream(), total: 0 };
+        for await (const chunk of body) {
+          observed.total += chunk.byteLength;
+        }
+        return new FlareResponse(200, { ok: true });
+      });
+
+      const handle = (host.build() as FlareAppCF).export();
+      const payload = "x".repeat(128); // over global 64, under route 1024
+      const res = await handle.fetch(new Request("https://flare.test/upload", { method: "POST", body: payload }));
+      expect(res.status).toBe(200);
+      expect(observed).toEqual({ sameReference: true, total: 128 });
     },
   );
 });

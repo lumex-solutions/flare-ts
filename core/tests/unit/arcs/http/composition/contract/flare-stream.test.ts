@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stream } from "../../../../../../src/lib/arcs/http/composition/contract/flare-stream.js";
+import { stream } from "../../../../../../src/index.js";
 
 describe("stream", () => {
   it('returns the literal "stream" regardless of input', () => {

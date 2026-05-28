@@ -10,7 +10,7 @@ import { model, str } from "@flare-ts/lib/schema";
 import type { HostRuntimeAdapter } from "../../../src/lib/host/types/adapter.js";
 import type { TestAppHandle } from "../../../src/lib/testing/test.js";
 import { FlareHost, FlareResponse } from "../../../src/index.js";
-import { stream } from "../../../src/lib/arcs/http/composition/contract/flare-stream.js";
+import { stream } from "../../../src/index.js";
 import { FlareErrorCategories } from "../../../src/lib/errors/types/types.js";
 import { node } from "../../../src/lib/host/runtime/node.js";
 
@@ -185,12 +185,28 @@ describe("Edge Cases", () => {
       return new FlareResponse(200, { hadBody: result !== null });
     });
 
-    // Stream-body POST: prepareRequestBody is skipped (body === stream), so
-    // the cap is bypassed and the handler is free to consume the raw bytes.
+    // Stream-body POST: prepareRequestBody is skipped (body === stream), but
+    // stream() still enforces the effective cap while chunks are consumed.
     host.http.post(
       "/stream-upload",
       {
         contract: { body: stream },
+      },
+      async (ctx) => {
+        let total = 0;
+        for await (const chunk of ctx.req.stream()) {
+          total += chunk.byteLength;
+        }
+        return new FlareResponse(200, { total });
+      },
+    );
+
+    // Route-level override for stream bodies: this route opts into a larger cap
+    // than the global 256-byte setting above.
+    host.http.post(
+      "/stream-upload-loose",
+      {
+        contract: { body: stream, maxBodyBytes: 1024 },
       },
       async (ctx) => {
         let total = 0;
@@ -245,16 +261,29 @@ describe("Edge Cases", () => {
   );
 
   it(
-    "Streaming body descriptor: caps are bypassed because the body is consumed by the handler",
+    "Streaming body descriptor: stream reads enforce the effective route/global cap",
     async () => {
-      // Body of 2 KiB against a 256-byte global cap. Because the contract
-      // declares `body: stream`, prepareRequestBody short-circuits and the
-      // handler reads the raw native iterable directly via ctx.req.stream(),
-      // never going through buffer() and never tripping the cap.
+      // Body of 2 KiB against a 256-byte global cap. The handler drains
+      // ctx.req.stream(), which now enforces the cap incrementally.
       const huge = "x".repeat(2048);
       const res = await app.fetch("POST /stream-upload", { body: huge });
+      expect(res.status).toBe(413);
+      expect(await res.json()).toEqual({
+        error: "ContentTooLarge",
+        code: 413,
+        detail: { maxBytes: 256 },
+      });
+    },
+  );
+
+  it(
+    "Streaming body descriptor: per-route maxBodyBytes overrides the global cap",
+    async () => {
+      // 512 bytes exceeds the global 256-byte cap but is within the route cap (1024).
+      const payload = "x".repeat(512);
+      const res = await app.fetch("POST /stream-upload-loose", { body: payload });
       expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ total: 2048 });
+      expect(await res.json()).toEqual({ total: 512 });
     },
   );
 });
@@ -337,8 +366,8 @@ describe("Cross-Feature Interactions", () => {
 
     // Drives the pipeline-codegen cross-feature bullet: the route's only
     // method has body === stream, so `hasBody` in exec-codegen is false and
-    // prepareRequestBody is omitted from the generated exec fn. With the
-    // global cap at 256, a 2 KiB streamed body must succeed.
+    // prepareRequestBody is omitted from the generated exec fn. Stream
+    // enforcement still happens when the handler consumes ctx.req.stream().
     host.http.post(
       "/stream-only",
       {
@@ -377,11 +406,11 @@ describe("Cross-Feature Interactions", () => {
     "(with http-arc/pipeline-codegen) `prepareRequestBody` is only called from generated code when at least one method has a non-stream body descriptor",
     async () => {
       streamHandlerCalled = false;
-      // 2 KiB body, 256-byte global cap. If prepareRequestBody were called,
-      // it would short-circuit with 413. The handler running and returning
-      // 200 proves prepareRequestBody was not part of the generated exec fn.
-      const huge = "x".repeat(2048);
-      const res = await app.fetch("POST /stream-only", { body: huge });
+      // Keep payload under cap: if prepareRequestBody were mistakenly called
+      // for stream-only routes this would still pass, so we also assert the
+      // stream handler ran and returned success.
+      const payload = "x".repeat(100);
+      const res = await app.fetch("POST /stream-only", { body: payload });
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ ok: true });
       expect(streamHandlerCalled).toBe(true);

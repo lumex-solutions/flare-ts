@@ -8,7 +8,7 @@ import { array, float, int, model, optional, schema, str } from "@flare-ts/lib/s
 import type { TestAppHandle } from "../../../src/lib/testing/test.js";
 import { Get, Post } from "../../../src/decorators.js";
 import { ControllerBase, flareContract, FlareHost } from "../../../src/index.js";
-import { stream } from "../../../src/lib/arcs/http/composition/contract/flare-stream.js";
+import { stream } from "../../../src/index.js";
 import { node } from "../../../src/lib/host/runtime/node.js";
 
 // Shared contracts + models used by Primary Behavior, Edge Cases, and
@@ -111,22 +111,16 @@ class SharedController extends ControllerBase {
 
   @Post("/stream")
   public async streamEcho() {
-    // body is the native async iterable; the descriptor uses the `stream`
-    // sentinel so the framework does not parse or buffer the payload before
-    // the handler runs. Type-side the body is `never` (the contract has no
-    // SchemaToken), so the cast is necessary to consume it.
-    const extracted = this.ctx.extract(SharedContract.streamEcho);
-    const body = extracted.body as unknown as AsyncIterable<Uint8Array> | undefined;
+    // body is the async iterable exposed by ctx.req.stream() for this request.
+    const { body } = this.ctx.extract(SharedContract.streamEcho);
     const collected: number[] = [];
-    let isAsyncIterable = false;
-    if (body && typeof body[Symbol.asyncIterator] === "function") {
-      isAsyncIterable = true;
-      for await (const chunk of body) {
-        for (let i = 0; i < chunk.length; i++) collected.push(chunk[i]!);
-      }
+    const isAsyncIterable = typeof body[Symbol.asyncIterator] === "function";
+    const sameReference = body === this.ctx.req.stream();
+    for await (const chunk of body) {
+      for (let i = 0; i < chunk.length; i++) collected.push(chunk[i]!);
     }
     const text = new TextDecoder().decode(new Uint8Array(collected));
-    return this.ok({ isAsyncIterable, text });
+    return this.ok({ isAsyncIterable, sameReference, text });
   }
 
   @Post("/validate")
@@ -290,7 +284,7 @@ describe("Edge Cases", () => {
       // The handler reflected back whether the descriptor handed it an
       // async iterable; the body field must not have been parsed/buffered
       // before the handler ran.
-      expect(await res.json()).toEqual({ isAsyncIterable: true, text: "hello-stream" });
+      expect(await res.json()).toEqual({ isAsyncIterable: true, sameReference: true, text: "hello-stream" });
     },
   );
 });

@@ -36,6 +36,7 @@ export class FlareRequest {
   #routeParams: Record<string, string> | undefined;
   #rawBody: ArrayBuffer | null = null;
   #bodyPromise: Promise<ArrayBuffer | null> | undefined;
+  #streamIterable: AsyncIterable<Uint8Array> | undefined;
   #maxBodyBytes: number = 2 * 1024 * 1024;
   #path: string | undefined;
   #signal: AbortSignal | undefined;
@@ -146,10 +147,29 @@ export class FlareRequest {
       );
     }
 
-    if (this.nativeRequest instanceof Request) {
-      return (this.nativeRequest as Request).body as AsyncIterable<Uint8Array>;
+    if (this.#streamIterable) return this.#streamIterable;
+
+    const signal = this.#signal;
+    const iterable = this.nativeRequest instanceof Request
+      ? this.nativeRequest.body // ReadableStream: async iterable per spec
+      : this.nativeRequest; // Node IncomingMessage: already async iterable
+
+    if (!iterable) {
+      this.#streamIterable = (async function*() {})();
+      return this.#streamIterable;
     }
-    return this.nativeRequest as AsyncIterable<Uint8Array>;
+
+    const maxBytes = this.#maxBodyBytes;
+    this.#streamIterable = (async function*() {
+      let total = 0;
+      for await (const chunk of iterable as AsyncIterable<Uint8Array>) {
+        if (signal?.aborted) throw signal.reason ?? new Error("Request aborted.");
+        total += chunk.byteLength;
+        if (total > maxBytes) throw new FlareError(ContentTooLarge, { maxBytes });
+        yield chunk;
+      }
+    })();
+    return this.#streamIterable;
   }
 
   [SET_RAW_BODY](body: ArrayBuffer | null): void {

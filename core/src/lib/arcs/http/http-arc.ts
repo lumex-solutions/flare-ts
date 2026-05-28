@@ -367,8 +367,8 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
       }
 
       if (requestDescriptor.body === stream) {
-        // For streaming requests, the raw body is passed directly to the handler without consuming
-        bodyData = request.nativeRequest as AsyncIterable<Uint8Array>;
+        // For streaming requests, expose the same adapter-normalized iterable as ctx.req.stream().
+        bodyData = request.stream();
       }
     } else {
       // If no method descriptor provided, still need to extract raw route params for controller

@@ -34,6 +34,7 @@ export type {
 } from "./lib/arcs/http/transport/types/response.js";
 
 export { flareContract } from "./lib/arcs/http/composition/contract/flare-contract.js";
+export { stream } from "./lib/arcs/http/composition/contract/flare-stream.js";
 export type { CorsConfig } from "./lib/arcs/http/composition/types/cors.js";
 export { FlareHttpContext } from "./lib/arcs/http/transport/flare-http-context.js";
 export type { CookieOptions } from "./lib/arcs/http/transport/flare-http-context.js";

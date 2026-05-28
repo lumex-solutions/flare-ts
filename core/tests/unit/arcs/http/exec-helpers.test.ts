@@ -7,7 +7,7 @@ import type { Pipeline } from "../../../../src/lib/arcs/http/types/pipeline.js";
 import type { ErrorHandlerRegistration } from "../../../../src/lib/arcs/http/types/registration.js";
 import type { HttpErrorContext } from "../../../../src/lib/logger/types.js";
 import type { Container } from "../../../../src/lib/services/container.js";
-import { stream } from "../../../../src/lib/arcs/http/composition/contract/flare-stream.js";
+import { stream } from "../../../../src/index.js";
 import {
   dispatchErrorHandlers,
   handleControllerError,
