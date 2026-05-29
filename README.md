@@ -1,10 +1,15 @@
-# Flare (`@flare-ts`)
 
-[![CI](https://github.com/lumex-solutions/flare-ts/actions/workflows/test.yml/badge.svg)](https://github.com/lumex-solutions/flare-ts/actions/workflows/test.yml)
-[![npm @flare-ts/core](https://img.shields.io/npm/v/@flare-ts/core.svg?label=%40flare-ts%2Fcore)](https://www.npmjs.com/package/@flare-ts/core)
-[![npm @flare-ts/lib](https://img.shields.io/npm/v/@flare-ts/lib.svg?label=%40flare-ts%2Flib)](https://www.npmjs.com/package/@flare-ts/lib)
-[![node](https://img.shields.io/node/v/@flare-ts/core.svg)](https://nodejs.org)
-[![TypeScript](https://img.shields.io/badge/types-included-blue.svg)](https://www.typescriptlang.org)
+<div align="center">
+  <img src="./assets/flare-logo.png" alt="Flare" width="280" /><br/><br/>
+  <p>Composition-first TypeScript HTTP framework for Node.js and Cloudflare Workers.</p>
+  <a href="https://github.com/lumex-solutions/flare-ts/actions/workflows/test.yml"><img src="https://github.com/lumex-solutions/flare-ts/actions/workflows/test.yml/badge.svg" alt="CI" /></a>
+  <a href="https://www.npmjs.com/package/@flare-ts/core"><img src="https://img.shields.io/npm/v/@flare-ts/core.svg?label=%40flare-ts%2Fcore" alt="npm @flare-ts/core" /></a>
+  <a href="https://www.npmjs.com/package/@flare-ts/lib"><img src="https://img.shields.io/npm/v/@flare-ts/lib.svg?label=%40flare-ts%2Flib" alt="npm @flare-ts/lib" /></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/node/v/@flare-ts/core.svg" alt="node" /></a>
+  <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/types-included-blue.svg" alt="TypeScript" /></a>
+</div>
+
+---
 
 **Composition-first TypeScript HTTP framework.** Register your application graph on `FlareHost`, validate it with `host.build()`, then run the same graph on Node.js or Cloudflare Workers.
 
@@ -23,6 +28,17 @@ app.run();
 
 **Pre-release (`0.1.x`).** Node and Cloudflare Workers are the supported runtimes. Bun and Deno adapters are planned. Expect breaking changes before `1.0`.
 
+### Sandbox
+
+<div>
+  <a href="https://sandbox.flare-ts.dev/">
+    <img src="https://img.shields.io/badge/Try%20the%20Sandbox-sandbox.flare--ts.dev-00f5a0?style=for-the-badge&labelColor=111111" alt="Try the Sandbox" />
+  </a>
+</div>
+
+Write and explore a Flare app in your browser and run it live on Cloudflare Workers. No install, no account. The sandbox is itself built with Flare on the same Cloudflare adapter it showcases.
+
+
 ### Contents
 
 - [Quick start](#quick-start)
@@ -33,8 +49,6 @@ app.run();
 - [Documentation](#documentation)
 - [Contributing](#contributing)
 - [License](#license)
-
----
 
 ## Quick start
 
