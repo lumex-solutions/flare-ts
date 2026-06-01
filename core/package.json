@@ -1,7 +1,7 @@
 {
   "name": "@flare-ts/core",
-  "version": "0.1.0",
-  "description": "Decorator-driven TypeScript framework for edge and serverless runtimes.",
+  "version": "0.2.0",
+  "description": "Composition-first TypeScript HTTP framework for Node.js and Cloudflare Workers.",
   "license": "MIT",
   "author": "Lumex Solutions",
   "homepage": "https://github.com/lumex-solutions/flare-ts#readme",

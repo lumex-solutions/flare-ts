@@ -9,7 +9,7 @@
     "exactOptionalPropertyTypes": true,
     "noEmit": true,
     "declaration": false,
-    "types": ["node"],
+    "types": ["node", "@cloudflare/workers-types"],
     "skipLibCheck": true,
     "paths": {
       "@flare-ts/lib": ["./lib/src/index.ts"],
