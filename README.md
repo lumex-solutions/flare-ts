@@ -46,6 +46,7 @@ Write and explore a Flare app in your browser and run it live on Cloudflare Work
 - [What you get](#what-you-get)
 - [Runtimes](#runtimes)
 - [Install](#install)
+- [Roadmap](#roadmap)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
 - [License](#license)
@@ -269,6 +270,35 @@ An optional `flare.json` sets the port, logging, and custom config sections, and
   "log": { "level": "debug", "format": "pretty" }
 }
 ```
+---
+
+## Roadmap
+
+A short look at where Flare is and where it's headed.
+Direction, not dates. The order and details will shift as we go.
+
+### Shipped today
+
+The HTTP layer is solid: routing, controllers, middleware, request state, and contracts, all validated at startup by `host.build()`. Dependency injection with scoped and singleton lifecycles. Typed config from `flare.json` and the environment. A structured logger. Schema and serialization in `@flare-ts/lib`, usable on their own. Runs on Node and Cloudflare Workers from one codebase.
+
+### Phase 1 - A complete, extensible framework
+
+Rounding out the HTTP layer with WebSockets, file uploads, signed cookies, and health checks. First-class authentication. A stable extension API so first-party and community packages plug into the host the same way. And the `flare` CLI for scaffolding, dev, and builds. The first official extension package lands here, proving the pattern the rest will follow.
+
+### Phase 2 - Observability and the ecosystem
+
+A queryable observability layer built from what Flare already knows about your app, not bolted on through instrumentation. Then the packages fan out: databases, etc. wired into dependency injection and lifecycle, wrapped in a first-party package.
+
+### Phase 3 - Background processing
+
+Long-running workers as a first-class part of the app, sharing the same dependency injection, lifecycle, and validation as the HTTP layer. One application, one mental model, whether it's serving a request or working in the background.
+
+### Phase 4 - Scheduling, storage, and a stable 1.0
+
+Scheduled and recurring work on top of the worker model. Optional storage bindings(inspired by CF, pluggable storage interface for node) for key-value and object storage, one concept across every runtime. Then benchmarks, hardening, and a stable API for 1.0.
+
+
+And at some point Bun and Deno support will land, but that depends entirely on when I get the gumption to go down those rabbit holes. I have mentally planned a lot of those, but no deep dives. Intention is to support for v1.0, but no promises.
 
 ---
 
