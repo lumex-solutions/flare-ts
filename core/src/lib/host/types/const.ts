@@ -26,3 +26,10 @@ export const UNSAFE_CONFIG_ENV_KEYS = new Set(["__proto__", "prototype", "constr
  * Test-only snapshot of host-private compile state for {@link inspectBuild}.
  */
 export const INSPECT_HOST: unique symbol = Symbol("INSPECT_HOST");
+
+/**
+ * @internal
+ * Resolved request extensions for the host's runtime, read by the app's per-request runner.
+ * Symbol-keyed so this internal plumbing stays out of the package's public type surface.
+ */
+export const REQUEST_EXTENSIONS: unique symbol = Symbol("REQUEST_EXTENSIONS");

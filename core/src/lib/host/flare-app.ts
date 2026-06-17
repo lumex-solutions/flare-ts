@@ -1,10 +1,12 @@
 import type { HttpArc } from "../arcs/http/http-arc.js";
+import type { FlareRequest } from "../arcs/http/transport/flare-request.js";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { FlareServiceClass, ServiceToken } from "../services/types/types.js";
 import type { TestAppHandle } from "../testing/test.js";
 import type { IFlareHost } from "./flare-host.js";
 import { START_HTTP_ARC, START_HTTP_ARC_ASYNC, STOP_HTTP_ARC, STOP_HTTP_ARC_ASYNC } from "../arcs/http/http-arc.js";
 import { _log, Logger } from "../logger/logger.js";
+import { REQUEST_EXTENSIONS } from "./types/const.js";
 
 export interface IFlareApp {
   /** @internal Starts framework-managed app resources. */
@@ -34,6 +36,15 @@ export abstract class FlareAppBase implements IFlareApp {
 
   protected readonly http: HttpArc;
   // TODO: add `workers` and `flows` arc fields when those arcs ship.
+
+  /**
+   * Runs the request extensions resolved for the host's runtime once for `req`, before dispatch.
+   * Each extension mutates `req` in place; `input` is the runtime adapter's per-request inputs.
+   */
+  protected applyRequestExtensions(req: FlareRequest, input: unknown): void {
+    const exts = this.host[REQUEST_EXTENSIONS];
+    for (let i = 0; i < exts.length; i++) exts[i]!.onRequest(req, input);
+  }
 
   /**
    * Starts the application in test mode and returns a {@link TestAppHandle}

@@ -23,10 +23,11 @@ import { FlareHost } from "../../../src/lib/host/flare-host.js";
 import { buildCf as buildCfFromModule, cf as cfFromModule } from "../../../src/lib/host/runtime/cloudflare.js";
 import { cfProdAdapter } from "../helpers/cf-test-adapter.js";
 
-// Documented public surface for `@flare-ts/core/cloudflare` (buildCf, cf).
-// Each entry is a runtime symbol that the subpath barrel MUST expose.
+// Documented public surface for `@flare-ts/core/cloudflare`
+// (buildCf, buildDurableCf, cf, durableCf). Each entry is a runtime symbol that
+// the subpath barrel MUST expose.
 
-const EXPECTED_RUNTIME_NAMES = ["buildCf", "cf"] as const;
+const EXPECTED_RUNTIME_NAMES = ["buildCf", "buildDurableCf", "cf", "durableCf"] as const;
 
 describe("Primary Behavior", () => {
   it(
@@ -154,7 +155,9 @@ describe("Failure Modes", () => {
 
       // Each documented symbol has the expected runtime kind.
       expect(typeof (cloudflareSubpath as Record<string, unknown>)["buildCf"]).toBe("function");
+      expect(typeof (cloudflareSubpath as Record<string, unknown>)["buildDurableCf"]).toBe("function");
       expect(typeof (cloudflareSubpath as Record<string, unknown>)["cf"]).toBe("object");
+      expect(typeof (cloudflareSubpath as Record<string, unknown>)["durableCf"]).toBe("object");
     },
   );
 });

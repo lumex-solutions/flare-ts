@@ -28,10 +28,12 @@ import { FlareValidationError } from "../validation/flare-validation-error.js";
 import { createConfigValidator } from "../validation/validators/config-composite-validator.js";
 import { createHttpValidator } from "../validation/validators/http-composite-validator.js";
 import { createServiceValidator } from "../validation/validators/service-composite-validator.js";
+import { type FlareRequestExtension, requestExtensionsFor } from "./composition/extensions.js";
 import { Logging } from "./composition/logging.js";
 import {
   COMPILE_FOR_TEST,
   INSPECT_HOST,
+  REQUEST_EXTENSIONS,
   RESET_FOR_TEST,
   SET_HOST_STATE,
   UNSAFE_CONFIG_ENV_KEYS,
@@ -57,6 +59,8 @@ export interface IFlareHost {
   logger: Logger;
   scopedServices: Pick<FlareRegistrationMap, "get" | "tokens" | "length">;
   singletonServices: ReadonlyMap<ServiceToken<FlareService>, FlareService>;
+  /** @internal Request extensions resolved for this host's runtime; consumed by the app's runner. */
+  [REQUEST_EXTENSIONS]: readonly FlareRequestExtension[];
   [SET_HOST_STATE](state: HostState): void;
   /** @internal Driven by `FlareTestApp.test()` to apply replacements, validate, and compile singletons. */
   [COMPILE_FOR_TEST](opts?: { replace?: ReadonlyMap<ServiceToken<FlareService>, FlareServiceClass>; }): void;
@@ -149,6 +153,15 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
   /** Read-only view of the singleton service instances compiled from {@link singleton} registrations. */
   public get singletonServices(): ReadonlyMap<ServiceToken<FlareService>, FlareService> {
     return this.#singletons;
+  }
+
+  /**
+   * Request extensions resolved for this host's runtime from the module-level registry. Extension
+   * packages register at import time via {@link registerRequestExtension}; the app's per-request
+   * runner consumes this list. Resolved fresh from the registry — no host-side registration.
+   */
+  get [REQUEST_EXTENSIONS](): readonly FlareRequestExtension[] {
+    return requestExtensionsFor(this.#adapter.runtime);
   }
 
   /** @internal Advances host state. Invoked by the runtime at lifecycle transitions. */
@@ -390,6 +403,7 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
         middleware: allMiddleware.length,
       },
       singletonKeys: [...this.#singletons.keys()].map((t) => String(t)),
+      requestExtensions: this[REQUEST_EXTENSIONS].map((e) => e.name),
       testMode: {
         enabled: this.#testMode,
         singletonsCompiled: this.#singletonsCompiled,

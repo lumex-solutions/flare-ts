@@ -23,6 +23,7 @@ describe("inspectBuild", () => {
     expect(snap.host.runtime).toBe("node");
     expect(snap.http.compiled).toBe(false);
     expect(snap.app.present).toBe(false);
+    expect(snap.host.requestExtensions).toEqual([]);
   });
 
   it("returns compiled http after build", () => {

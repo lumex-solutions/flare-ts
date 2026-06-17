@@ -22,8 +22,12 @@
     "lint": "eslint . --cache --cache-location .cache/.eslintcache",
     "lint:fix": "eslint . --fix --cache --cache-location .cache/.eslintcache",
     "fix": "pnpm run lint:fix && pnpm run format",
-    "check": "pnpm run lint && tsc -p core/tsconfig.json --noEmit && tsc -p lib/tsconfig.json --noEmit && pnpm run format:check",
-    "gen:deno-types": "node scripts/gen-deno-types.mjs"
+    "check": "pnpm run lint && tsc -p core/tsconfig.json --noEmit && tsc -p lib/tsconfig.json --noEmit && tsc -p core/tests/tsconfig.json --noEmit && tsc -p core/tests/cloudflare/tsconfig.json --noEmit && pnpm run format:check",
+    "gen:deno-types": "node scripts/gen-deno-types.mjs",
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
+    "pre:enter": "changeset pre enter next",
+    "pre:exit": "changeset pre exit"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

@@ -257,6 +257,8 @@ export class FlareAppNode extends FlareAppBase {
       req,
       startTime,
     );
+    this.applyRequestExtensions(request, undefined);
+
     const ctx = new FlareHttpContext(request);
 
     this.#activeRequests++;

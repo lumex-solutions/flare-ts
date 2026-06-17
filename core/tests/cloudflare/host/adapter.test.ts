@@ -7,7 +7,7 @@ import { START_HTTP_ARC } from "../../../src/lib/arcs/http/http-arc.js";
 import { FlareRequest } from "../../../src/lib/arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../../src/lib/arcs/http/transport/flare-response.js";
 import { buildCf, cf, FlareAppCF } from "../../../src/lib/host/runtime/cloudflare.js";
-import { SET_HOST_STATE } from "../../../src/lib/host/types/const.js";
+import { REQUEST_EXTENSIONS, SET_HOST_STATE } from "../../../src/lib/host/types/const.js";
 import { CFWLogger } from "../../../src/lib/logger/logger.js";
 import { CFWConsoleTransport } from "../../../src/lib/logger/transports/console.js";
 import { Container } from "../../../src/lib/services/container.js";
@@ -66,6 +66,7 @@ function makeStubHost(opts: {
     logger,
     scopedServices: new FlareRegistrationMap(),
     singletonServices: new Map(),
+    [REQUEST_EXTENSIONS]: [],
     [SET_HOST_STATE]: (state: IFlareHost["state"]) => {
       stateLog.push(state);
     },

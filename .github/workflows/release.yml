@@ -42,6 +42,23 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+      # Derive the npm dist-tag from the package version (the real source of
+      # truth for what's published). A prerelease like `0.4.0-next.0` goes out
+      # under `next` (or `beta`/`rc`/… — whatever the prerelease id is), so it
+      # stays off `latest`; a plain `0.4.0` goes to `latest`. core and lib share
+      # a version (fixed changeset group), so reading core's is enough.
+      - name: Resolve npm dist-tag
+        id: dist_tag
+        run: |
+          VERSION=$(node -p "require('./core/package.json').version")
+          if [[ "$VERSION" == *-* ]]; then
+            TAG="${VERSION#*-}"; TAG="${TAG%%.*}"
+          else
+            TAG="latest"
+          fi
+          echo "Publishing $VERSION under npm dist-tag: $TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
       # pnpm pack rewrites the `workspace:` protocol in core's dependency on lib
       # to a concrete version range. We then publish the resulting tarball with
       # the npm CLI so the OIDC trusted-publishing exchange runs through npm.
@@ -52,10 +69,10 @@ jobs:
         working-directory: lib
         run: |
           pnpm pack --pack-destination .
-          npm publish flare-ts-lib-*.tgz
+          npm publish flare-ts-lib-*.tgz --tag ${{ steps.dist_tag.outputs.tag }}
 
       - name: Publish @flare-ts/core
         working-directory: core
         run: |
           pnpm pack --pack-destination .
-          npm publish flare-ts-core-*.tgz
+          npm publish flare-ts-core-*.tgz --tag ${{ steps.dist_tag.outputs.tag }}

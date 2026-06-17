@@ -8,12 +8,21 @@ import type { HostRuntimeAdapter } from "../types/adapter.js";
 import { DRAIN_SET_COOKIES, FlareHttpContext } from "../../arcs/http/transport/flare-http-context.js";
 import { FlareRequest } from "../../arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../arcs/http/transport/flare-response.js";
-import { CFWRequestAdapter } from "../../arcs/http/transport/runtime/cloudflare.js";
+import {
+  type CFRuntimeInput,
+  CFWRequestAdapter,
+  cfRuntimeExtension,
+} from "../../arcs/http/transport/runtime/cloudflare.js";
 import { CFWLogger } from "../../logger/logger.js";
-import { loggerALS } from "../../logger/types.js";
 import { CFWConsoleTransport } from "../../logger/transports/console.js";
+import { loggerALS } from "../../logger/types.js";
+import { registerRequestExtension } from "../composition/extensions.js";
 import { FlareAppBase } from "../flare-app.js";
 import { SET_HOST_STATE } from "../types/const.js";
+
+// Self-register the Cloudflare runtime extension for the "cloudflare" runtime. Importing this
+// module (i.e. using any cf/durableCf adapter) wires the runtime bag in — no host-side registration.
+registerRequestExtension("cloudflare", cfRuntimeExtension);
 
 function buildCfTestRequest(input: FlareTestRequestInput): FlareRequest {
   const fullUrl = new URL(input.url, "http://flare.test").toString();
@@ -56,9 +65,38 @@ export const cf: HostRuntimeAdapter<FlareAppCF, CFWLoggerTransportClass, "sync">
   },
 };
 
+/**
+ * Cloudflare Durable Object runtime adapter with an empty {@link HostRuntimeAdapter.flareJsonFile}.
+ * Use {@link buildDurableCf} when a bundled `flare.json` should be applied. Threads the DO `ctx`
+ * (`DurableObjectState`) and Worker `env` into `ctx.req.runtime`.
+ */
+export const durableCf: HostRuntimeAdapter<FlareAppDurableCF, CFWLoggerTransportClass, "sync"> = {
+  runtime: "cloudflare",
+  lifecycle: "sync",
+  get flareJsonFile(): JsonObject {
+    return {};
+  },
+  env: process.env,
+  defaultLoggerTransports: [CFWConsoleTransport],
+  createApp(host) {
+    return new FlareAppDurableCF(host);
+  },
+  createLogger(transports, container) {
+    return new CFWLogger(transports, container);
+  },
+  createTestRequest(input) {
+    return buildCfTestRequest(input);
+  },
+};
+
 /** Cloudflare Workers entrypoint shape returned by {@link FlareAppCF.export}. */
 export type CFWExportedHandle = {
-  fetch: (request: Request) => Promise<Response>;
+  fetch(request: Request, env?: Cloudflare.Env, ctx?: ExecutionContext): Promise<Response>;
+};
+
+/** Durable Object entrypoint shape returned by {@link FlareAppDurableCF.export}. */
+export type DurableCFExportedHandle = {
+  fetch(request: Request, durableState: DurableObjectState, env: Cloudflare.Env): Promise<Response>;
 };
 
 /**
@@ -98,10 +136,54 @@ export function buildCf(flareJson: JsonObject): HostRuntimeAdapter<FlareAppCF, C
 }
 
 /**
- * Compiled Flare application for Cloudflare Workers. Produced by {@link FlareHost.build} when
- * configured with the {@link cf} or {@link buildCf} adapter.
+ * Creates a Durable Object Cloudflare adapter pre-loaded with the contents of your `flare.json`.
+ * Mirrors {@link buildCf}; threads the DO `ctx` and Worker `env` into `ctx.req.runtime`.
+ *
+ * @example
+ * ```ts
+ * import flareJson from "./flare.json" with { type: "json" };
+ * import { buildDurableCf } from "@flare-ts/core/cloudflare";
+ * import { DurableObject } from "cloudflare:workers";
+ *
+ * const host = new FlareHost(buildDurableCf(flareJson));
+ *
+ * export class Room extends DurableObject<Cloudflare.Env> {
+ *   #handle = host.build().export();
+ *   fetch(request: Request) {
+ *     return this.#handle.fetch(request, this.ctx, this.env);
+ *   }
+ * }
+ * ```
  */
-export class FlareAppCF extends FlareAppBase {
+export function buildDurableCf(
+  flareJson: JsonObject,
+): HostRuntimeAdapter<FlareAppDurableCF, CFWLoggerTransportClass, "sync"> {
+  return {
+    runtime: "cloudflare",
+    lifecycle: "sync",
+    get flareJsonFile(): JsonObject {
+      return flareJson;
+    },
+    env: process.env,
+    defaultLoggerTransports: [CFWConsoleTransport],
+    createApp(host) {
+      return new FlareAppDurableCF(host);
+    },
+    createLogger(transports, container) {
+      return new CFWLogger(transports, container);
+    },
+    createTestRequest(input) {
+      return buildCfTestRequest(input);
+    },
+  };
+}
+
+/**
+ * Shared base for the Cloudflare app variants ({@link FlareAppCF}, {@link FlareAppDurableCF}).
+ * Owns request handling, response building, error handling, request-id/timing, and the built-in
+ * {@link cfRuntimeExtension}. Each concrete subclass declares only its own `export()` entrypoint.
+ */
+abstract class FlareAppCFBase extends FlareAppBase {
   #emitRequestIdHeader = true;
   #captureRequestTiming = false;
 
@@ -116,20 +198,8 @@ export class FlareAppCF extends FlareAppBase {
     this.#captureRequestTiming = hostCfg.requestTiming === true;
   }
 
-  /**
-   * Starts the app, marks the host ready, and returns the Workers `fetch` handler for the module
-   * entrypoint.
-   */
-  export(): CFWExportedHandle {
-    this.start();
-    this.host[SET_HOST_STATE]("ready");
-
-    return {
-      fetch: (request) => this.#handleRequest(request),
-    };
-  }
-
-  async #handleRequest(request: Request): Promise<Response> {
+  /** Builds the request, runs request extensions with the runtime `input`, dispatches, builds the response. */
+  protected async handle(request: Request, input: CFRuntimeInput): Promise<Response> {
     const startTime = this.#captureRequestTiming ? Date.now() : undefined;
 
     const url = new URL(request.url);
@@ -141,6 +211,7 @@ export class FlareAppCF extends FlareAppBase {
       request,
       startTime,
     );
+    this.applyRequestExtensions(flareReq, input);
     const ctx = new FlareHttpContext(flareReq);
 
     try {
@@ -174,12 +245,18 @@ export class FlareAppCF extends FlareAppBase {
 
       if (response.bodyStream) {
         const { readable, writable } = new TransformStream();
-        (async () => {
+        const bodyStream = response.bodyStream;
+        void (async () => {
           const writer = writable.getWriter();
-          for await (const chunk of response.bodyStream!) {
-            await writer.write(chunk);
+          try {
+            for await (const chunk of bodyStream) {
+              await writer.write(chunk);
+            }
+            await writer.close();
+          } catch (error) {
+            this.host.logger.error(error, "Error while streaming response body");
+            await writer.abort(error).catch(() => {});
           }
-          await writer.close();
         })();
         const streamingHeaders = setCookies ? this.#withSetCookies(response.headers, setCookies) : response.headers;
         return new Response(readable, { status: response.status, headers: streamingHeaders });
@@ -218,5 +295,41 @@ export class FlareAppCF extends FlareAppBase {
 
   #getRequestNonce(): string {
     return (this.#requestNonce ??= crypto.randomUUID().slice(0, 8));
+  }
+}
+
+/**
+ * Compiled Flare application for Cloudflare Workers. Produced by {@link FlareHost.build} when
+ * configured with the {@link cf} or {@link buildCf} adapter.
+ */
+export class FlareAppCF extends FlareAppCFBase {
+  /**
+   * Starts the app, marks the host ready, and returns the Workers `fetch` handler for the module
+   * entrypoint. The Worker `env` is threaded into `ctx.req.runtime.bindings`.
+   */
+  export(): CFWExportedHandle {
+    this.start();
+    this.host[SET_HOST_STATE]("ready");
+
+    return {
+      fetch: (request, env, _ctx) => this.handle(request, { env: env as Cloudflare.Env }),
+    };
+  }
+}
+
+/**
+ * Compiled Flare application for a Cloudflare Durable Object. Produced by {@link FlareHost.build}
+ * when configured with the {@link durableCf} or {@link buildDurableCf} adapter. Its `fetch` handle
+ * is called from the DO's own `fetch` with the DO `ctx` and Worker `env`.
+ */
+export class FlareAppDurableCF extends FlareAppCFBase {
+  /** Starts the app, marks the host ready, and returns the Durable Object `fetch` handle. */
+  export(): DurableCFExportedHandle {
+    this.start();
+    this.host[SET_HOST_STATE]("ready");
+
+    return {
+      fetch: (request, durableState, env) => this.handle(request, { env, durableState }),
+    };
   }
 }

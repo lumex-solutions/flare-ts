@@ -308,7 +308,7 @@ describe("HttpBase.get / post / put / patch / delete / head / options (synthetic
       handle: (this: unknown) => unknown;
       handlePOST: (this: unknown) => unknown;
     };
-    const container = { resolveCfg: () => undefined } as Container;
+    const container = { resolveCfg: () => undefined } as unknown as Container;
     const ctx = {} as FlareHttpContext;
     const instance = reg.factory(container, ctx);
 
