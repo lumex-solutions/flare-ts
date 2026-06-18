@@ -32,7 +32,10 @@ import { type FlareRequestExtension, requestExtensionsFor } from "./composition/
 import { Logging } from "./composition/logging.js";
 import {
   COMPILE_FOR_TEST,
+  COMPILE_INSTANCE_SINGLETONS,
   INSPECT_HOST,
+  PROVIDE_SERVICE,
+  REGISTER_BUILD_HOOK,
   REQUEST_EXTENSIONS,
   RESET_FOR_TEST,
   SET_HOST_STATE,
@@ -46,6 +49,21 @@ type AdapterTransportClass<TAdapter> = TAdapter extends HostRuntimeAdapter<IFlar
 type AdapterLifecycle<TAdapter> = TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTransportClass, infer TLifecycle>
   ? TLifecycle
   : HostRuntimeLifecycle;
+
+/**
+ * Mutable context passed to {@link FlareHost} build hooks. Hooks are registered by host extensions
+ * via `[REGISTER_BUILD_HOOK]` and run once during `build()` before compilation; they may flip flags
+ * to alter the build. This keeps runtime-specific behavior inside the extension rather than as
+ * `runtime === X` branches scattered through the host.
+ */
+export interface FlareBuildContext {
+  /**
+   * When a hook sets this, the host skips module-level singleton instantiation. The `durable`
+   * extension sets it so singletons compile per Durable Object instance (seeded with that
+   * instance's ctx/env) instead of once at module load.
+   */
+  deferSingletonCompile: boolean;
+}
 
 /**
  * Composition root contract observed by {@link FlareAppBase} and its runtime subclasses. Concrete
@@ -68,6 +86,21 @@ export interface IFlareHost {
   [RESET_FOR_TEST](): void;
   /** @internal Snapshot for {@link inspectBuild} in test infrastructure. */
   [INSPECT_HOST](): HostInspectSnapshot;
+  /**
+   * @internal Registers a framework-provided (custom-factory) service. Used by host extensions to
+   * contribute services whose instances the runtime seeds rather than building from the default
+   * `new Service(container)` factory. The token participates in normal build-time validation.
+   */
+  [PROVIDE_SERVICE](kind: "scoped" | "singleton", reg: ServiceRegistration<FlareService>): void;
+  /**
+   * @internal Builds a fresh per-instance singleton map for a durable adapter's exported instance:
+   * framework prebuilts (Logger) + the `seeded` runtime services, then user singletons compiled in.
+   */
+  [COMPILE_INSTANCE_SINGLETONS](
+    seeded: ReadonlyMap<ServiceToken<FlareService>, FlareService>,
+  ): Map<ServiceToken<FlareService>, FlareService>;
+  /** @internal Registers a build hook run during `build()`; used by host extensions to alter the build. */
+  [REGISTER_BUILD_HOOK](hook: (ctx: FlareBuildContext) => void): void;
 }
 
 /**
@@ -92,6 +125,7 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
   #adapter: TAdapter;
   #testMode: boolean;
   #app: IFlareApp | undefined;
+  #buildHooks: Array<(ctx: FlareBuildContext) => void> = [];
   #singletonsCompiled = false;
   /** Snapshot of registrations taken before the first test-mode replacement runs; restored on reset. */
   #originalScopedRegs: ServiceRegistration<FlareService>[] | undefined;
@@ -386,6 +420,42 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
     this.#singletonsCompiled = false;
   }
 
+  /**
+   * @internal Registers a framework-provided service contributed by a host extension. The token
+   * goes through normal build-time dependency validation; the instance is seeded by the runtime
+   * (per Durable Object instance, or per request), so the registration's factory is a guard that
+   * throws if ever invoked — it never should be, because the runtime pre-seeds the instance.
+   */
+  [PROVIDE_SERVICE](kind: "scoped" | "singleton", reg: ServiceRegistration<FlareService>): void {
+    if (kind === "singleton") this.#singletonRegistrations.push(reg);
+    else this.#scopedRegistrations.push(reg);
+  }
+
+  /**
+   * @internal Builds a fresh per-instance singleton graph for a {@link DurableHostRuntimeAdapter}'s
+   * exported instance. Starts from the module-level prebuilts (Logger) plus the `seeded` runtime
+   * services the DO constructor supplies (`DurableState`/`Bindings`), then compiles the user
+   * singletons into that map so they resolve their deps — including the seeded services — per
+   * instance. The returned map backs that one instance's resolution; module-level state is untouched.
+   */
+  [COMPILE_INSTANCE_SINGLETONS](
+    seeded: ReadonlyMap<ServiceToken<FlareService>, FlareService>,
+  ): Map<ServiceToken<FlareService>, FlareService> {
+    const map = new Map<ServiceToken<FlareService>, FlareService>(this.#singletons);
+    for (const [token, instance] of seeded) map.set(token, instance);
+    this.#compileSingletons(this.#singletonRegistrations, map);
+    return map;
+  }
+
+  /**
+   * @internal Registers a build hook. Host extensions call this (with `this` bound to the host) to
+   * participate in `build()` through the mutable {@link FlareBuildContext}, so runtime-specific
+   * build behavior lives in the extension rather than as `runtime === X` branches in the host.
+   */
+  [REGISTER_BUILD_HOOK](hook: (ctx: FlareBuildContext) => void): void {
+    this.#buildHooks.push(hook);
+  }
+
   /** @internal Snapshot for artifact-tier tests via {@link inspectBuild}. */
   [INSPECT_HOST](): HostInspectSnapshot {
     const allControllers = [...this.http.conRegistrations, ...this.http.groups.flatMap((g) => g.controllers)];
@@ -483,6 +553,12 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
       throw new FlareValidationError(errors);
     }
 
+    // Run extension build hooks once, before compilation. They may flip flags on the build context
+    // (e.g. the durable extension defers singleton compilation) so runtime-specific build behavior
+    // lives in the extension, not as a `runtime === X` branch here.
+    const buildCtx: FlareBuildContext = { deferSingletonCompile: false };
+    for (const hook of this.#buildHooks) hook(buildCtx);
+
     try {
       const compileStart = Date.now();
       this.logger.trace("Lifecycle event", {
@@ -496,8 +572,13 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
       // against the post-replacement graph.
       if (!this.#testMode) {
         this.#compileScoped(this.#scopedRegistrations);
-        this.#compileSingletons(this.#singletonRegistrations);
-        this.#singletonsCompiled = true;
+        // A build hook may defer singleton instantiation (the durable extension compiles
+        // singletons per exported instance instead). The scoped registry and the rest of the
+        // blueprint are still compiled once here.
+        if (!buildCtx.deferSingletonCompile) {
+          this.#compileSingletons(this.#singletonRegistrations);
+          this.#singletonsCompiled = true;
+        }
       }
       this.http[COMPILE_HTTP_ARC]();
       this.logger.trace("Lifecycle event", {
@@ -519,7 +600,7 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
     const app = this.#testMode
       ? new FlareTestApp(this, this.#adapter as ConstructorParameters<typeof FlareTestApp>[1])
       : this.#adapter.createApp(this);
-    this.#app = app as IFlareApp;
+    this.#app = app;
     return app as FlareApp<TAdapter>;
   }
 
@@ -632,17 +713,23 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
     }
   }
 
-  #compileSingletons(singletonRegistrations: ServiceRegistration<FlareService>[]): void {
+  #compileSingletons(
+    singletonRegistrations: ServiceRegistration<FlareService>[],
+    target: Map<ServiceToken<FlareService>, FlareService> = this.#singletons,
+  ): void {
     if (singletonRegistrations.length === 0) return;
-    // Build a temporary registry containing only singleton factories and resolve each one.
+    // Build a temporary registry containing only singleton factories and resolve each one into
+    // `target`. `target` defaults to the module-level `#singletons`; this allows host extensions
+    // to compile instance-level singletons into a fresh map, such as the `durable` adapter does for its 
+    // exported Durable Object instance.
     const singletonRegistry = new FlareRegistrationMap();
     for (const reg of singletonRegistrations) {
       singletonRegistry.set(reg.token, reg);
     }
-    const singletonContainer = new Container(singletonRegistry, this.#singletons, this.config);
+    const singletonContainer = new Container(singletonRegistry, target, this.config);
     for (const reg of singletonRegistrations) {
       const instance = singletonContainer.resolveDep(reg.token);
-      this.#singletons.set(reg.token, instance);
+      target.set(reg.token, instance);
     }
   }
 

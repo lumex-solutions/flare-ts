@@ -33,3 +33,29 @@ export const INSPECT_HOST: unique symbol = Symbol("INSPECT_HOST");
  * Symbol-keyed so this internal plumbing stays out of the package's public type surface.
  */
 export const REQUEST_EXTENSIONS: unique symbol = Symbol("REQUEST_EXTENSIONS");
+
+/**
+ * @internal
+ * Registers a framework-provided service (a custom-factory service contributed by a host
+ * extension, e.g. the Cloudflare `DurableState`/`Bindings` wrappers). The token participates in
+ * normal build-time dependency validation; its instance is seeded by the runtime, not built from
+ * the default `new Service(container)` factory. Symbol-keyed so it stays off the public surface.
+ */
+export const PROVIDE_SERVICE: unique symbol = Symbol("PROVIDE_SERVICE");
+
+/**
+ * @internal
+ * Builds a fresh per-instance singleton map for a {@link DurableHostRuntimeAdapter}: framework
+ * prebuilts (Logger) plus the runtime services seeded by the exported instance's constructor
+ * (`DurableState`/`Bindings`), then the user singletons compiled into it. Driven by the generated
+ * Durable Object class so each instance gets its own singleton graph.
+ */
+export const COMPILE_INSTANCE_SINGLETONS: unique symbol = Symbol("COMPILE_INSTANCE_SINGLETONS");
+
+/**
+ * @internal
+ * Registers a build hook run once during `build()` before compilation. Host extensions use it to
+ * alter the build via the mutable `FlareBuildContext` (e.g. the `durable` extension defers
+ * module-level singleton compilation) without the host branching on the runtime string.
+ */
+export const REGISTER_BUILD_HOOK: unique symbol = Symbol("REGISTER_BUILD_HOOK");
