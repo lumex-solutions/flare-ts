@@ -73,12 +73,12 @@
     "access": "public"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.12.21",
-    "@cloudflare/workers-types": "^4.20260510.0",
+    "@cloudflare/vitest-pool-workers": "^0.16.17",
+    "@cloudflare/workers-types": "^4.20260617.1",
     "@types/node": "^20.11.1",
     "esbuild": "^0.27.4",
     "typescript": "^5.8.2",
-    "vitest": "^2.1.9",
+    "vitest": "^4.1.9",
     "wrangler": "^4.0.0"
   },
   "dependencies": {

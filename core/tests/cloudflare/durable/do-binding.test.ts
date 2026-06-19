@@ -3,14 +3,9 @@
 // `super(ctx, env)` ctor + `init` (inside `blockConcurrencyWhile`) — workerd's DurableObject base
 // rejects a fake ctx, so the in-process suite (composeDurableInstance) cannot reach this glue.
 //
-// NOTE: storage-mutating / alarm / WebSocket assertions belong alongside this but are deferred to CI
-// (Linux). On the pinned @cloudflare/vitest-pool-workers 0.12.x line, automatic per-test isolated
-// storage unlinks the DO SQLite between tests, which hits a confirmed, unfixed miniflare-on-Windows
-// file-lock bug (cloudflare/workers-sdk #10511) — `isolatedStorage:false` breaks DO storage outright
-// here. The reset-without-unlink helpers (`abortAllDurableObjects`) that would sidestep it only exist
-// on pool >= 0.13, which requires vitest 4 (this repo is on vitest 2). The fixture wires
-// init/alarm(info)/webSocketMessage so CI exercises them; this smoke is read-only, so it runs everywhere.
-import { env } from "cloudflare:test";
+// This file is the read-only smoke (init ran, ids/bindings resolve). Storage-mutating, reset, and
+// alarm assertions live in `do-storage.test.ts`
+import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
 describe("Flare Durable Object via a real binding", () => {
