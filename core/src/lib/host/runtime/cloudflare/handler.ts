@@ -83,8 +83,10 @@ export class FlareCfHandler {
    *
    * The scope is torn down once the entrypoint settles, whether it resolves or rejects.
    *
+   * @template D The entrypoint's declared `inject` map; its keys appear by name on the scope.
    * @template T The entrypoint's result type.
-   * @param fn Entrypoint to run; receives an injection-and-config scope for the invocation.
+   * @param inject Dependency map to resolve onto the scope; `{}` for a deps-free entrypoint.
+   * @param fn Entrypoint to run; receives the named-dependency-and-config scope for the invocation.
    */
   async runScoped<D extends InjectMap, T>(
     inject: D,

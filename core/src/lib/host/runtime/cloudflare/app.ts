@@ -38,7 +38,7 @@ export type FlareDurableObjectClass = new(
   env: Cloudflare.Env,
 ) => DurableObject<Cloudflare.Env>;
 
-/** A durable entrypoint: a bare (deps-free) function, or `{ inject, handler }` for named deps. */
+/** One Durable Object entrypoint: a bare (deps-free) function, or `{ inject, handler }` for named deps. */
 export type DurableHook<D extends InjectMap, Extra extends unknown[]> =
   | ((scope: FlareHandlerScope, ...extra: Extra) => void | Promise<void>)
   | { inject: D; handler: (scope: FlareHandlerScope<D>, ...extra: Extra) => void | Promise<void>; };
@@ -48,8 +48,8 @@ export type DurableHook<D extends InjectMap, Extra extends unknown[]> =
  *
  * Each entrypoint receives a fresh per-invocation {@link FlareHandlerScope}; deps declared in the
  * hook's `inject` map appear by name on the scope, alongside `config`. The WebSocket hooks fire for
- * sockets accepted through {@link DurableState} obtained as a named scope dep — e.g. a hook declared
- * as `{ inject: { ds: DurableState }, handler }` calling `scope.ds.storage.acceptWebSocket(...)`.
+ * sockets accepted through {@link DurableState} obtained as a named scope dep (e.g. a hook declared
+ * as `{ inject: { ds: DurableState }, handler }` calling `scope.ds.storage.acceptWebSocket(...)`).
  */
 export interface DurableEntrypoints<
   Init extends InjectMap = {},

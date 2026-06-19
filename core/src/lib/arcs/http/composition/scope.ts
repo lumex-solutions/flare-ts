@@ -5,7 +5,11 @@ import type { FlareHandlerScope, ScopeConfig } from "./types/handlers.js";
 /** Keys the framework owns on the handler scope; an `inject` map may not use them. */
 export const RESERVED_SCOPE_KEYS: ReadonlySet<string> = new Set(["config"]);
 
-/** Throws if an `inject` map uses a reserved scope key. Call once at registration. */
+/**
+ * Throws if an `inject` map uses a reserved scope key.
+ *
+ * Call once at registration.
+ */
 export function assertInjectKeys(inject: Readonly<Record<string, unknown>>): void {
   for (const key of Object.keys(inject)) {
     if (RESERVED_SCOPE_KEYS.has(key)) {
@@ -15,8 +19,8 @@ export function assertInjectKeys(inject: Readonly<Record<string, unknown>>): voi
 }
 
 /**
- * Defines lazy, memoized, enumerable getters on `scope` for each declared dependency,
- * resolving via `resolve(token)` on first access. Returns the same object, typed as the scope.
+ * Defines lazy, memoized, enumerable getters on `scope` for each declared dependency, resolving
+ * via `resolve(token)` on first access; returns the same object, typed as the scope.
  */
 export function attachScopeDeps<D extends Record<string, ServiceToken<FlareService>>>(
   scope: { config: ScopeConfig; },

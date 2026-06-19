@@ -10,9 +10,10 @@ import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../../tran
 import type { RequestDescriptor } from "../contract/flare-contract.js";
 
 /**
- * Resolved-instance map derived from a declared `inject` token map. The reserved `config` key
- * (carried as an optional `never` on {@link InjectMap}) is excluded so it never collides with the
- * scope's `config` accessor.
+ * Resolved-instance map derived from a declared `inject` token map.
+ *
+ * The reserved `config` key (carried as an optional `never` on {@link InjectMap}) is excluded so it
+ * never collides with the scope's `config` accessor.
  */
 export type InjectedMap<D extends Record<string, ServiceToken<FlareService>>> = {
   [K in keyof D as K extends "config" ? never : K]: D[K] extends ServiceToken<infer T> ? Injected<T> : never;
