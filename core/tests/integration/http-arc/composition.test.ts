@@ -325,19 +325,13 @@ describe("Edge Cases", () => {
     // contain exactly one entry.
     host.http.get(
       "/multi",
-      { inject: [CounterService], state: [TokenA] },
-      (_ctx, scope) => {
-        const counter = scope.inject(CounterService);
-        return new FlareResponse(200, { method: "GET", value: counter.value() });
-      },
+      { inject: { counter: CounterService }, state: [TokenA] },
+      (_ctx, scope) => new FlareResponse(200, { method: "GET", value: scope.counter.value() }),
     );
     host.http.post(
       "/multi",
-      { inject: [CounterService], state: [TokenA] },
-      (_ctx, scope) => {
-        const counter = scope.inject(CounterService);
-        return new FlareResponse(200, { method: "POST", value: counter.value() });
-      },
+      { inject: { counter: CounterService }, state: [TokenA] },
+      (_ctx, scope) => new FlareResponse(200, { method: "POST", value: scope.counter.value() }),
     );
 
     // The dedupe is visible on the controller registration before build runs:
@@ -359,6 +353,32 @@ describe("Edge Cases", () => {
       const postRes = await app.fetch("POST /multi");
       expect(postRes.status).toBe(200);
       expect(await postRes.json()).toEqual({ method: "POST", value: 1 });
+    } finally {
+      await app.stop();
+    }
+  });
+
+  it("exposes injected services by name on the handler scope (scope.<key>)", async () => {
+    process.env["FLARE_MODE"] = "test";
+
+    class GreetService extends FlareService {
+      public static override deps = [];
+      public hi(name: string): string {
+        return `hi ${name}`;
+      }
+    }
+
+    const host = new FlareHost(node);
+    host.scoped(GreetService);
+    host.http.get("/named/:name", { inject: { greet: GreetService } }, (ctx, scope) => {
+      return new FlareResponse(200, { msg: scope.greet.hi(ctx.req.rawRouteParams["name"] ?? "?") });
+    });
+
+    const app = await host.build().test();
+    try {
+      const res = await app.fetch("GET /named/sam");
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ msg: "hi sam" });
     } finally {
       await app.stop();
     }

@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import type { JsonObject } from "@flare-ts/lib";
-import type { FlareHandlerScope } from "../../../arcs/http/composition/types/handlers.js";
+import type { FlareHandlerScope, InjectMap } from "../../../arcs/http/composition/types/handlers.js";
 import type { CFWLoggerTransport } from "../../../logger/transport.js";
 import type { CFWLoggerTransportClass } from "../../../logger/types.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
@@ -10,6 +10,7 @@ import type { FlareServiceClass, ServiceToken } from "../../../services/types/ty
 import type { FlareTestRequestInput } from "../../../testing/types/flare-test-req.js";
 import type { IFlareHost } from "../../flare-host.js";
 import type { HostRuntimeAdapter } from "../../types/adapter.js";
+import { assertInjectKeys } from "../../../arcs/http/composition/scope.js";
 import { CFWLogger, Logger } from "../../../logger/logger.js";
 import { CFWConsoleTransport } from "../../../logger/transports/console.js";
 import { FlareAppBase } from "../../flare-app.js";
@@ -37,29 +38,35 @@ export type FlareDurableObjectClass = new(
   env: Cloudflare.Env,
 ) => DurableObject<Cloudflare.Env>;
 
+/** A durable entrypoint: a bare (deps-free) function, or `{ inject, handler }` for named deps. */
+export type DurableHook<D extends InjectMap, Extra extends unknown[]> =
+  | ((scope: FlareHandlerScope, ...extra: Extra) => void | Promise<void>)
+  | { inject: D; handler: (scope: FlareHandlerScope<D>, ...extra: Extra) => void | Promise<void>; };
+
 /**
  * Optional Durable Object entrypoints passed to {@link CloudflareApp.durableObject}.
  *
- * Each entrypoint receives a fresh per-invocation {@link FlareHandlerScope} (`{ inject, config }`).
- * The WebSocket hooks fire for sockets accepted via `inject(DurableState).state.acceptWebSocket`.
+ * Each entrypoint receives a fresh per-invocation {@link FlareHandlerScope}; declared `inject` deps
+ * appear by name on the scope. The WebSocket hooks fire for sockets accepted via
+ * `inject(DurableState).state.acceptWebSocket`.
  */
-export interface DurableEntrypoints {
+export interface DurableEntrypoints<
+  Init extends InjectMap = {},
+  Alarm extends InjectMap = {},
+  WsMsg extends InjectMap = {},
+  WsClose extends InjectMap = {},
+  WsErr extends InjectMap = {},
+> {
   /** Runs once per instance before it serves any traffic; concurrency is blocked until it settles. */
-  init?: (scope: FlareHandlerScope) => void | Promise<void>;
+  init?: DurableHook<Init, []>;
   /** Handles a Durable Object alarm; `info` carries workerd's retry and scheduled-time metadata. */
-  alarm?: (scope: FlareHandlerScope, info?: AlarmInvocationInfo) => void | Promise<void>;
+  alarm?: DurableHook<Alarm, [info?: AlarmInvocationInfo]>;
   /** Handles a message on a WebSocket. */
-  webSocketMessage?: (scope: FlareHandlerScope, ws: WebSocket, message: string | ArrayBuffer) => void | Promise<void>;
+  webSocketMessage?: DurableHook<WsMsg, [ws: WebSocket, message: string | ArrayBuffer]>;
   /** Handles the close of a WebSocket. */
-  webSocketClose?: (
-    scope: FlareHandlerScope,
-    ws: WebSocket,
-    code: number,
-    reason: string,
-    wasClean: boolean,
-  ) => void | Promise<void>;
+  webSocketClose?: DurableHook<WsClose, [ws: WebSocket, code: number, reason: string, wasClean: boolean]>;
   /** Handles an error on a WebSocket. */
-  webSocketError?: (scope: FlareHandlerScope, ws: WebSocket, error: unknown) => void | Promise<void>;
+  webSocketError?: DurableHook<WsErr, [ws: WebSocket, error: unknown]>;
 }
 
 /** Cloudflare adapter shape: the base {@link HostRuntimeAdapter} plus a `setup` hook. */
@@ -139,7 +146,13 @@ export class CloudflareApp extends FlareAppBase {
    * @param entrypoints Optional `init`, `alarm`, and WebSocket hooks for the Durable Object.
    * @throws If a terminal was already taken from this app.
    */
-  durableObject(entrypoints: DurableEntrypoints = {}): FlareDurableObjectClass {
+  durableObject<
+    const Init extends InjectMap = {},
+    const Alarm extends InjectMap = {},
+    const WsMsg extends InjectMap = {},
+    const WsClose extends InjectMap = {},
+    const WsErr extends InjectMap = {},
+  >(entrypoints: DurableEntrypoints<Init, Alarm, WsMsg, WsClose, WsErr> = {}): FlareDurableObjectClass {
     this.#takeTerminal("durableObject");
     this.host[PROVIDE_SERVICE]("singleton", frameworkRegistration(Bindings));
     this.host[PROVIDE_SERVICE]("singleton", frameworkRegistration(DurableState));
@@ -202,8 +215,28 @@ function startInstanceSingletons(map: ReadonlyMap<ServiceToken<FlareService>, Fl
   }
 }
 
+/** Normalizes a {@link DurableHook} (bare fn or `{ inject, handler }`) into `{ inject, handler }`. */
+function normalizeHook<D extends InjectMap, Extra extends unknown[]>(
+  hook: DurableHook<D, Extra>,
+): { inject: D; handler: (scope: FlareHandlerScope<D>, ...extra: Extra) => void | Promise<void>; } {
+  if (typeof hook === "function") {
+    return { inject: {} as D, handler: hook as (scope: FlareHandlerScope<D>, ...extra: Extra) => void | Promise<void> };
+  }
+  assertInjectKeys(hook.inject);
+  return hook;
+}
+
 /** Builds the Flare-owned `DurableObject` subclass returned by the durable terminal. */
-function makeFlareDurableObjectClass(host: IFlareHost, entrypoints: DurableEntrypoints): FlareDurableObjectClass {
+function makeFlareDurableObjectClass<
+  Init extends InjectMap,
+  Alarm extends InjectMap,
+  WsMsg extends InjectMap,
+  WsClose extends InjectMap,
+  WsErr extends InjectMap,
+>(
+  host: IFlareHost,
+  entrypoints: DurableEntrypoints<Init, Alarm, WsMsg, WsClose, WsErr>,
+): FlareDurableObjectClass {
   return class FlareDurableObject extends DurableObject<Cloudflare.Env> {
     #handler: FlareCfHandler;
 
@@ -212,8 +245,8 @@ function makeFlareDurableObjectClass(host: IFlareHost, entrypoints: DurableEntry
       this.#handler = composeDurableInstance(host, state, env);
 
       if (entrypoints.init) {
-        const init = entrypoints.init;
-        void state.blockConcurrencyWhile(() => this.#handler.runScoped((scope) => init(scope)));
+        const { inject, handler } = normalizeHook(entrypoints.init);
+        void state.blockConcurrencyWhile(() => this.#handler.runScoped(inject, (scope) => handler(scope)));
       }
     }
 
@@ -223,26 +256,26 @@ function makeFlareDurableObjectClass(host: IFlareHost, entrypoints: DurableEntry
 
     alarm(info?: AlarmInvocationInfo): Promise<void> | void {
       if (!entrypoints.alarm) return;
-      const alarm = entrypoints.alarm;
-      return this.#handler.runScoped((scope) => alarm(scope, info));
+      const { inject, handler } = normalizeHook(entrypoints.alarm);
+      return this.#handler.runScoped(inject, (scope) => handler(scope, info));
     }
 
     webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> | void {
       if (!entrypoints.webSocketMessage) return;
-      const onMessage = entrypoints.webSocketMessage;
-      return this.#handler.runScoped((scope) => onMessage(scope, ws, message));
+      const { inject, handler } = normalizeHook(entrypoints.webSocketMessage);
+      return this.#handler.runScoped(inject, (scope) => handler(scope, ws, message));
     }
 
     webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean): Promise<void> | void {
       if (!entrypoints.webSocketClose) return;
-      const onClose = entrypoints.webSocketClose;
-      return this.#handler.runScoped((scope) => onClose(scope, ws, code, reason, wasClean));
+      const { inject, handler } = normalizeHook(entrypoints.webSocketClose);
+      return this.#handler.runScoped(inject, (scope) => handler(scope, ws, code, reason, wasClean));
     }
 
     webSocketError(ws: WebSocket, error: unknown): Promise<void> | void {
       if (!entrypoints.webSocketError) return;
-      const onError = entrypoints.webSocketError;
-      return this.#handler.runScoped((scope) => onError(scope, ws, error));
+      const { inject, handler } = normalizeHook(entrypoints.webSocketError);
+      return this.#handler.runScoped(inject, (scope) => handler(scope, ws, error));
     }
   };
 }

@@ -1,4 +1,4 @@
-import type { FlareHandlerScope } from "../../../arcs/http/composition/types/handlers.js";
+import type { FlareHandlerScope, InjectMap } from "../../../arcs/http/composition/types/handlers.js";
 import type { ResponseLike } from "../../../arcs/http/transport/types/response.js";
 import type { FlareHostConfig } from "../../../config/flare-config.js";
 import type { LogContext } from "../../../logger/types.js";
@@ -6,6 +6,7 @@ import type { FlareService } from "../../../services/composition/flare-service.j
 import type { ServiceToken } from "../../../services/types/types.js";
 import type { FlareTestRequestInput } from "../../../testing/types/flare-test-req.js";
 import type { IFlareHost } from "../../flare-host.js";
+import { attachScopeDeps } from "../../../arcs/http/composition/scope.js";
 import {
   DRAIN_SET_COOKIES,
   FlareHttpContext,
@@ -85,12 +86,16 @@ export class FlareCfHandler {
    * @template T The entrypoint's result type.
    * @param fn Entrypoint to run; receives an injection-and-config scope for the invocation.
    */
-  async runScoped<T>(fn: (scope: FlareHandlerScope) => T | Promise<T>): Promise<T> {
+  async runScoped<D extends InjectMap, T>(
+    inject: D,
+    fn: (scope: FlareHandlerScope<D>) => T | Promise<T>,
+  ): Promise<T> {
     const container = new Container(this.host.scopedServices, this.instanceSingletons, this.host.config);
-    const scope: FlareHandlerScope = {
-      inject: (token) => container.resolveDep(token),
-      config: (token) => container.resolveCfg(token),
-    };
+    const scope = attachScopeDeps<D>(
+      { config: (token) => container.resolveCfg(token) },
+      inject,
+      (token) => container.resolveDep(token),
+    );
     try {
       return await fn(scope);
     } finally {
