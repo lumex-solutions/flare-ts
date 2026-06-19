@@ -41,16 +41,16 @@ export type FlareDurableObjectClass = new(
  * Optional Durable Object entrypoints passed to {@link CloudflareApp.durableObject}.
  *
  * Each entrypoint receives a fresh per-invocation {@link FlareHandlerScope} (`{ inject, config }`).
- * The WebSocket hooks fire for hibernatable sockets accepted via `inject(DurableState).state.acceptWebSocket`.
+ * The WebSocket hooks fire for sockets accepted via `inject(DurableState).state.acceptWebSocket`.
  */
 export interface DurableEntrypoints {
   /** Runs once per instance before it serves any traffic; concurrency is blocked until it settles. */
   init?: (scope: FlareHandlerScope) => void | Promise<void>;
   /** Handles a Durable Object alarm; `info` carries workerd's retry and scheduled-time metadata. */
   alarm?: (scope: FlareHandlerScope, info?: AlarmInvocationInfo) => void | Promise<void>;
-  /** Handles a message on a hibernatable WebSocket. */
+  /** Handles a message on a WebSocket. */
   webSocketMessage?: (scope: FlareHandlerScope, ws: WebSocket, message: string | ArrayBuffer) => void | Promise<void>;
-  /** Handles the close of a hibernatable WebSocket. */
+  /** Handles the close of a WebSocket. */
   webSocketClose?: (
     scope: FlareHandlerScope,
     ws: WebSocket,
@@ -58,7 +58,7 @@ export interface DurableEntrypoints {
     reason: string,
     wasClean: boolean,
   ) => void | Promise<void>;
-  /** Handles an error on a hibernatable WebSocket. */
+  /** Handles an error on a WebSocket. */
   webSocketError?: (scope: FlareHandlerScope, ws: WebSocket, error: unknown) => void | Promise<void>;
 }
 
@@ -136,7 +136,7 @@ export class CloudflareApp extends FlareAppBase {
    *
    * Singletons live per Durable Object instance, seeded with that instance's state and `env`.
    *
-   * @param entrypoints Optional `init`, `alarm`, and hibernatable-WebSocket hooks for the Durable Object.
+   * @param entrypoints Optional `init`, `alarm`, and WebSocket hooks for the Durable Object.
    * @throws If a terminal was already taken from this app.
    */
   durableObject(entrypoints: DurableEntrypoints = {}): FlareDurableObjectClass {

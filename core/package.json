@@ -1,6 +1,6 @@
 {
   "name": "@flare-ts/core",
-  "version": "0.3.0-next.0",
+  "version": "0.3.0-next.1",
   "description": "Composition-first TypeScript HTTP framework for Node.js and Cloudflare Workers.",
   "license": "MIT",
   "author": "Lumex Solutions",
