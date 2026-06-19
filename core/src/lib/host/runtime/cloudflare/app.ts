@@ -46,9 +46,10 @@ export type DurableHook<D extends InjectMap, Extra extends unknown[]> =
 /**
  * Optional Durable Object entrypoints passed to {@link CloudflareApp.durableObject}.
  *
- * Each entrypoint receives a fresh per-invocation {@link FlareHandlerScope}; declared `inject` deps
- * appear by name on the scope. The WebSocket hooks fire for sockets accepted via
- * `inject(DurableState).state.acceptWebSocket`.
+ * Each entrypoint receives a fresh per-invocation {@link FlareHandlerScope}; deps declared in the
+ * hook's `inject` map appear by name on the scope, alongside `config`. The WebSocket hooks fire for
+ * sockets accepted through {@link DurableState} obtained as a named scope dep — e.g. a hook declared
+ * as `{ inject: { ds: DurableState }, handler }` calling `scope.ds.storage.acceptWebSocket(...)`.
  */
 export interface DurableEntrypoints<
   Init extends InjectMap = {},

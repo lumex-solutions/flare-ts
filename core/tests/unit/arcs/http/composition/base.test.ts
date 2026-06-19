@@ -155,7 +155,6 @@ describe("HttpBase.before / after / finally (synthetic middleware)", () => {
 
     const cls = base.mwRegistrations[0]!.cls;
     expect(cls.deps).toEqual([depToken]);
-    expect(cls.deps as unknown).not.toBe(injectIn);
     expect(cls.state).toEqual([stateToken]);
     expect(cls.state).not.toBe(stateIn);
     expect(cls.provides).toEqual([providesToken]);

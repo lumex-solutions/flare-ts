@@ -580,6 +580,29 @@ describe("Failure Modes", () => {
     expect(() => host.http.error(ClassWithoutDeps))
       .toThrow("ClassWithoutDeps is missing static 'deps'.");
   });
+
+  it("resolves named deps on a before-middleware scope", async () => {
+    process.env["FLARE_MODE"] = "test";
+    const StampState = flareState<{ v: number; }>("StampState");
+    class Stamp extends FlareService {
+      public static override deps = [];
+      public value(): number {
+        return 42;
+      }
+    }
+    const host = new FlareHost(node);
+    host.scoped(Stamp);
+    host.http.before({ inject: { stamp: Stamp }, provides: [StampState] }, (ctx, scope) => {
+      ctx.state.set(StampState, { v: scope.stamp.value() });
+    });
+    host.http.get("/stamped", { state: [StampState] }, (ctx) => new FlareResponse(200, ctx.state.require(StampState)));
+    const app = await host.build().test();
+    try {
+      expect(await (await app.fetch("GET /stamped")).json()).toEqual({ v: 42 });
+    } finally {
+      await app.stop();
+    }
+  });
 });
 
 // ===========================================================================

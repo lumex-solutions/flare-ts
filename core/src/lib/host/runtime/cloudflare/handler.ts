@@ -6,7 +6,7 @@ import type { FlareService } from "../../../services/composition/flare-service.j
 import type { ServiceToken } from "../../../services/types/types.js";
 import type { FlareTestRequestInput } from "../../../testing/types/flare-test-req.js";
 import type { IFlareHost } from "../../flare-host.js";
-import { attachScopeDeps } from "../../../arcs/http/composition/scope.js";
+import { assertInjectKeys, attachScopeDeps } from "../../../arcs/http/composition/scope.js";
 import {
   DRAIN_SET_COOKIES,
   FlareHttpContext,
@@ -90,6 +90,7 @@ export class FlareCfHandler {
     inject: D,
     fn: (scope: FlareHandlerScope<D>) => T | Promise<T>,
   ): Promise<T> {
+    assertInjectKeys(inject);
     const container = new Container(this.host.scopedServices, this.instanceSingletons, this.host.config);
     const scope = attachScopeDeps<D>(
       { config: (token) => container.resolveCfg(token) },
