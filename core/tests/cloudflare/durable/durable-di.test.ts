@@ -63,13 +63,13 @@ describe("per-instance isolation of the singleton graph", () => {
       const host = new FlareHost(cfProdAdapter(cfJson()));
       host.singleton(RoomCache);
       // POST bumps this instance's RoomCache; GET reads it. Both resolve the
-      // singleton out of the per-instance graph via scope.inject.
-      host.http.post("/bump", { inject: [RoomCache] }, (_ctx, scope) => {
-        const cache = scope.inject(RoomCache);
+      // singleton out of the per-instance graph via the named scope dep.
+      host.http.post("/bump", { inject: { roomCache: RoomCache } }, (_ctx, scope) => {
+        const cache = scope.roomCache;
         return new FlareResponse(200, { count: cache.bump() });
       });
-      host.http.get("/count", { inject: [RoomCache] }, (_ctx, scope) => {
-        const cache = scope.inject(RoomCache);
+      host.http.get("/count", { inject: { roomCache: RoomCache } }, (_ctx, scope) => {
+        const cache = scope.roomCache;
         return new FlareResponse(200, { count: cache.count });
       });
 
@@ -105,9 +105,9 @@ describe("per-instance isolation of the singleton graph", () => {
       host.singleton(RoomCache);
       // Capture the resolved singleton instance keyed by the DO id so the test
       // can assert object identity (not just value) differs across instances.
-      host.http.get("/probe", { inject: [RoomCache, DurableState] }, (_ctx, scope) => {
-        const id = scope.inject(DurableState).id.toString();
-        seen[id] = scope.inject(RoomCache);
+      host.http.get("/probe", { inject: { roomCache: RoomCache, ds: DurableState } }, (_ctx, scope) => {
+        const id = scope.ds.id.toString();
+        seen[id] = scope.roomCache;
         return new FlareResponse(200, { id });
       });
 
@@ -135,8 +135,8 @@ describe("per-instance isolation of the singleton graph", () => {
 
       const host = new FlareHost(cfProdAdapter(cfJson()));
       host.singleton(RoomCache);
-      host.http.get("/probe", { inject: [RoomCache] }, (_ctx, scope) => {
-        seen.push(scope.inject(RoomCache));
+      host.http.get("/probe", { inject: { roomCache: RoomCache } }, (_ctx, scope) => {
+        seen.push(scope.roomCache);
         return new FlareResponse(200, { ok: true });
       });
 
@@ -162,8 +162,8 @@ describe("DurableState identity per instance", () => {
     "each instance's inject(DurableState).id.toString() equals the name passed to its makeFakeDurableState",
     async () => {
       const host = new FlareHost(cfProdAdapter(cfJson()));
-      host.http.get("/id", { inject: [DurableState] }, (_ctx, scope) => {
-        return new FlareResponse(200, { id: scope.inject(DurableState).id.toString() });
+      host.http.get("/id", { inject: { ds: DurableState } }, (_ctx, scope) => {
+        return new FlareResponse(200, { id: scope.ds.id.toString() });
       });
 
       const app = host.build() as CloudflareApp;
@@ -183,8 +183,8 @@ describe("DurableState identity per instance", () => {
     async () => {
       const seen: Record<string, DurableObjectStorage> = {};
       const host = new FlareHost(cfProdAdapter(cfJson()));
-      host.http.get("/storage", { inject: [DurableState] }, (_ctx, scope) => {
-        const ds = scope.inject(DurableState);
+      host.http.get("/storage", { inject: { ds: DurableState } }, (_ctx, scope) => {
+        const ds = scope.ds;
         seen[ds.id.toString()] = ds.storage;
         return new FlareResponse(200, { id: ds.id.toString() });
       });
@@ -240,8 +240,8 @@ describe("no prop-drilling: deep inject() chain reaches DurableState", () => {
       host.singleton(Repo);
       host.singleton(Service);
       host.singleton(Facade);
-      host.http.get("/deep", { inject: [Facade] }, (_ctx, scope) => {
-        return new FlareResponse(200, { roomId: scope.inject(Facade).roomId() });
+      host.http.get("/deep", { inject: { facade: Facade } }, (_ctx, scope) => {
+        return new FlareResponse(200, { roomId: scope.facade.roomId() });
       });
 
       const app = host.build() as CloudflareApp;
@@ -280,10 +280,10 @@ describe("service lifetimes within one DO instance", () => {
 
       const host = new FlareHost(cfProdAdapter(cfJson()));
       host.singleton(Counter);
-      host.http.get("/tick", { inject: [Counter, DurableState, Bindings] }, (_ctx, scope) => {
-        dsSeen.push(scope.inject(DurableState));
-        bindingsSeen.push(scope.inject(Bindings));
-        return new FlareResponse(200, { n: scope.inject(Counter).next() });
+      host.http.get("/tick", { inject: { counter: Counter, ds: DurableState, bindings: Bindings } }, (_ctx, scope) => {
+        dsSeen.push(scope.ds);
+        bindingsSeen.push(scope.bindings);
+        return new FlareResponse(200, { n: scope.counter.next() });
       });
 
       const app = host.build() as CloudflareApp;
@@ -318,8 +318,8 @@ describe("service lifetimes within one DO instance", () => {
 
       const host = new FlareHost(cfProdAdapter(cfJson()));
       host.scoped(PerRequest);
-      host.http.get("/scoped", { inject: [PerRequest] }, (_ctx, scope) => {
-        scopedSeen.push(scope.inject(PerRequest));
+      host.http.get("/scoped", { inject: { perRequest: PerRequest } }, (_ctx, scope) => {
+        scopedSeen.push(scope.perRequest);
         return new FlareResponse(200, { ok: true });
       });
 
@@ -345,8 +345,8 @@ describe("Bindings exposes the runtime env on both terminals", () => {
     "on a .durableObject() instance, inject(Bindings).env returns the env passed to that instance",
     async () => {
       const host = new FlareHost(cfProdAdapter(cfJson()));
-      host.http.get("/env", { inject: [Bindings] }, (_ctx, scope) => {
-        const env = scope.inject(Bindings).env as unknown as Record<string, string>;
+      host.http.get("/env", { inject: { bindings: Bindings } }, (_ctx, scope) => {
+        const env = scope.bindings.env as unknown as Record<string, string>;
         return new FlareResponse(200, { who: env["WHO"] ?? null });
       });
 
@@ -367,8 +367,8 @@ describe("Bindings exposes the runtime env on both terminals", () => {
     "on a .worker() handle, inject(Bindings).env returns the env passed to fetch()",
     async () => {
       const host = new FlareHost(cfProdAdapter(cfJson()));
-      host.http.get("/env", { inject: [Bindings] }, (_ctx, scope) => {
-        const env = scope.inject(Bindings).env as unknown as Record<string, string>;
+      host.http.get("/env", { inject: { bindings: Bindings } }, (_ctx, scope) => {
+        const env = scope.bindings.env as unknown as Record<string, string>;
         return new FlareResponse(200, { who: env["WHO"] ?? null });
       });
 
@@ -401,22 +401,22 @@ describe("durableObject({ init }) runs the init entrypoint", () => {
 
       const host = new FlareHost(cfProdAdapter(cfJson()));
       host.singleton(Seed);
-      host.http.get("/seed", { inject: [Seed] }, (_ctx, scope) => {
-        return new FlareResponse(200, { value: scope.inject(Seed).value });
+      host.http.get("/seed", { inject: { seed: Seed } }, (_ctx, scope) => {
+        return new FlareResponse(200, { value: scope.seed.value });
       });
 
       let initRan = false;
-      const init = (scope: FlareHandlerScope): void => {
+      const init = (scope: FlareHandlerScope<{ seed: typeof Seed; }>): void => {
         initRan = true;
         // init writes the per-instance singleton so a later fetch sees it.
-        scope.inject(Seed).value = "initialized";
+        scope.seed.value = "initialized";
       };
 
       const app = host.build() as CloudflareApp;
       app.durableObject();
       const inst = composeDurableInstance(host, makeFakeDurableState({ name: "init" }), makeEnv());
       // Run init via runScoped — the same mechanism the real DO constructor uses.
-      await inst.runScoped((scope) => init(scope));
+      await inst.runScoped({ seed: Seed }, (scope) => init(scope));
       expect(initRan).toBe(true);
 
       const res = await doFetch(inst, new Request("https://do/seed"));
@@ -428,20 +428,20 @@ describe("durableObject({ init }) runs the init entrypoint", () => {
     "init can write through inject(DurableState).storage; the stored value survives into a later fetch",
     async () => {
       const host = new FlareHost(cfProdAdapter(cfJson()));
-      host.http.get("/read", { inject: [DurableState] }, async (_ctx, scope) => {
-        const stored = await scope.inject(DurableState).storage.get("greeting");
+      host.http.get("/read", { inject: { ds: DurableState } }, async (_ctx, scope) => {
+        const stored = await scope.ds.storage.get("greeting");
         return new FlareResponse(200, { greeting: (stored as string) ?? null });
       });
 
-      const init = async (scope: FlareHandlerScope): Promise<void> => {
-        await scope.inject(DurableState).storage.put("greeting", "hello-from-init");
+      const init = async (scope: FlareHandlerScope<{ ds: typeof DurableState; }>): Promise<void> => {
+        await scope.ds.storage.put("greeting", "hello-from-init");
       };
 
       const app = host.build() as CloudflareApp;
       app.durableObject();
       const inst = composeDurableInstance(host, makeFakeDurableState({ name: "init-storage" }), makeEnv());
       // Run init via runScoped — the same mechanism the real DO constructor uses.
-      await inst.runScoped((scope) => init(scope));
+      await inst.runScoped({ ds: DurableState }, (scope) => init(scope));
 
       const res = await doFetch(inst, new Request("https://do/read"));
       expect(await res.json()).toEqual({ greeting: "hello-from-init" });
@@ -467,8 +467,8 @@ describe("durableObject({ alarm }) runs the alarm entrypoint", () => {
       // The alarm handler the test drives via runScoped — the same mechanism the
       // real DO's alarm() uses (a fresh per-invocation scope over this instance's
       // singleton graph).
-      const alarm = async (scope: FlareHandlerScope): Promise<void> => {
-        const ds = scope.inject(DurableState);
+      const alarm = async (scope: FlareHandlerScope<{ ds: typeof DurableState; }>): Promise<void> => {
+        const ds = scope.ds;
         observedId = ds.id.toString();
         await ds.storage.put("alarm-fired", true);
       };
@@ -476,7 +476,7 @@ describe("durableObject({ alarm }) runs the alarm entrypoint", () => {
       const state = makeFakeDurableState({ name: "alarm-room" });
       const inst = composeDurableInstance(host, state, makeEnv());
 
-      await inst.runScoped((scope) => alarm(scope));
+      await inst.runScoped({ ds: DurableState }, (scope) => alarm(scope));
       // The alarm ran on a fresh scope wired to this instance's DurableState.
       expect(observedId).toBe("alarm-room");
       expect(await state.storage.get("alarm-fired")).toBe(true);
@@ -494,7 +494,7 @@ describe("durableObject({ alarm }) runs the alarm entrypoint", () => {
 
       // No alarm entrypoint → the real DO's alarm() returns undefined without
       // effect. With nothing to run, runScoped over a no-op resolves to undefined.
-      await expect(inst.runScoped(() => undefined)).resolves.toBeUndefined();
+      await expect(inst.runScoped({}, () => undefined)).resolves.toBeUndefined();
     },
   );
 });
@@ -511,8 +511,8 @@ describe("revalidation gates DurableState to the durable terminal", () => {
       // This route declares it injects DurableState, but the .worker() terminal
       // never registers DurableState — only .durableObject() does. Revalidation
       // at the .worker() call must reject this graph.
-      host.http.get("/needs-state", { inject: [DurableState] }, (_ctx, scope) => {
-        return new FlareResponse(200, { id: scope.inject(DurableState).id.toString() });
+      host.http.get("/needs-state", { inject: { ds: DurableState } }, (_ctx, scope) => {
+        return new FlareResponse(200, { id: scope.ds.id.toString() });
       });
 
       const app = host.build() as CloudflareApp;
@@ -531,8 +531,8 @@ describe("revalidation gates DurableState to the durable terminal", () => {
     "the SAME host built fresh exposes DurableState happily under .durableObject() (the gate is terminal-specific, not global)",
     async () => {
       const host = new FlareHost(cfProdAdapter(cfJson()));
-      host.http.get("/needs-state", { inject: [DurableState] }, (_ctx, scope) => {
-        return new FlareResponse(200, { id: scope.inject(DurableState).id.toString() });
+      host.http.get("/needs-state", { inject: { ds: DurableState } }, (_ctx, scope) => {
+        return new FlareResponse(200, { id: scope.ds.id.toString() });
       });
 
       // Same injection shape, but the durable terminal DOES register DurableState
@@ -549,8 +549,8 @@ describe("revalidation gates DurableState to the durable terminal", () => {
     "inject(Bindings) works fine under .worker() (Bindings IS registered by the worker terminal)",
     async () => {
       const host = new FlareHost(cfProdAdapter(cfJson()));
-      host.http.get("/env", { inject: [Bindings] }, (_ctx, scope) => {
-        const env = scope.inject(Bindings).env as unknown as Record<string, string>;
+      host.http.get("/env", { inject: { bindings: Bindings } }, (_ctx, scope) => {
+        const env = scope.bindings.env as unknown as Record<string, string>;
         return new FlareResponse(200, { region: env["REGION"] ?? null });
       });
 

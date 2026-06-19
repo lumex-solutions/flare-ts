@@ -30,34 +30,40 @@ host.singleton(Counter);
 
 host.http.get(
   "/n",
-  { inject: [Counter, DurableState, Bindings] },
+  { inject: { counter: Counter, ds: DurableState, bindings: Bindings } },
   (_c, s) =>
     new FlareResponse(200, {
-      n: s.inject(Counter).n,
-      id: s.inject(DurableState).id.toString(),
-      flag: s.inject(Bindings).env.FLAG ?? null,
+      n: s.counter.n,
+      id: s.ds.id.toString(),
+      flag: s.bindings.env.FLAG ?? null,
     }),
 );
 host.http.post(
   "/bump",
-  { inject: [Counter] },
-  async (_c, s) => new FlareResponse(200, { n: await s.inject(Counter).bump() }),
+  { inject: { counter: Counter } },
+  async (_c, s) => new FlareResponse(200, { n: await s.counter.bump() }),
 );
 
 /** The Durable Object class under test — exported as the `TEST_ROOM` binding's `class_name`. */
 export const TestRoom = (host.build() as CloudflareApp).durableObject({
-  async init(scope) {
-    const stored = await scope.inject(DurableState).storage.get<number>("n");
-    if (stored !== undefined) scope.inject(Counter).hydrate(stored);
+  init: {
+    inject: { ds: DurableState, counter: Counter },
+    handler: async (scope) => {
+      const stored = await scope.ds.storage.get<number>("n");
+      if (stored !== undefined) scope.counter.hydrate(stored);
+    },
   },
-  async alarm(scope, info) {
-    // Record what workerd handed the entrypoint so a test can assert the AlarmInvocationInfo threading.
-    await scope.inject(DurableState).storage.put("alarmInfo", {
-      isRetry: info?.isRetry ?? null,
-      retryCount: info?.retryCount ?? null,
-    });
+  alarm: {
+    inject: { ds: DurableState },
+    handler: async (scope, info) => {
+      // Record what workerd handed the entrypoint so a test can assert the AlarmInvocationInfo threading.
+      await scope.ds.storage.put("alarmInfo", {
+        isRetry: info?.isRetry ?? null,
+        retryCount: info?.retryCount ?? null,
+      });
+    },
   },
-  webSocketMessage(_scope, ws, message) {
+  webSocketMessage: (_scope, ws, message) => {
     ws.send(`echo:${typeof message === "string" ? message : "binary"}`);
   },
 });

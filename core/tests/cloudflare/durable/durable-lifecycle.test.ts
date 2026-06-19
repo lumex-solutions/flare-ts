@@ -38,8 +38,8 @@ describe("durable per-instance singleton onStart", () => {
     host.singleton(Booted);
     host.http.get(
       "/starts",
-      { inject: [Booted] },
-      (_c, s) => new FlareResponse(200, { starts: s.inject(Booted).starts }),
+      { inject: { booted: Booted } },
+      (_c, s) => new FlareResponse(200, { starts: s.booted.starts }),
     );
     (host.build() as CloudflareApp).durableObject(); // finalize: register framework services + revalidate
 
@@ -59,7 +59,7 @@ describe("durable init / lifecycle error paths", () => {
     (host.build() as CloudflareApp).durableObject();
     const inst = composeDurableInstance(host, makeFakeDurableState({ name: "init" }), makeEnv());
 
-    await expect(inst.runScoped(() => {
+    await expect(inst.runScoped({}, () => {
       throw new Error("init-boom");
     })).rejects.toThrow("init-boom");
 
@@ -88,8 +88,8 @@ describe("durable Bindings identity", () => {
     const envs: Cloudflare.Env[] = [];
 
     const host = new FlareHost(cfProdAdapter(cfJson()));
-    host.http.get("/env", { inject: [Bindings] }, (_c, s) => {
-      envs.push(s.inject(Bindings).env);
+    host.http.get("/env", { inject: { bindings: Bindings } }, (_c, s) => {
+      envs.push(s.bindings.env);
       return new FlareResponse(200, { ok: true });
     });
     (host.build() as CloudflareApp).durableObject();

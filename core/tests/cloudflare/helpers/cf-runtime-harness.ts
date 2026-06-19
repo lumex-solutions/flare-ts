@@ -2,7 +2,7 @@
  * Test harness for driving the terminal export shapes directly:
  *  - `.worker()` → `handle.fetch(request, makeEnv(...), makeExecutionContext())`
  *  - `.durableObject()` → `composeDurableInstance(host, makeFakeDurableState(...), makeEnv(...))` then
- *    `inst.fetch(req)` / `inst.runScoped(scope => entrypoint(scope))`.
+ *    `inst.fetch(req)` / `inst.runScoped(inject, scope => entrypoint(scope))`.
  *
  * The fakes exercise Flare's per-instance DI (singleton seeding, `Bindings`/`DurableState` injection,
  * per-instance isolation) without a miniflare Durable Object binding. Note: workerd's native
