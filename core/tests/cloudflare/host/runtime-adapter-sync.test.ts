@@ -2,7 +2,7 @@ process.env["FLARE_MODE"] = "test";
 
 import { describe, expect, it } from "vitest";
 import { FlareHost } from "../../../src/lib/host/flare-host.js";
-import { cf } from "../../../src/lib/host/runtime/cloudflare.js";
+import { cf } from "../../../src/lib/host/runtime/cloudflare/index.js";
 import { registerMinimalPingRoute } from "../helpers/minimal-route.js";
 
 describe("Cross-Feature Interactions", () => {

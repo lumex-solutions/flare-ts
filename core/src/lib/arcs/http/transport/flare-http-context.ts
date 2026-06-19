@@ -1,3 +1,5 @@
+import type { FlareService } from "../../../services/composition/flare-service.js";
+import type { ServiceToken } from "../../../services/types/types.js";
 import type { RequestDescriptor } from "../composition/contract/flare-contract.js";
 import type { FlareReadonly } from "../state/types/readonly.js";
 import type { StateToken, TypedStateToken } from "../state/types/state-token.js";
@@ -14,6 +16,8 @@ export const SET_REQ_CTX: unique symbol = Symbol("SET_REQ_CTX");
 export const SET_PARSED_BODY: unique symbol = Symbol("SET_PARSED_BODY");
 /** @internal */
 export const DRAIN_SET_COOKIES: unique symbol = Symbol("DRAIN_SET_COOKIES");
+/** @internal */
+export const INSTANCE_SINGLETONS: unique symbol = Symbol("INSTANCE_SINGLETONS");
 
 interface RequestState {
   set: <T>(token: TypedStateToken<T>, value: T) => void;
@@ -48,6 +52,13 @@ export type CookieOptions =
  */
 export class FlareHttpContext {
   readonly req: FlareRequest;
+
+  /**
+   * @internal Per-invocation singleton map, set by a runtime or host extension so the http arc
+   * resolves a specific exported instance's own singletons. Undefined by default, in which case the
+   * module-level singletons are used.
+   */
+  [INSTANCE_SINGLETONS]?: ReadonlyMap<ServiceToken<FlareService>, FlareService>;
 
   #stateMap: StateMap | undefined;
   #state: RequestState | undefined;

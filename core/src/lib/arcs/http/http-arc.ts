@@ -23,7 +23,7 @@ import { HttpGroup } from "./composition/group.js";
 import { deriveAllowedMethods } from "./routing/allow-methods.js";
 import { INVALID_REQUEST_PATH_BODY, isValidInboundPath } from "./routing/request-path.js";
 import { METHOD_IDX_MAP } from "./routing/types/methods.js";
-import { SET_REQ_CTX } from "./transport/flare-http-context.js";
+import { INSTANCE_SINGLETONS, SET_REQ_CTX } from "./transport/flare-http-context.js";
 import { type FlareRequest, SET_MAX_BODY_BYTES, SET_ROUTE_PARAMS } from "./transport/flare-request.js";
 import { FlareResponse } from "./transport/flare-response.js";
 import { normalizeHandlerResult } from "./transport/normalize.js";
@@ -424,8 +424,14 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
   ): ResponseLike | Promise<ResponseLike> {
     // No middleware means _getMiddleware is never called, so the cache array is never written.
     const middlewareMap: MiddlewareBase[] = pipeline.execCount === 1 ? _EMPTY_MW_CACHE : [];
-    const container = this.#sharedContainer
-      ?? new Container(this.host.scopedServices, this.host.singletonServices, this.host.config);
+    // When the context carries a per-invocation singleton map (set by a runtime/extension), build a
+    // fresh container against it (never the shared one, whose singletons are module-level).
+    // Otherwise use the shared container when there are no scoped services, else a fresh one.
+    const instanceSingletons = ctx[INSTANCE_SINGLETONS];
+    const container = instanceSingletons
+      ? new Container(this.host.scopedServices, instanceSingletons, this.host.config)
+      : this.#sharedContainer
+        ?? new Container(this.host.scopedServices, this.host.singletonServices, this.host.config);
     const execution = this.#execFns[pipelineIdx]!(ctx, container, middlewareMap, methodIdx);
 
     // Shared container's instances map is always empty (all services are singletons),

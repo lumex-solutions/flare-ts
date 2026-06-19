@@ -35,7 +35,6 @@ export type HostInspectSnapshot = {
     readonly middleware: number;
   };
   readonly singletonKeys: readonly string[];
-  readonly requestExtensions: readonly string[];
   readonly testMode: {
     readonly enabled: boolean;
     readonly singletonsCompiled: boolean;

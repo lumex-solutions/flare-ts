@@ -1,11 +1,12 @@
-// Production-path tests exercise FlareAppCF.export()/fetch() directly. Use
+// Production-path tests exercise CloudflareApp.worker()/fetch() directly. Use
 // cfProdAdapter so adapter.env omits FLARE_MODE and host.build() returns the
-// live FlareAppCF rather than the test-mode shim.
+// live CloudflareApp rather than the test-mode shim.
 import { describe, expect, it } from "vitest";
-import type { FlareAppCF } from "../../../src/lib/host/runtime/cloudflare.js";
+import type { CloudflareApp } from "../../../src/lib/host/runtime/cloudflare/index.js";
 import { MiddlewareBase } from "../../../src/lib/arcs/http/composition/classes/middleware-base.js";
 import { FlareResponse } from "../../../src/lib/arcs/http/transport/flare-response.js";
 import { FlareHost } from "../../../src/lib/host/flare-host.js";
+import { makeEnv, makeExecutionContext } from "../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../helpers/cf-test-adapter.js";
 
 describe("Primary Behavior", () => {
@@ -37,9 +38,9 @@ describe("Primary Behavior", () => {
     host.http.get("/ping", () => new FlareResponse(200, { ok: true }));
 
     const t0 = Date.now();
-    const app = host.build() as FlareAppCF;
-    const handle = app.export();
-    const res = await handle.fetch(new Request("https://flare.test/ping"));
+    const app = host.build() as CloudflareApp;
+    const handle = app.worker();
+    const res = await handle.fetch(new Request("https://flare.test/ping"), makeEnv(), makeExecutionContext());
     const t1 = Date.now();
 
     expect(res.status).toBe(200);
@@ -62,9 +63,9 @@ describe("Primary Behavior", () => {
       return new FlareResponse(200, { ok: true });
     });
 
-    const app = host.build() as FlareAppCF;
-    const handle = app.export();
-    const res = await handle.fetch(new Request("https://flare.test/ping"));
+    const app = host.build() as CloudflareApp;
+    const handle = app.worker();
+    const res = await handle.fetch(new Request("https://flare.test/ping"), makeEnv(), makeExecutionContext());
 
     expect(res.status).toBe(200);
     expect(observedStart).toBeUndefined();
@@ -88,9 +89,9 @@ describe("Edge Cases", () => {
       return new FlareResponse(200, { ok: true });
     });
 
-    const app = host.build() as FlareAppCF;
-    const handle = app.export();
-    const res = await handle.fetch(new Request("https://flare.test/ping"));
+    const app = host.build() as CloudflareApp;
+    const handle = app.worker();
+    const res = await handle.fetch(new Request("https://flare.test/ping"), makeEnv(), makeExecutionContext());
 
     expect(res.status).toBe(200);
     expect(typeof observedStart).toBe("number");
@@ -109,14 +110,14 @@ describe("Edge Cases", () => {
       return new FlareResponse(200, { ok: true });
     });
 
-    const app = host.build() as FlareAppCF;
-    const handle = app.export();
+    const app = host.build() as CloudflareApp;
+    const handle = app.worker();
 
     const tBefore1 = Date.now();
-    await handle.fetch(new Request("https://flare.test/ping"));
+    await handle.fetch(new Request("https://flare.test/ping"), makeEnv(), makeExecutionContext());
     const tAfter1 = Date.now();
     const tBefore2 = Date.now();
-    await handle.fetch(new Request("https://flare.test/ping"));
+    await handle.fetch(new Request("https://flare.test/ping"), makeEnv(), makeExecutionContext());
     const tAfter2 = Date.now();
 
     expect(seenStarts).toHaveLength(2);
@@ -140,14 +141,14 @@ describe("Cross-Feature Interactions", () => {
       return new FlareResponse(200, { startTime: v });
     });
 
-    const app = host.build() as FlareAppCF;
-    const handle = app.export();
+    const app = host.build() as CloudflareApp;
+    const handle = app.worker();
 
     const tBefore1 = Date.now();
-    const res1 = await handle.fetch(new Request("https://flare.test/echo-start"));
+    const res1 = await handle.fetch(new Request("https://flare.test/echo-start"), makeEnv(), makeExecutionContext());
     const tAfter1 = Date.now();
     const tBefore2 = Date.now();
-    const res2 = await handle.fetch(new Request("https://flare.test/echo-start"));
+    const res2 = await handle.fetch(new Request("https://flare.test/echo-start"), makeEnv(), makeExecutionContext());
     const tAfter2 = Date.now();
 
     expect(res1.status).toBe(200);

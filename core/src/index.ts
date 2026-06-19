@@ -52,6 +52,3 @@ export { Logger } from "./lib/logger/logger.js";
 export { CFWLoggerTransport, LoggerTransport } from "./lib/logger/transport.js";
 export { captureLogStore, runWithLogStore } from "./lib/logger/types.js";
 export type { HttpErrorContext, LogLevel, LogRecord, LogStore } from "./lib/logger/types.js";
-
-export { registerRequestExtension } from "./lib/host/composition/extensions.js";
-export type { FlareRequestExtension } from "./lib/host/composition/extensions.js";

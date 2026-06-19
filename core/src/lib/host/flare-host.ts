@@ -12,10 +12,11 @@ import type {
   HttpValidationContext,
   ServiceValidationContext,
 } from "../validation/contexts.js";
+import type { ValidationError } from "../validation/types.js";
 import type { IFlareApp } from "./flare-app.js";
 import type { HostRuntimeAdapter } from "./types/adapter.js";
 import type { HostRuntimeLifecycle } from "./types/lifecycle.js";
-import type { FlareApp, FlareConfig, HostState } from "./types/types.js";
+import type { FlareApp, FlareConfig, HostRuntime, HostState } from "./types/types.js";
 import { COMPILE_HTTP_ARC, HttpArc, INSPECT_HTTP_ARC, REEVALUATE_CONTAINER_STRATEGY } from "../arcs/http/http-arc.js";
 import { type ConfigToken, HOST_CONFIG, LOG_CONFIG } from "../config/flare-config.js";
 import { _log, Logger, toErrorField } from "../logger/logger.js";
@@ -28,7 +29,6 @@ import { FlareValidationError } from "../validation/flare-validation-error.js";
 import { createConfigValidator } from "../validation/validators/config-composite-validator.js";
 import { createHttpValidator } from "../validation/validators/http-composite-validator.js";
 import { createServiceValidator } from "../validation/validators/service-composite-validator.js";
-import { type FlareRequestExtension, requestExtensionsFor } from "./composition/extensions.js";
 import { Logging } from "./composition/logging.js";
 import {
   COMPILE_FOR_TEST,
@@ -36,8 +36,8 @@ import {
   INSPECT_HOST,
   PROVIDE_SERVICE,
   REGISTER_BUILD_HOOK,
-  REQUEST_EXTENSIONS,
   RESET_FOR_TEST,
+  REVALIDATE,
   SET_HOST_STATE,
   UNSAFE_CONFIG_ENV_KEYS,
 } from "./types/const.js";
@@ -51,16 +51,22 @@ type AdapterLifecycle<TAdapter> = TAdapter extends HostRuntimeAdapter<IFlareApp,
   : HostRuntimeLifecycle;
 
 /**
- * Mutable context passed to {@link FlareHost} build hooks. Hooks are registered by host extensions
- * via `[REGISTER_BUILD_HOOK]` and run once during `build()` before compilation; they may flip flags
- * to alter the build. This keeps runtime-specific behavior inside the extension rather than as
+ * Mutable context passed to {@link FlareHost} build hooks. Hooks are registered by a runtime adapter
+ * via `[REGISTER_BUILD_HOOK]` and run once during `build()` before validation/compilation; they may
+ * flip flags to alter the build. This keeps runtime-specific behavior on the adapter rather than as
  * `runtime === X` branches scattered through the host.
  */
 export interface FlareBuildContext {
   /**
-   * When a hook sets this, the host skips module-level singleton instantiation. The `durable`
-   * extension sets it so singletons compile per Durable Object instance (seeded with that
-   * instance's ctx/env) instead of once at module load.
+   * When a hook sets this, `build()` skips the dependency/HTTP/config validation suite. An adapter
+   * whose app finalizes per exported terminal (registering further services first) sets it and calls
+   * `[REVALIDATE]` from the terminal once the graph is complete.
+   */
+  deferValidation: boolean;
+  /**
+   * When a hook sets this, the host skips module-level singleton instantiation. An adapter whose
+   * exported instances each need their own singleton graph sets it and compiles the singletons
+   * itself (e.g. per exported instance) instead of once at module load.
    */
   deferSingletonCompile: boolean;
 }
@@ -73,12 +79,12 @@ export interface IFlareHost {
   http: HttpArc<HostRuntimeLifecycle>;
   logging: Logging;
   state: HostState;
+  /** Runtime this host's adapter targets (e.g. `"node"`, `"cloudflare"`). */
+  runtime: HostRuntime;
   config: Readonly<FlareConfig>;
   logger: Logger;
   scopedServices: Pick<FlareRegistrationMap, "get" | "tokens" | "length">;
   singletonServices: ReadonlyMap<ServiceToken<FlareService>, FlareService>;
-  /** @internal Request extensions resolved for this host's runtime; consumed by the app's runner. */
-  [REQUEST_EXTENSIONS]: readonly FlareRequestExtension[];
   [SET_HOST_STATE](state: HostState): void;
   /** @internal Driven by `FlareTestApp.test()` to apply replacements, validate, and compile singletons. */
   [COMPILE_FOR_TEST](opts?: { replace?: ReadonlyMap<ServiceToken<FlareService>, FlareServiceClass>; }): void;
@@ -87,19 +93,27 @@ export interface IFlareHost {
   /** @internal Snapshot for {@link inspectBuild} in test infrastructure. */
   [INSPECT_HOST](): HostInspectSnapshot;
   /**
-   * @internal Registers a framework-provided (custom-factory) service. Used by host extensions to
-   * contribute services whose instances the runtime seeds rather than building from the default
-   * `new Service(container)` factory. The token participates in normal build-time validation.
+   * @internal Registers a framework-provided (custom-factory) service. Used by a runtime adapter's
+   * app/terminal to contribute services whose instances the runtime seeds rather than building from
+   * the default `new Service(container)` factory. The token participates in normal validation.
    */
   [PROVIDE_SERVICE](kind: "scoped" | "singleton", reg: ServiceRegistration<FlareService>): void;
   /**
-   * @internal Builds a fresh per-instance singleton map for a durable adapter's exported instance:
-   * framework prebuilts (Logger) + the `seeded` runtime services, then user singletons compiled in.
+   * @internal Re-runs the dependency/HTTP/config validation suite against the current graph. A
+   * terminal calls this after registering its framework services (post-`build()`), so injecting an
+   * unregistered service (e.g. one only a different terminal provides) fails with a clear error.
+   */
+  [REVALIDATE](): void;
+  /**
+   * @internal Builds a fresh singleton map seeded with the given service factories (on top of
+   * framework prebuilts like Logger), then compiles the user singletons into it. The factories run
+   * against the new instance's container, so a terminal can construct services from per-instance
+   * values; user singletons then resolve their deps — including the seeded services — against it.
    */
   [COMPILE_INSTANCE_SINGLETONS](
-    seeded: ReadonlyMap<ServiceToken<FlareService>, FlareService>,
+    seeded: ReadonlyMap<ServiceToken<FlareService>, (container: Container) => FlareService>,
   ): Map<ServiceToken<FlareService>, FlareService>;
-  /** @internal Registers a build hook run during `build()`; used by host extensions to alter the build. */
+  /** @internal Registers a build hook run during `build()`; used by a runtime adapter to alter the build. */
   [REGISTER_BUILD_HOOK](hook: (ctx: FlareBuildContext) => void): void;
 }
 
@@ -155,6 +169,11 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
     return this.#state;
   }
 
+  /** Runtime this host's adapter targets. */
+  public get runtime(): HostRuntime {
+    return this.#adapter.runtime;
+  }
+
   /**
    * Resolved configuration produced from {@link HostRuntimeAdapter.flareJsonFile}, environment
    * variables, and registered descriptor defaults.
@@ -187,15 +206,6 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
   /** Read-only view of the singleton service instances compiled from {@link singleton} registrations. */
   public get singletonServices(): ReadonlyMap<ServiceToken<FlareService>, FlareService> {
     return this.#singletons;
-  }
-
-  /**
-   * Request extensions resolved for this host's runtime from the module-level registry. Extension
-   * packages register at import time via {@link registerRequestExtension}; the app's per-request
-   * runner consumes this list. Resolved fresh from the registry — no host-side registration.
-   */
-  get [REQUEST_EXTENSIONS](): readonly FlareRequestExtension[] {
-    return requestExtensionsFor(this.#adapter.runtime);
   }
 
   /** @internal Advances host state. Invoked by the runtime at lifecycle transitions. */
@@ -240,25 +250,19 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
   /**
    * Registers a singleton service in the DI container.
    *
-   * The service is instantiated once at {@link build} time and reused for the lifetime
-   * of the application. Its {@link FlareService.onStart} is called during app startup and
-   * {@link FlareService.onStop} is called during graceful shutdown.
+   * The singleton is instantiated once and reused for the lifetime of its host instance. Its
+   * {@link FlareService.onStart} is called during app startup and {@link FlareService.onStop} during
+   * graceful shutdown.
    *
-   * **Not available on edge runtimes (Cloudflare Workers).** Edge runtimes do not have a
-   * long-lived process; only `host.scoped()` is supported there.
+   * The lifetime of "the host instance" depends on the runtime: a process on Node, an isolate on a
+   * Cloudflare Worker (persists across requests, resets on eviction), and the Durable Object instance
+   * when exported via `app.durableObject()`. On Cloudflare, do not assume singleton state survives
+   * isolate eviction — use a Durable Object for guaranteed per-instance persistence.
    *
    * @param service - The service class to register.
    * @throws If the class is missing the required static `deps` array.
    */
-  public singleton<T extends FlareService>(
-    service: TAdapter extends { runtime: "cloudflare"; } ? never : FlareServiceClass<T>,
-  ): void {
-    if (this.#adapter.runtime === "cloudflare") {
-      throw new Error(
-        "[flare] host.singleton() is not supported on Cloudflare Workers; "
-          + "edge runtimes have no long-lived process — use host.scoped() instead.",
-      );
-    }
+  public singleton<T extends FlareService>(service: FlareServiceClass<T>): void {
     const token = service as ServiceToken<T>;
     if (service.deps != undefined) {
       this.#singletonRegistrations.push({
@@ -287,6 +291,12 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
     // `host.build().test()`. Re-running config compile, validation, etc. would
     // be wasteful and the build is deterministic; return the cached app instead.
     if (this.#app) return this.#app as FlareApp<TAdapter>;
+
+    // Let the runtime adapter contribute framework services and build hooks before anything
+    // compiles (e.g. Cloudflare registers `Bindings`/`DurableState` and defers singleton compile).
+    // Duck-typed so the base adapter interface stays free of runtime-specific surface.
+    const setup = (this.#adapter as { setup?: (host: IFlareHost) => void; }).setup;
+    if (setup) setup(this);
 
     const configStart = Date.now();
     _log("trace", "Lifecycle event", {
@@ -422,9 +432,9 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
 
   /**
    * @internal Registers a framework-provided service contributed by a host extension. The token
-   * goes through normal build-time dependency validation; the instance is seeded by the runtime
-   * (per Durable Object instance, or per request), so the registration's factory is a guard that
-   * throws if ever invoked — it never should be, because the runtime pre-seeds the instance.
+   * goes through normal build-time dependency validation; the instance is seeded by the extension
+   * (per exported instance, or per request), so the registration's factory is a guard that throws
+   * if ever invoked — it never should be, because the extension pre-seeds the instance.
    */
   [PROVIDE_SERVICE](kind: "scoped" | "singleton", reg: ServiceRegistration<FlareService>): void {
     if (kind === "singleton") this.#singletonRegistrations.push(reg);
@@ -432,19 +442,35 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
   }
 
   /**
-   * @internal Builds a fresh per-instance singleton graph for a {@link DurableHostRuntimeAdapter}'s
-   * exported instance. Starts from the module-level prebuilts (Logger) plus the `seeded` runtime
-   * services the DO constructor supplies (`DurableState`/`Bindings`), then compiles the user
-   * singletons into that map so they resolve their deps — including the seeded services — per
-   * instance. The returned map backs that one instance's resolution; module-level state is untouched.
+   * @internal Builds a fresh singleton graph scoped to one exported instance. Starts from the
+   * module-level prebuilts (Logger) plus the `seeded` services the extension supplies, then
+   * compiles the user singletons into that map so they resolve their deps — including the seeded
+   * services — against it. The returned map backs that one instance; module-level state is untouched.
    */
   [COMPILE_INSTANCE_SINGLETONS](
-    seeded: ReadonlyMap<ServiceToken<FlareService>, FlareService>,
+    seeded: ReadonlyMap<ServiceToken<FlareService>, (container: Container) => FlareService>,
   ): Map<ServiceToken<FlareService>, FlareService> {
     const map = new Map<ServiceToken<FlareService>, FlareService>(this.#singletons);
-    for (const [token, instance] of seeded) map.set(token, instance);
-    this.#compileSingletons(this.#singletonRegistrations, map);
+    const registry = new FlareRegistrationMap();
+    for (const reg of this.#singletonRegistrations) registry.set(reg.token, reg);
+    // One container over the instance's map: seeded factories build first (so user singletons can
+    // inject them), then user singletons compile against the same container.
+    const container = new Container(registry, map, this.config);
+    for (const [token, factory] of seeded) map.set(token, factory(container));
+    for (const reg of this.#singletonRegistrations) map.set(reg.token, container.resolveDep(reg.token));
     return map;
+  }
+
+  /**
+   * @internal Re-runs the validation suite against the current graph. A terminal calls this after
+   * registering its framework services post-`build()` (the adapter deferred validation at build), so
+   * the now-complete graph is checked and injecting an unregistered service fails with a clear error.
+   */
+  [REVALIDATE](): void {
+    const warnings = this.#runValidationSuite();
+    for (const w of warnings) {
+      this.logger.warn(`[${w.code}]: ${w.message}${w.hint ? ` ${w.hint}` : ""}`);
+    }
   }
 
   /**
@@ -473,7 +499,6 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
         middleware: allMiddleware.length,
       },
       singletonKeys: [...this.#singletons.keys()].map((t) => String(t)),
-      requestExtensions: this[REQUEST_EXTENSIONS].map((e) => e.name),
       testMode: {
         enabled: this.#testMode,
         singletonsCompiled: this.#singletonsCompiled,
@@ -495,6 +520,65 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
   }
 
   #build(): FlareApp<TAdapter> {
+    // Run adapter build hooks first — they may defer validation and/or singleton compilation so a
+    // terminal can finalize the graph per exported instance. Runtime-specific build behavior lives
+    // on the adapter rather than as a `runtime === X` branch here.
+    const buildCtx: FlareBuildContext = { deferValidation: false, deferSingletonCompile: false };
+    for (const hook of this.#buildHooks) hook(buildCtx);
+
+    const warnings = buildCtx.deferValidation ? [] : this.#runValidationSuite();
+
+    try {
+      const compileStart = Date.now();
+      this.logger.trace("Lifecycle event", {
+        phase: "build",
+        component: "host",
+        event: "compile:start",
+      });
+      // In test mode, defer scoped + singleton compilation until app.test({ replace })
+      // has had a chance to substitute registrations (replace works on BOTH scoped
+      // and singleton services). The full validator suite re-runs at that point
+      // against the post-replacement graph.
+      if (!this.#testMode) {
+        this.#compileScoped(this.#scopedRegistrations);
+        // A build hook may defer singleton instantiation (an adapter compiles them elsewhere,
+        // e.g. per exported instance). The scoped registry and the rest of the blueprint are still
+        // compiled once here.
+        if (!buildCtx.deferSingletonCompile) {
+          this.#compileSingletons(this.#singletonRegistrations);
+          this.#singletonsCompiled = true;
+        }
+      }
+      this.http[COMPILE_HTTP_ARC]();
+      this.logger.trace("Lifecycle event", {
+        phase: "build",
+        component: "host",
+        event: "compile:ready",
+        durationMs: Date.now() - compileStart,
+      });
+    } catch (err) {
+      this.logger.fatal(err, "Host build failed during compilation.");
+      throw err;
+    }
+
+    // Emit warnings after compilation so they flow through the configured transports.
+    for (const w of warnings) {
+      this.logger.warn(`[${w.code}]: ${w.message}${w.hint ? ` ${w.hint}` : ""}`);
+    }
+
+    const app = this.#testMode
+      ? new FlareTestApp(this, this.#adapter as ConstructorParameters<typeof FlareTestApp>[1])
+      : this.#adapter.createApp(this);
+    this.#app = app;
+    return app as FlareApp<TAdapter>;
+  }
+
+  /**
+   * Builds the validation contexts from the current graph, runs the service/HTTP/config suite,
+   * throws {@link FlareValidationError} on any error, and returns the warnings (the caller emits
+   * them). Re-runnable: `[REVALIDATE]` calls it after a terminal registers its framework services.
+   */
+  #runValidationSuite(): ValidationError[] {
     const allControllers = [...this.http.conRegistrations, ...this.http.groups.flatMap((g) => g.controllers)];
     const allMiddleware = [...this.http.mwRegistrations, ...this.http.groups.flatMap((g) => g.middleware)];
 
@@ -545,63 +629,13 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
       errors: errors.length,
     });
 
-    // Throw on errors before compiling
     if (errors.length > 0) {
       this.logger.error(
         `Host build failed with ${errors.length} validation error(s) and ${warnings.length} warning(s).`,
       );
       throw new FlareValidationError(errors);
     }
-
-    // Run extension build hooks once, before compilation. They may flip flags on the build context
-    // (e.g. the durable extension defers singleton compilation) so runtime-specific build behavior
-    // lives in the extension, not as a `runtime === X` branch here.
-    const buildCtx: FlareBuildContext = { deferSingletonCompile: false };
-    for (const hook of this.#buildHooks) hook(buildCtx);
-
-    try {
-      const compileStart = Date.now();
-      this.logger.trace("Lifecycle event", {
-        phase: "build",
-        component: "host",
-        event: "compile:start",
-      });
-      // In test mode, defer scoped + singleton compilation until app.test({ replace })
-      // has had a chance to substitute registrations (replace works on BOTH scoped
-      // and singleton services). The full validator suite re-runs at that point
-      // against the post-replacement graph.
-      if (!this.#testMode) {
-        this.#compileScoped(this.#scopedRegistrations);
-        // A build hook may defer singleton instantiation (the durable extension compiles
-        // singletons per exported instance instead). The scoped registry and the rest of the
-        // blueprint are still compiled once here.
-        if (!buildCtx.deferSingletonCompile) {
-          this.#compileSingletons(this.#singletonRegistrations);
-          this.#singletonsCompiled = true;
-        }
-      }
-      this.http[COMPILE_HTTP_ARC]();
-      this.logger.trace("Lifecycle event", {
-        phase: "build",
-        component: "host",
-        event: "compile:ready",
-        durationMs: Date.now() - compileStart,
-      });
-    } catch (err) {
-      this.logger.fatal(err, "Host build failed during compilation.");
-      throw err;
-    }
-
-    // Emit warnings after compilation so they flow through the configured transports.
-    for (const w of warnings) {
-      this.logger.warn(`[${w.code}]: ${w.message}${w.hint ? ` ${w.hint}` : ""}`);
-    }
-
-    const app = this.#testMode
-      ? new FlareTestApp(this, this.#adapter as ConstructorParameters<typeof FlareTestApp>[1])
-      : this.#adapter.createApp(this);
-    this.#app = app;
-    return app as FlareApp<TAdapter>;
+    return warnings;
   }
 
   #compileConfig(): void {
@@ -713,23 +747,17 @@ export class FlareHost<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTran
     }
   }
 
-  #compileSingletons(
-    singletonRegistrations: ServiceRegistration<FlareService>[],
-    target: Map<ServiceToken<FlareService>, FlareService> = this.#singletons,
-  ): void {
+  #compileSingletons(singletonRegistrations: ServiceRegistration<FlareService>[]): void {
     if (singletonRegistrations.length === 0) return;
-    // Build a temporary registry containing only singleton factories and resolve each one into
-    // `target`. `target` defaults to the module-level `#singletons`; this allows host extensions
-    // to compile instance-level singletons into a fresh map, such as the `durable` adapter does for its 
-    // exported Durable Object instance.
+    // Build a temporary registry containing only singleton factories and resolve each one.
     const singletonRegistry = new FlareRegistrationMap();
     for (const reg of singletonRegistrations) {
       singletonRegistry.set(reg.token, reg);
     }
-    const singletonContainer = new Container(singletonRegistry, target, this.config);
+    const singletonContainer = new Container(singletonRegistry, this.#singletons, this.config);
     for (const reg of singletonRegistrations) {
       const instance = singletonContainer.resolveDep(reg.token);
-      target.set(reg.token, instance);
+      this.#singletons.set(reg.token, instance);
     }
   }
 

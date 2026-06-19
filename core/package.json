@@ -17,10 +17,7 @@
     "node": ">=22"
   },
   "type": "module",
-  "//sideEffects": "The Cloudflare adapter module self-registers its request extension at module load (a real side effect), so it is not side-effect-free. Declared here so bundlers that honor `sideEffects` keep it; everything else is side-effect-free.",
-  "sideEffects": [
-    "./dist/lib/host/runtime/cloudflare.js"
-  ],
+  "sideEffects": false,
   "files": [
     "dist",
     "flare.schema.json"

@@ -10,24 +10,37 @@ import { describe, expect, it } from "vitest";
 // Used to prove identity equality so applications can mix subpath and deep
 // imports during refactors without splitting the runtime adapter across two
 // distinct references.
-import type { FlareAppCF } from "../../../src/lib/host/runtime/cloudflare.js";
+import type { CloudflareApp } from "../../../src/lib/host/runtime/cloudflare/index.js";
 // The `@flare-ts/core/cloudflare` subpath compiles from `src/cloudflare.ts`
 // to `dist/cloudflare.js`. Within the core package we import the source
 // barrel directly — it is the exact module that the published subpath
 // resolves to (see core/package.json `"./cloudflare"` exports entry).
 import * as cloudflareSubpath from "../../../src/cloudflare.js";
-import { buildCf as buildCfFromSubpath, cf as cfFromSubpath } from "../../../src/cloudflare.js";
+import {
+  Bindings as BindingsFromSubpath,
+  buildCf as buildCfFromSubpath,
+  cf as cfFromSubpath,
+  DurableState as DurableStateFromSubpath,
+} from "../../../src/cloudflare.js";
 import { ControllerBase } from "../../../src/lib/arcs/http/composition/classes/controller-base.js";
 import { Get } from "../../../src/lib/arcs/http/routing/decorators.js";
 import { FlareHost } from "../../../src/lib/host/flare-host.js";
-import { buildCf as buildCfFromModule, cf as cfFromModule } from "../../../src/lib/host/runtime/cloudflare.js";
+import {
+  Bindings as BindingsFromModule,
+  buildCf as buildCfFromModule,
+  cf as cfFromModule,
+  DurableState as DurableStateFromModule,
+} from "../../../src/lib/host/runtime/cloudflare/index.js";
+import { makeEnv, makeExecutionContext } from "../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../helpers/cf-test-adapter.js";
 
 // Documented public surface for `@flare-ts/core/cloudflare`
-// (buildCf, buildDurableCf, cf, durableCf). Each entry is a runtime symbol that
-// the subpath barrel MUST expose.
+// (Bindings, buildCf, cf, DurableState). Each entry is a runtime symbol that
+// the subpath barrel MUST expose. (The legacy `buildDurableCf` / `durableCf`
+// symbols are gone: a Durable Object is now a terminal on the built app, not a
+// separate adapter.)
 
-const EXPECTED_RUNTIME_NAMES = ["buildCf", "buildDurableCf", "cf", "durableCf"] as const;
+const EXPECTED_RUNTIME_NAMES = ["Bindings", "buildCf", "cf", "DurableState"] as const;
 
 describe("Primary Behavior", () => {
   it(
@@ -51,11 +64,13 @@ describe("Primary Behavior", () => {
       // Identity equality: the subpath barrel re-exports the same references
       // as the underlying runtime module. Without this, code that mixes the
       // subpath import (`from "@flare-ts/core/cloudflare"`) with a deep import
-      // would end up with two distinct adapter objects and two FlareAppCF
+      // would end up with two distinct adapter objects and two CloudflareApp
       // class references — silently breaking instanceof checks and shared
       // module-scope state during refactors.
       expect(cfFromSubpath).toBe(cfFromModule);
       expect(buildCfFromSubpath).toBe(buildCfFromModule);
+      expect(BindingsFromSubpath).toBe(BindingsFromModule);
+      expect(DurableStateFromSubpath).toBe(DurableStateFromModule);
 
       // The namespace import surface is consistent with the named bindings.
       const ns = cloudflareSubpath as Record<string, unknown>;
@@ -80,7 +95,7 @@ describe("Primary Behavior", () => {
       // Both must yield the same Workers module shape and route through to the
       // controller. The runtime adapter is consumed by FlareHost.build(); the
       // host MUST be built with the CF adapter (not the testing harness) so
-      // the assertion exercises the actual `FlareAppCF.export()` surface a
+      // the assertion exercises the actual `CloudflareApp.worker()` terminal a
       // Worker entrypoint would `export default`.
 
       class ProbeController extends ControllerBase {
@@ -96,7 +111,7 @@ describe("Primary Behavior", () => {
       // (1) Built via the bare `cf` adapter (no bundled flare.json)
       const hostA = new FlareHost(cfProdAdapter({}));
       hostA.http.controller("/probe", ProbeController);
-      const moduleA = (hostA.build() as FlareAppCF).export();
+      const moduleA = (hostA.build() as CloudflareApp).worker();
 
       // The exported module shape is the Workers entrypoint contract: an
       // object with a `fetch` property that takes a Request and returns a
@@ -104,7 +119,11 @@ describe("Primary Behavior", () => {
       expect(moduleA).toBeDefined();
       expect(typeof moduleA.fetch).toBe("function");
 
-      const resA = await moduleA.fetch(new Request("https://flare.test/probe/ping"));
+      const resA = await moduleA.fetch(
+        new Request("https://flare.test/probe/ping"),
+        makeEnv(),
+        makeExecutionContext(),
+      );
       expect(resA).toBeInstanceOf(Response);
       expect(resA.status).toBe(200);
       expect(await resA.json()).toEqual({ ok: true, route: "ping" });
@@ -115,12 +134,16 @@ describe("Primary Behavior", () => {
       // module shape and route through to the controller the same way.
       const hostB = new FlareHost(cfProdAdapter({}));
       hostB.http.controller("/probe", ProbeController);
-      const moduleB = (hostB.build() as FlareAppCF).export();
+      const moduleB = (hostB.build() as CloudflareApp).worker();
 
       expect(moduleB).toBeDefined();
       expect(typeof moduleB.fetch).toBe("function");
 
-      const resB = await moduleB.fetch(new Request("https://flare.test/probe/ping"));
+      const resB = await moduleB.fetch(
+        new Request("https://flare.test/probe/ping"),
+        makeEnv(),
+        makeExecutionContext(),
+      );
       expect(resB).toBeInstanceOf(Response);
       expect(resB.status).toBe(200);
       expect(await resB.json()).toEqual({ ok: true, route: "ping" });
@@ -133,9 +156,9 @@ describe("Failure Modes", () => {
     "fails the assertion when the set of subpath exports drifts from the documented snapshot (cf or buildCf removed/renamed)",
     () => {
       // API-snapshot guard for the published subpath export list. If
-      // `cf` or `buildCf` is renamed, removed, or an unexpected symbol is
-      // added without coordinated documentation updates, this test fails —
-      // which is the drift signal the spec asks for.
+      // `cf`, `buildCf`, `Bindings`, or `DurableState` is renamed, removed, or
+      // an unexpected symbol is added without coordinated documentation
+      // updates, this test fails — which is the drift signal the spec asks for.
       const expectedNames = [...EXPECTED_RUNTIME_NAMES].sort();
 
       // Drop the synthetic ESM namespace markers so the comparison stays
@@ -153,11 +176,14 @@ describe("Failure Modes", () => {
         expect(value, `subpath export '${name}'`).toBeDefined();
       }
 
-      // Each documented symbol has the expected runtime kind.
+      // Each documented symbol has the expected runtime kind. `cf` is the
+      // adapter object; `buildCf` is its bundler function; `Bindings` and
+      // `DurableState` are the injectable framework service classes (i.e.
+      // constructors, so `typeof` is "function").
       expect(typeof (cloudflareSubpath as Record<string, unknown>)["buildCf"]).toBe("function");
-      expect(typeof (cloudflareSubpath as Record<string, unknown>)["buildDurableCf"]).toBe("function");
       expect(typeof (cloudflareSubpath as Record<string, unknown>)["cf"]).toBe("object");
-      expect(typeof (cloudflareSubpath as Record<string, unknown>)["durableCf"]).toBe("object");
+      expect(typeof (cloudflareSubpath as Record<string, unknown>)["Bindings"]).toBe("function");
+      expect(typeof (cloudflareSubpath as Record<string, unknown>)["DurableState"]).toBe("function");
     },
   );
 });

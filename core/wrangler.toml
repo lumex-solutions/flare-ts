@@ -8,6 +8,9 @@
 # node:crypto, and other Node-compatible APIs used by Flare's CF adapter.
 
 name = "flare-core-test"
+# `main` + the TEST_ROOM Durable Object binding back the real-binding DO tests
+# (tests/cloudflare/durable/do-binding.test.ts). The other cf tests build hosts in-process and ignore it.
+main = "tests/cloudflare/fixtures/durable-worker.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
@@ -26,6 +29,17 @@ compatibility_flags = ["nodejs_compat"]
 #   binding = "TEST_DB"
 #   database_id = "test-db"
 #   database_name = "test"
+
+[[durable_objects.bindings]]
+name = "TEST_ROOM"
+class_name = "TestRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TestRoom"]
+
+[vars]
+FLAG = "on"
 
 [env.test]
 # Test-only environment variables accessible via `env` in worker handlers.

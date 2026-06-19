@@ -29,33 +29,33 @@ export const INSPECT_HOST: unique symbol = Symbol("INSPECT_HOST");
 
 /**
  * @internal
- * Resolved request extensions for the host's runtime, read by the app's per-request runner.
- * Symbol-keyed so this internal plumbing stays out of the package's public type surface.
- */
-export const REQUEST_EXTENSIONS: unique symbol = Symbol("REQUEST_EXTENSIONS");
-
-/**
- * @internal
- * Registers a framework-provided service (a custom-factory service contributed by a host
- * extension, e.g. the Cloudflare `DurableState`/`Bindings` wrappers). The token participates in
- * normal build-time dependency validation; its instance is seeded by the runtime, not built from
- * the default `new Service(container)` factory. Symbol-keyed so it stays off the public surface.
+ * Registers a framework-provided service contributed by a runtime adapter's `setup`, via a custom
+ * factory. The token participates in normal build-time dependency validation; its instance is seeded
+ * by the runtime/terminal rather than built from the default `new Service(container)` factory.
+ * Symbol-keyed so it stays off the public surface.
  */
 export const PROVIDE_SERVICE: unique symbol = Symbol("PROVIDE_SERVICE");
 
 /**
  * @internal
- * Builds a fresh per-instance singleton map for a {@link DurableHostRuntimeAdapter}: framework
- * prebuilts (Logger) plus the runtime services seeded by the exported instance's constructor
- * (`DurableState`/`Bindings`), then the user singletons compiled into it. Driven by the generated
- * Durable Object class so each instance gets its own singleton graph.
+ * Re-runs the dependency/HTTP/config validation suite against the current graph. A terminal calls
+ * this after registering its framework services post-`build()`, so the now-complete graph is checked
+ * (and injecting a service only another terminal provides fails clearly).
+ */
+export const REVALIDATE: unique symbol = Symbol("REVALIDATE");
+
+/**
+ * @internal
+ * Builds a fresh singleton map seeded with the given service factories (on top of the framework
+ * prebuilts, e.g. Logger), then compiles the user singletons into it. Lets a terminal produce a
+ * singleton graph scoped to one exported instance (e.g. a Durable Object) rather than the shared one.
  */
 export const COMPILE_INSTANCE_SINGLETONS: unique symbol = Symbol("COMPILE_INSTANCE_SINGLETONS");
 
 /**
  * @internal
- * Registers a build hook run once during `build()` before compilation. Host extensions use it to
- * alter the build via the mutable `FlareBuildContext` (e.g. the `durable` extension defers
- * module-level singleton compilation) without the host branching on the runtime string.
+ * Registers a build hook run once during `build()` before compilation. A runtime adapter's `setup`
+ * uses it to alter the build via the mutable `FlareBuildContext` (e.g. defer singleton compilation),
+ * keeping runtime-specific behavior on the adapter rather than as runtime branches in the host.
  */
 export const REGISTER_BUILD_HOOK: unique symbol = Symbol("REGISTER_BUILD_HOOK");

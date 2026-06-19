@@ -79,24 +79,6 @@ importers:
         specifier: ^4.0.0
         version: 4.94.0(@cloudflare/workers-types@4.20260525.1)
 
-  examples/node:
-    dependencies:
-      '@flare-ts/core':
-        specifier: workspace:*
-        version: link:../../core
-      '@flare-ts/lib':
-        specifier: workspace:*
-        version: link:../../lib
-
-  examples/workers:
-    dependencies:
-      '@flare-ts/core':
-        specifier: workspace:*
-        version: link:../../core
-      '@flare-ts/lib':
-        specifier: workspace:*
-        version: link:../../lib
-
   lib:
     devDependencies:
       '@types/node':

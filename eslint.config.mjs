@@ -178,6 +178,9 @@ export default [
       "**/runtime/**/*node*",
       "**/runtime/**/*bun*",
       "**/runtime/**/*cloudflare*",
+      // The Cloudflare adapter is a directory (`runtime/cloudflare/**`), not a single
+      // `*cloudflare*` file — its modules are cloudflare runtime files, not shared ones.
+      "**/runtime/**/cloudflare/**",
     ],
     rules: {
       "no-restricted-imports": [
@@ -220,7 +223,7 @@ export default [
     },
   },
   {
-    files: ["**/runtime/**/*cloudflare*"],
+    files: ["**/runtime/**/*cloudflare*", "**/runtime/**/cloudflare/**"],
     rules: {
       "no-restricted-imports": [
         "error",

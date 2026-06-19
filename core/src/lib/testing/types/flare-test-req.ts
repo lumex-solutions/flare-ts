@@ -11,11 +11,6 @@ export interface FlareTestReq {
   body?: unknown;
   headers?: Record<string, string>;
   signal?: AbortSignal;
-  /**
-   * Per-request input passed to registered request extensions as their `input` argument. For the
-   * Cloudflare adapters this is `{ env, durableState }`, populating `ctx.req.runtime` in unit tests.
-   */
-  runtimeInput?: unknown;
 }
 
 /**

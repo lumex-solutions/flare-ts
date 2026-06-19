@@ -1,6 +1,5 @@
 import type { HttpArc } from "../arcs/http/http-arc.js";
 import type { ResponseLike } from "../arcs/http/transport/types/response.js";
-import type { FlareRequestExtension } from "../host/composition/extensions.js";
 import type { AppTestOptions } from "../host/flare-app.js";
 import type { IFlareHost } from "../host/flare-host.js";
 import type { HostRuntimeAdapter } from "../host/types/adapter.js";
@@ -12,7 +11,7 @@ import type { FlareTestReq } from "./types/flare-test-req.js";
 import { DRAIN_SET_COOKIES, FlareHttpContext } from "../arcs/http/transport/flare-http-context.js";
 import { FlareResponse } from "../arcs/http/transport/flare-response.js";
 import { FlareAppBase, type IFlareApp } from "../host/flare-app.js";
-import { COMPILE_FOR_TEST, REQUEST_EXTENSIONS, RESET_FOR_TEST, SET_HOST_STATE } from "../host/types/const.js";
+import { COMPILE_FOR_TEST, RESET_FOR_TEST, SET_HOST_STATE } from "../host/types/const.js";
 import { FlareTestError } from "./error.js";
 
 type HostedApp = IFlareApp & { http: HttpArc; };
@@ -41,19 +40,16 @@ export class TestAppHandle {
   #app: HostedApp;
   #adapter: AnyAdapter;
   #resetFn: ResetFn;
-  #requestExtensions: readonly FlareRequestExtension[];
   #seq = 0;
 
   constructor(
     app: HostedApp,
     adapter: AnyAdapter,
     resetFn: ResetFn,
-    requestExtensions: readonly FlareRequestExtension[] = [],
   ) {
     this.#app = app;
     this.#adapter = adapter;
     this.#resetFn = resetFn;
-    this.#requestExtensions = requestExtensions;
   }
 
   /**
@@ -100,12 +96,6 @@ export class TestAppHandle {
       requestId: `test-${++this.#seq}`,
       ...(init?.signal ? { signal: init.signal } : {}),
     });
-
-    // Run request extensions (e.g. the Cloudflare runtime bag), injecting `runtimeInput` so unit
-    // tests can populate `ctx.req.runtime`. Mirrors the runtime app paths' applyRequestExtensions.
-    for (let i = 0; i < this.#requestExtensions.length; i++) {
-      this.#requestExtensions[i]!.onRequest(flareReq, init?.runtimeInput);
-    }
 
     const ctx = new FlareHttpContext(flareReq);
 
@@ -236,7 +226,6 @@ export class FlareTestApp extends FlareAppBase {
       this as unknown as HostedApp,
       this.#adapter,
       (resetOpts) => this.#reset(resetOpts),
-      this.host[REQUEST_EXTENSIONS],
     );
   }
 
