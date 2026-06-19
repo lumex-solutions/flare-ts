@@ -110,14 +110,14 @@ function buildSharedHost() {
   host.scoped(StructuralCloneService);
 
   // Routes that surface resolved config to the test via JSON responses. The
-  // inline handler shape is `(ctx, scope) => ...`; `scope.inject` and
+  // inline handler shape is `(ctx, scope) => ...`; the named scope deps and
   // `scope.config` are guarded by the route's `inject` declaration the same
   // way `static deps` / `static config` guard a class-based handler.
   host.http.get(
     "/db",
-    { inject: [DbService] },
+    { inject: { db: DbService } },
     (_ctx, scope) => {
-      const svc = scope.inject(DbService);
+      const svc = scope.db;
       return svc.getDb();
     },
   );
@@ -131,10 +131,10 @@ function buildSharedHost() {
   // message as the response body for assertion.
   host.http.get(
     "/clone",
-    { inject: [StructuralCloneService] },
+    { inject: { structuralClone: StructuralCloneService } },
     (_ctx, scope) => {
       try {
-        const svc = scope.inject(StructuralCloneService);
+        const svc = scope.structuralClone;
         return { ok: true, value: svc.callWithClone() };
       } catch (err) {
         return { ok: false, message: err instanceof Error ? err.message : String(err) };

@@ -90,9 +90,9 @@ function buildHostWithSingleton(): FlareHost<typeof node> {
   host.singleton(OriginalService);
   host.http.get(
     "/value",
-    { inject: [OriginalService] },
-    (_ctx, { inject }) => {
-      const svc = inject(OriginalService) as unknown as OriginalService;
+    { inject: { originalService: OriginalService } },
+    (_ctx, scope) => {
+      const svc = scope.originalService as unknown as OriginalService;
       return new FlareResponse(200, { value: svc.value() });
     },
   );
@@ -152,10 +152,10 @@ describe("Primary Behavior", () => {
       host.scoped(ScopedOriginal);
       host.http.get(
         "/both",
-        { inject: [OriginalService, ScopedOriginal] },
-        (_ctx, { inject }) => {
-          const singleton = inject(OriginalService) as unknown as OriginalService;
-          const scoped = inject(ScopedOriginal) as unknown as ScopedOriginal;
+        { inject: { originalService: OriginalService, scopedOriginal: ScopedOriginal } },
+        (_ctx, scope) => {
+          const singleton = scope.originalService as unknown as OriginalService;
+          const scoped = scope.scopedOriginal as unknown as ScopedOriginal;
           return new FlareResponse(200, {
             singleton: singleton.value(),
             scoped: scoped.value(),
@@ -267,9 +267,9 @@ describe("Edge Cases", () => {
       host.scoped(ScopedOriginal);
       host.http.get(
         "/scoped",
-        { inject: [ScopedOriginal] },
-        (_ctx, { inject }) => {
-          const svc = inject(ScopedOriginal) as unknown as ScopedOriginal;
+        { inject: { scopedOriginal: ScopedOriginal } },
+        (_ctx, scope) => {
+          const svc = scope.scopedOriginal as unknown as ScopedOriginal;
           seen.push(svc);
           return new FlareResponse(200, { value: svc.value() });
         },
@@ -355,9 +355,9 @@ describe("Edge Cases", () => {
       host.scoped(ScopedOriginal);
       host.http.get(
         "/scoped-only",
-        { inject: [ScopedOriginal] },
-        (_ctx, { inject }) => {
-          const svc = inject(ScopedOriginal) as unknown as ScopedOriginal;
+        { inject: { scopedOriginal: ScopedOriginal } },
+        (_ctx, scope) => {
+          const svc = scope.scopedOriginal as unknown as ScopedOriginal;
           return new FlareResponse(200, { value: svc.value() });
         },
       );

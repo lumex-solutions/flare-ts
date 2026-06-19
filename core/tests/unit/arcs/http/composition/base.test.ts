@@ -144,18 +144,18 @@ describe("HttpBase.before / after / finally (synthetic middleware)", () => {
     const depToken = class FakeDep {} as unknown as MiddlewareClass["deps"][number];
     const stateToken = { name: "S" } as MiddlewareClass["state"][number];
     const providesToken = { name: "P" } as NonNullable<MiddlewareClass["provides"]>[number];
-    const depsIn = [depToken];
+    const injectIn = { dep: depToken } as unknown as Record<string, MiddlewareClass["deps"][number]>;
     const stateIn = [stateToken];
     const providesIn = [providesToken];
 
     base.after(
-      { inject: depsIn, state: stateIn, provides: providesIn },
+      { inject: injectIn, state: stateIn, provides: providesIn },
       () => undefined,
     );
 
     const cls = base.mwRegistrations[0]!.cls;
     expect(cls.deps).toEqual([depToken]);
-    expect(cls.deps).not.toBe(depsIn);
+    expect(cls.deps as unknown).not.toBe(injectIn);
     expect(cls.state).toEqual([stateToken]);
     expect(cls.state).not.toBe(stateIn);
     expect(cls.provides).toEqual([providesToken]);
@@ -342,10 +342,10 @@ describe("HttpBase.get / post / put / patch / delete / head / options (synthetic
     const stateA = { name: "SA" } as ControllerClass["state"][number];
     const stateB = { name: "SB" } as ControllerClass["state"][number];
 
-    base.get("/r", { inject: [depA], state: [stateA] }, () => null);
+    base.get("/r", { inject: { a: depA }, state: [stateA] }, () => null);
     base.post(
       "/r",
-      { inject: [depA, depB], state: [stateA, stateB] },
+      { inject: { a: depA, b: depB }, state: [stateA, stateB] },
       () => null,
     );
 
@@ -406,7 +406,7 @@ describe("HttpBase.error", () => {
   it("Function form: pushes registration with deps from options.inject and name from options.name", () => {
     const depToken = (class FakeDep {}) as unknown as NonNullable<ErrorHandlerClass["deps"]>[number];
 
-    base.error({ inject: [depToken], name: "MyErrHandler" }, () => undefined);
+    base.error({ inject: { dep: depToken }, name: "MyErrHandler" }, () => undefined);
 
     expect(base.errorHandlers).toHaveLength(1);
     const reg = base.errorHandlers[0]!;

@@ -384,6 +384,89 @@ describe("Edge Cases", () => {
     }
   });
 
+  it("resolves scope deps lazily and per-key, memoizing each", async () => {
+    process.env["FLARE_MODE"] = "test";
+    const built: string[] = [];
+
+    class A extends FlareService {
+      public static override deps = [];
+      constructor(c: ConstructorParameters<typeof FlareService>[0]) { super(c); built.push("A"); }
+      public v() { return "a"; }
+    }
+    class B extends FlareService {
+      public static override deps = [];
+      constructor(c: ConstructorParameters<typeof FlareService>[0]) { super(c); built.push("B"); }
+      public v() { return "b"; }
+    }
+
+    const host = new FlareHost(node);
+    host.scoped(A);
+    host.scoped(B);
+    host.http.get("/lazy", { inject: { a: A, b: B } }, (_ctx, scope) =>
+      new FlareResponse(200, { a1: scope.a.v(), a2: scope.a.v() }));
+
+    const app = await host.build().test();
+    try {
+      built.length = 0;
+      const res = await app.fetch("GET /lazy");
+      expect(res.status).toBe(200);
+      expect(built).toEqual(["A"]); // B never resolved; A resolved once
+    } finally {
+      await app.stop();
+    }
+  });
+
+  it("gives each HTTP method on a shared path its own scope deps (no cross-method leak)", async () => {
+    process.env["FLARE_MODE"] = "test";
+    class GetSvc extends FlareService { public static override deps = []; public tag() { return "GET"; } }
+    class PostSvc extends FlareService { public static override deps = []; public tag() { return "POST"; } }
+
+    const host = new FlareHost(node);
+    host.scoped(GetSvc);
+    host.scoped(PostSvc);
+    host.http.get("/iso", { inject: { svc: GetSvc } }, (_ctx, scope) =>
+      new FlareResponse(200, { tag: scope.svc.tag() }));
+    host.http.post("/iso", { inject: { svc: PostSvc } }, (_ctx, scope) =>
+      new FlareResponse(200, { tag: scope.svc.tag() }));
+
+    const app = await host.build().test();
+    try {
+      expect(await (await app.fetch("GET /iso")).json()).toEqual({ tag: "GET" });
+      expect(await (await app.fetch("POST /iso")).json()).toEqual({ tag: "POST" });
+    } finally {
+      await app.stop();
+    }
+  });
+
+  it("supports destructuring scope deps in the handler param", async () => {
+    process.env["FLARE_MODE"] = "test";
+    class Svc extends FlareService { public static override deps = []; public v() { return 7; } }
+    const host = new FlareHost(node);
+    host.scoped(Svc);
+    host.http.get("/destructure", { inject: { svc: Svc } }, (_ctx, { svc }) =>
+      new FlareResponse(200, { v: svc.v() }));
+    const app = await host.build().test();
+    try {
+      expect(await (await app.fetch("GET /destructure")).json()).toEqual({ v: 7 });
+    } finally {
+      await app.stop();
+    }
+  });
+
+  it("throws at registration when an inject key is the reserved 'config'", () => {
+    process.env["FLARE_MODE"] = "test";
+    class Svc extends FlareService { public static override deps = []; }
+    const host = new FlareHost(node);
+    host.scoped(Svc);
+    expect(() =>
+      host.http.get(
+        "/reserved",
+        { inject: { config: Svc } as unknown as { svc: typeof Svc; } },
+        () => new FlareResponse(200, {}),
+      )
+    ).toThrow('inject key "config" is reserved on the handler scope.');
+  });
+
   it("tags an async function handler passed to app.before(fn) with _asyncHook so the pipeline can emit the async slot variant", async () => {
     process.env["FLARE_MODE"] = "test";
     const host = new FlareHost(node);

@@ -244,8 +244,8 @@ describe("Edge Cases", () => {
 
       // Function handler with `inject` option: the dispatcher must hand the
       // service to the handler via the `scope` argument.
-      host.http.error({ inject: [TagService] }, (_err, _ctx, scope) => {
-        const svc = scope.inject(TagService);
+      host.http.error({ inject: { tagService: TagService } }, (_err, _ctx, scope) => {
+        const svc = scope.tagService;
         return new FlareResponse(500, { tag: svc.tag() });
       });
 
@@ -260,7 +260,7 @@ describe("Edge Cases", () => {
       await app.stop();
     });
 
-    it("receives declared services via the scope.inject(token) accessor", async () => {
+    it("receives declared services via the named scope.<key> accessor", async () => {
       const res = await app.fetch("GET /needs-tag");
       expect(res.status).toBe(500);
       const body = (await res.json()) as Record<string, unknown>;

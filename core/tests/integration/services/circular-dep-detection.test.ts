@@ -148,30 +148,30 @@ function buildScopedHost() {
 
   host.http.get(
     "/cycle/mutual",
-    { inject: [MutualA] },
-    (_ctx, { inject }) => {
+    { inject: { mutualA: MutualA } },
+    (_ctx, scope) => {
       // Triggers MutualA's factory; its field initializer asks for MutualB;
       // MutualB's field initializer asks for MutualA again -> circular.
-      inject(MutualA);
+      void scope.mutualA;
       return new Response("unreachable");
     },
   );
 
   host.http.get(
     "/cycle/three",
-    { inject: [CycleA] },
-    (_ctx, { inject }) => {
-      inject(CycleA);
+    { inject: { cycleA: CycleA } },
+    (_ctx, scope) => {
+      void scope.cycleA;
       return new Response("unreachable");
     },
   );
 
   host.http.get(
     "/diamond",
-    { inject: [DiamondA, DiamondB] },
-    (_ctx, { inject }) => {
-      const a = inject(DiamondA);
-      const b = inject(DiamondB);
+    { inject: { diamondA: DiamondA, diamondB: DiamondB } },
+    (_ctx, scope) => {
+      const a = scope.diamondA;
+      const b = scope.diamondB;
       // Both should be live and share the same DiamondShared instance.
       const sharedSame = a.shared === b.shared;
       return new Response(
@@ -183,18 +183,18 @@ function buildScopedHost() {
 
   host.http.get(
     "/cycle/self",
-    { inject: [SelfCycle] },
-    (_ctx, { inject }) => {
-      inject(SelfCycle);
+    { inject: { selfCycle: SelfCycle } },
+    (_ctx, scope) => {
+      void scope.selfCycle;
       return new Response("unreachable");
     },
   );
 
   host.http.get(
     "/recovery",
-    { inject: [RecoveryService] },
-    (_ctx, { inject }) => {
-      const svc = inject(RecoveryService);
+    { inject: { recoveryService: RecoveryService } },
+    (_ctx, scope) => {
+      const svc = scope.recoveryService;
       return new Response(
         JSON.stringify({ id: svc.id }),
         { status: 200, headers: { "content-type": "application/json" } },
