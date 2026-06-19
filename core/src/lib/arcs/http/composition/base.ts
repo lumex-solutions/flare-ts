@@ -282,11 +282,15 @@ export abstract class HttpBase {
       static override deps = deps;
 
       override handle(err: FlareError | Error, context: HttpErrorContext) {
-        return handler(err, context, attachScopeDeps(
-          { config: (token) => this.config(token) },
-          ownInject,
-          (token) => this.inject(token),
-        ));
+        return handler(
+          err,
+          context,
+          attachScopeDeps(
+            { config: (token) => this.config(token) },
+            ownInject,
+            (token) => this.inject(token),
+          ),
+        );
       }
     };
     Object.defineProperty(BuiltErrorHandler, "name", { value: name });
@@ -327,11 +331,14 @@ export abstract class HttpBase {
           // Inline handlers have no static config declaration site, so route
           // config resolution directly through the container instead of
           // this.config(), whose guardrail would always throw here.
-          return fn(this.ctx, attachScopeDeps(
-            { config: (token) => this.container.resolveCfg(token) },
-            ownInject,
-            (token) => this.inject(token),
-          ));
+          return fn(
+            this.ctx,
+            attachScopeDeps(
+              { config: (token) => this.container.resolveCfg(token) },
+              ownInject,
+              (token) => this.inject(token),
+            ),
+          );
         },
         writable: true,
         configurable: true,
@@ -369,11 +376,14 @@ export abstract class HttpBase {
         // Inline handlers have no static config declaration site, so route
         // config resolution directly through the container instead of
         // this.config(), whose guardrail would always throw here.
-        return fn(this.ctx, attachScopeDeps(
-          { config: (token) => this.container.resolveCfg(token) },
-          ownInject,
-          (token) => this.inject(token),
-        ));
+        return fn(
+          this.ctx,
+          attachScopeDeps(
+            { config: (token) => this.container.resolveCfg(token) },
+            ownInject,
+            (token) => this.inject(token),
+          ),
+        );
       }
     };
     Object.defineProperty(SyntheticController, "name", { value: name });
@@ -423,11 +433,14 @@ export abstract class HttpBase {
         static override state = state;
 
         override before() {
-          return (handler as BeforeMiddlewareHandler)(this.ctx, attachScopeDeps(
-            { config: (token) => this.config(token) },
-            ownInject,
-            (token) => this.inject(token),
-          ));
+          return (handler as BeforeMiddlewareHandler)(
+            this.ctx,
+            attachScopeDeps(
+              { config: (token) => this.config(token) },
+              ownInject,
+              (token) => this.inject(token),
+            ),
+          );
         }
       };
       if (callbackIsAsync) (BuiltMiddleware as { _asyncHook?: boolean; })._asyncHook = true;
@@ -441,11 +454,15 @@ export abstract class HttpBase {
         static override state = state;
 
         override after(result: HandlerResult) {
-          return (handler as AfterMiddlewareHandler)(this.ctx, result, attachScopeDeps(
-            { config: (token) => this.config(token) },
-            ownInject,
-            (token) => this.inject(token),
-          ));
+          return (handler as AfterMiddlewareHandler)(
+            this.ctx,
+            result,
+            attachScopeDeps(
+              { config: (token) => this.config(token) },
+              ownInject,
+              (token) => this.inject(token),
+            ),
+          );
         }
       };
       if (callbackIsAsync) (BuiltMiddleware as { _asyncHook?: boolean; })._asyncHook = true;
@@ -458,11 +475,15 @@ export abstract class HttpBase {
       static override state = state;
 
       override finally(result: HandlerResult) {
-        return (handler as FinallyMiddlewareHandler)(this.ctx, result, attachScopeDeps(
-          { config: (token) => this.config(token) },
-          ownInject,
-          (token) => this.inject(token),
-        ));
+        return (handler as FinallyMiddlewareHandler)(
+          this.ctx,
+          result,
+          attachScopeDeps(
+            { config: (token) => this.config(token) },
+            ownInject,
+            (token) => this.inject(token),
+          ),
+        );
       }
     };
     if (callbackIsAsync) (BuiltMiddleware as { _asyncHook?: boolean; })._asyncHook = true;
