@@ -16,6 +16,8 @@ import type { LoggerTransportClass } from "../../../src/lib/logger/types.js";
 import type { Container } from "../../../src/lib/services/container.js";
 import type { FlareTestRequestInput } from "../../../src/lib/testing/types/flare-test-req.js";
 import { FlareResponse } from "../../../src/lib/arcs/http/transport/flare-response.js";
+import type { SingletonExtension } from "../../../src/lib/host/extensions/singleton.js";
+import { singletonExtension } from "../../../src/lib/host/extensions/singleton.js";
 import { FlareHost } from "../../../src/lib/host/flare-host.js";
 import { node, FlareAppNode } from "../../../src/lib/host/runtime/node.js";
 import { FlareService } from "../../../src/lib/services/composition/flare-service.js";
@@ -42,7 +44,7 @@ type CustomAdapterInit = {
 
 function makeCustomAdapter(
   init: CustomAdapterInit = {},
-): HostRuntimeAdapter<IFlareApp, LoggerTransportClass, "async"> {
+): HostRuntimeAdapter<IFlareApp, LoggerTransportClass, "async", SingletonExtension> {
   const flareJson = init.flareJson ?? { host: { env: "test" }, log: { level: "fatal", format: "json" } };
   const baseEnv = init.env ?? {};
   // Wrap env in a Proxy so we can observe every key the host looks up. The
@@ -81,6 +83,7 @@ function makeCustomAdapter(
     createApp: init.createApp ?? ((host) => node.createApp(host)),
     createLogger: init.createLogger ?? ((transports, container) => node.createLogger(transports, container)),
     createTestRequest: init.createTestRequest ?? ((input) => node.createTestRequest(input)),
+    extendHost: (host) => singletonExtension(host),
   };
 }
 

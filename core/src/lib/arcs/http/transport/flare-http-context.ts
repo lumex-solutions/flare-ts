@@ -1,3 +1,5 @@
+import type { FlareService } from "../../../services/composition/flare-service.js";
+import type { ServiceToken } from "../../../services/types/types.js";
 import type { RequestDescriptor } from "../composition/contract/flare-contract.js";
 import type { FlareReadonly } from "../state/types/readonly.js";
 import type { StateToken, TypedStateToken } from "../state/types/state-token.js";
@@ -14,6 +16,27 @@ export const SET_REQ_CTX: unique symbol = Symbol("SET_REQ_CTX");
 export const SET_PARSED_BODY: unique symbol = Symbol("SET_PARSED_BODY");
 /** @internal */
 export const DRAIN_SET_COOKIES: unique symbol = Symbol("DRAIN_SET_COOKIES");
+/** @internal */
+export const INSTANCE_SINGLETONS: unique symbol = Symbol("INSTANCE_SINGLETONS");
+/**
+ * Neutral internal accessor: returns the RAW stored value for a token directly from the
+ * underlying state map, WITHOUT going through `#resolve` (so no `.withDefault()`/`.from()`
+ * derivation fires and nothing is written back). Returns `undefined` for any token the
+ * request never explicitly set. No DO/CF semantics; a generic peek used by host extensions
+ * that need only-explicitly-present state.
+ *
+ * @internal
+ */
+export const PEEK_STATE: unique symbol = Symbol("flare.peekState");
+/**
+ * Signals that the pipeline entered the error branch. Set by the exec-codegen error
+ * dispatch path on any before/handler/after/finally error exit. Consumers may use
+ * this flag to suppress error-path side effects (for example, skipping outbound
+ * encodings that should only run on the success path).
+ *
+ * @internal
+ */
+export const HANDLER_ERRORED: unique symbol = Symbol("flare.handlerErrored");
 
 interface RequestState {
   set: <T>(token: TypedStateToken<T>, value: T) => void;
@@ -48,6 +71,22 @@ export type CookieOptions =
  */
 export class FlareHttpContext {
   readonly req: FlareRequest;
+
+  /**
+   * @internal Per-invocation singleton map, set by a runtime or host extension so the http arc
+   * resolves a specific exported instance's own singletons. Undefined by default, in which case the
+   * module-level singletons are used.
+   */
+  [INSTANCE_SINGLETONS]?: ReadonlyMap<ServiceToken<FlareService>, FlareService>;
+
+  /**
+   * @internal
+   * Returns the RAW stored value for a token (only-explicitly-present), bypassing `#resolve`
+   * so no default/derivation is fired or written back. See {@link PEEK_STATE}.
+   */
+  [PEEK_STATE]<T>(token: TypedStateToken<T>): FlareReadonly<T> | undefined {
+    return this.#stateMap?.get(token);
+  }
 
   #stateMap: StateMap | undefined;
   #state: RequestState | undefined;

@@ -449,9 +449,11 @@ function buildHost() {
   // handler below.
   host.http.get(
     "/unregistered",
-    { inject: [TriggerUnregistered] },
+    { inject: { triggerUnregistered: TriggerUnregistered } },
     (_ctx, scope) => {
-      scope.inject(TriggerUnregistered);
+      // Accessing the named getter triggers resolution of the service whose
+      // factory reaches an unregistered token.
+      void scope.triggerUnregistered;
       return { status: 500, body: "unreachable" };
     },
   );

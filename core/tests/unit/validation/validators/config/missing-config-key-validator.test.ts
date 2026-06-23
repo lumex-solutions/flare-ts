@@ -101,7 +101,10 @@ describe("MissingConfigKeyValidator.validate", () => {
     const SCHEMA_BRAND = Symbol.for("@flare-ts/schema/brand");
     const SCHEMA_REQUIRED = Symbol.for("@flare-ts/schema/required");
     const token = makeToken("log", ["transports"]);
-    token.descriptor!.transports = { [SCHEMA_BRAND]: true, [SCHEMA_REQUIRED]: false };
+    (token.descriptor! as unknown as Record<string, unknown>).transports = {
+      [SCHEMA_BRAND]: true,
+      [SCHEMA_REQUIRED]: false,
+    };
     const validator = new MissingConfigKeyValidator();
 
     const errors = validator.validate(

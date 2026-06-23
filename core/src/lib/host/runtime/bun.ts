@@ -1,15 +1,18 @@
 // eslint-disable-next-line no-restricted-imports
 import { readFileSync } from "node:fs";
 import type { HostRuntimeAdapter } from "../types/adapter";
+import type { LoggerTransportClass } from "../../logger/types";
+import type { SingletonExtension } from "../extensions/singleton";
 import { Logger } from "../../logger/logger";
 import { ConsoleTransport } from "../../logger/transports/console";
+import { singletonExtension } from "../extensions/singleton";
 
 /**
  * Placeholder Bun runtime adapter. Reads `flare.json` and exposes `process.env`, but
  * `createApp` and `createTestRequest` throw because the Bun runtime is not yet supported.
  */
 // TODO: replace `any` with the concrete FlareAppBun class once the Bun runtime is implemented.
-export const bun: HostRuntimeAdapter<any> = {
+export const bun: HostRuntimeAdapter<any, LoggerTransportClass, "async", SingletonExtension> = {
   runtime: "bun",
   lifecycle: "async",
   get flareJsonFile() {
@@ -26,5 +29,8 @@ export const bun: HostRuntimeAdapter<any> = {
   },
   createTestRequest() {
     throw new Error("Bun runtime is not yet supported");
+  },
+  extendHost(host) {
+    return singletonExtension(host);
   },
 };

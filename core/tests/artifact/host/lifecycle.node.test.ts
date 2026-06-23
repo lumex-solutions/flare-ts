@@ -7,9 +7,12 @@ process.env["FLARE_MODE"] = "test";
 
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
+import type { SingletonExtension } from "../../../src/lib/host/extensions/singleton.js";
 import type { HostRuntimeAdapter } from "../../../src/lib/host/types/adapter.js";
 import type { LogRecord } from "../../../src/lib/logger/types.js";
+import type { LoggerTransportClass } from "../../../src/lib/logger/types.js";
 import { FlareHost, FlareResponse } from "../../../src/index.js";
+import { singletonExtension } from "../../../src/lib/host/extensions/singleton.js";
 import { FlareAppBase } from "../../../src/lib/host/flare-app.js";
 import { node } from "../../../src/lib/host/runtime/node.js";
 import { Logger } from "../../../src/lib/logger/logger.js";
@@ -48,7 +51,7 @@ class SilentTransport extends LoggerTransport {
  * a flare.json on disk) and an empty env so FlareHost construction does not
  * accidentally enter test mode based on process.env.
  */
-function buildAsyncAdapter(): HostRuntimeAdapter<FlareAppBase> {
+function buildAsyncAdapter(): HostRuntimeAdapter<FlareAppBase, LoggerTransportClass, "async", SingletonExtension> {
   return {
     runtime: "node",
     lifecycle: "async",
@@ -69,6 +72,9 @@ function buildAsyncAdapter(): HostRuntimeAdapter<FlareAppBase> {
     },
     createTestRequest() {
       throw new Error("not used by these tests");
+    },
+    extendHost(host) {
+      return singletonExtension(host);
     },
   };
 }
@@ -181,7 +187,7 @@ describe("Primary Behavior", () => {
         }
       }
 
-      const adapter: HostRuntimeAdapter<FlareAppBase> = {
+      const adapter: HostRuntimeAdapter<FlareAppBase, LoggerTransportClass, "async", SingletonExtension> = {
         runtime: "node",
         lifecycle: "async",
         get flareJsonFile(): JsonObject {
@@ -197,6 +203,9 @@ describe("Primary Behavior", () => {
         },
         createTestRequest() {
           throw new Error("not used");
+        },
+        extendHost(host) {
+          return singletonExtension(host);
         },
       };
 
@@ -704,7 +713,7 @@ describe("Cross-Feature Interactions", () => {
           }
         }
 
-        const adapter: HostRuntimeAdapter<FlareAppBase> = {
+        const adapter: HostRuntimeAdapter<FlareAppBase, LoggerTransportClass, "async", SingletonExtension> = {
           runtime: "node",
           lifecycle: "async",
           get flareJsonFile(): JsonObject {
@@ -720,6 +729,9 @@ describe("Cross-Feature Interactions", () => {
           },
           createTestRequest(input) {
             return node.createTestRequest(input);
+          },
+          extendHost(host) {
+            return singletonExtension(host);
           },
         };
 

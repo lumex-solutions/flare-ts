@@ -4,7 +4,9 @@ import type { AddressInfo } from "node:net";
 import { once } from "node:events";
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib/schema";
+import type { SingletonExtension } from "../../../src/lib/host/extensions/singleton.js";
 import type { HostRuntimeAdapter } from "../../../src/lib/host/types/adapter.js";
+import type { LoggerTransportClass } from "../../../src/lib/logger/types.js";
 import { HOST_CONFIG } from "../../../src/lib/config/flare-config.js";
 import { FlareHost } from "../../../src/lib/host/flare-host.js";
 import { node } from "../../../src/lib/host/runtime/node.js";
@@ -14,7 +16,7 @@ import { registerMinimalPingRoute } from "../../helpers/host-fixtures.js";
 function nodeAdapter(
   flareJson: JsonObject,
   env: Record<string, string | undefined> = { FLARE_MODE: "test" },
-): HostRuntimeAdapter<ReturnType<typeof node.createApp>> {
+): HostRuntimeAdapter<ReturnType<typeof node.createApp>, LoggerTransportClass, "async", SingletonExtension> {
   return {
     runtime: node.runtime,
     lifecycle: node.lifecycle,
@@ -23,6 +25,7 @@ function nodeAdapter(
     createApp: node.createApp.bind(node),
     createLogger: node.createLogger.bind(node),
     createTestRequest: node.createTestRequest.bind(node),
+    extendHost: node.extendHost!.bind(node),
     get flareJsonFile(): JsonObject {
       return flareJson;
     },

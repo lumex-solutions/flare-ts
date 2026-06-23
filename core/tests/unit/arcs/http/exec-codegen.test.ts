@@ -423,10 +423,10 @@ describe("compileExecFn", () => {
       after: async (r) => new FlareResponse(202, { prev: (r as FlareResponse).status }),
     });
     const after1R = mwReg(after1, {
-      after: (r) => new FlareResponse(201, { prev: (r as FlareResponse).status }),
+      after: (r: unknown) => new FlareResponse(201, { prev: (r as FlareResponse).status }),
     });
     const after2R = mwReg(after2, {
-      after: async (r) => new FlareResponse(202, { prev: (r as FlareResponse).status }),
+      after: async (r: unknown) => new FlareResponse(202, { prev: (r as FlareResponse).status }),
     });
 
     const pipeline = buildPipeline({

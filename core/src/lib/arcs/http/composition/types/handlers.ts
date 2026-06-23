@@ -9,32 +9,47 @@ import type { FlareHttpContext } from "../../transport/flare-http-context.js";
 import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../../transport/types/response.js";
 import type { RequestDescriptor } from "../contract/flare-contract.js";
 
-/** Per-request DI and config surface passed as the second argument to route and middleware handlers. */
-export type FlareHandlerScope = {
-  inject<T extends FlareService>(token: ServiceToken<T>): Injected<T>;
-  config<T>(token: ConfigToken<T>): T;
+/**
+ * Resolved-instance map derived from a declared `inject` token map.
+ *
+ * The reserved `config` key (carried as an optional `never` on {@link InjectMap}) is excluded so it
+ * never collides with the scope's `config` accessor.
+ */
+export type InjectedMap<D extends Record<string, ServiceToken<FlareService>>> = {
+  [K in keyof D as K extends "config" ? never : K]: D[K] extends ServiceToken<infer T> ? Injected<T> : never;
 };
 
-/** Registration options for {@link HttpArc.route} and controller routes. */
-export type RouteOptions = {
-  inject?: readonly ServiceToken<FlareService>[];
+/** `inject` declaration map. `config` is reserved (it is the scope's config accessor). */
+export type InjectMap = Record<string, ServiceToken<FlareService>> & { config?: never; };
+
+/** The scope's reserved `config` accessor: resolves a {@link ConfigToken} to its value. */
+export type ScopeConfig = <T>(token: ConfigToken<T>) => T;
+
+/** Per-request DI and config surface. Declared deps appear by name; `config` resolves config tokens. */
+export type FlareHandlerScope<D extends Record<string, ServiceToken<FlareService>> = {}> =
+  & { config: ScopeConfig; }
+  & InjectedMap<D>;
+
+/** Registration options for function routes. */
+export type RouteOptions<D extends InjectMap = InjectMap> = {
+  inject?: D;
   state?: readonly StateToken[];
   contract?: RequestDescriptor;
   isolated?: boolean;
   name?: string;
 };
 
-/** Registration options for {@link HttpArc.before}, {@link HttpArc.after}, and {@link HttpArc.finally}. */
-export type MiddlewareOptions = {
-  inject?: readonly ServiceToken<FlareService>[];
+/** Registration options for `before`/`after`/`finally`. */
+export type MiddlewareOptions<D extends InjectMap = InjectMap> = {
+  inject?: D;
   state?: readonly StateToken[];
   provides?: readonly StateToken[];
   name?: string;
 };
 
-/** Registration options for {@link HttpArc.error}. */
-export type ErrorHandlerOptions = {
-  inject?: readonly ServiceToken<FlareService>[];
+/** Registration options for `error`. */
+export type ErrorHandlerOptions<D extends InjectMap = InjectMap> = {
+  inject?: D;
   name?: string;
 };
 

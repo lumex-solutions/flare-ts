@@ -37,9 +37,17 @@ export function compileHttp(
   globalErrorHandlers: ErrorHandlerRegistration[] = [],
   groups: GroupRegistration[] = [],
   arcCorsConfig?: CorsConfig,
+  providedAtEntry: readonly StateToken[] = [],
 ): { middleware: FlareHttpFactory<MiddlewareBase>[]; pipelines: Pipeline[]; router: FlareRouter; execFns: ExecFn[]; } {
   const middleware = compileMiddleware(mwRegistrations);
-  const pipelines = compilePipelines(ctrlRegistrations, mwRegistrations, globalErrorHandlers, groups, arcCorsConfig);
+  const pipelines = compilePipelines(
+    ctrlRegistrations,
+    mwRegistrations,
+    globalErrorHandlers,
+    groups,
+    arcCorsConfig,
+    providedAtEntry,
+  );
 
   pipelines.sort((a, b) => b.flareRoute.score - a.flareRoute.score);
 
@@ -67,12 +75,17 @@ function compilePipelines(
   globalErrorHandlers: ErrorHandlerRegistration[],
   groups: GroupRegistration[],
   arcCorsConfig?: CorsConfig,
+  providedAtEntry: readonly StateToken[] = [],
 ): Pipeline[] {
   const pipelines: Pipeline[] = [];
 
   for (let i = 0; i < controllers.length; i++) {
     const registration = controllers[i]!;
-    const { beforeFactoryIdxs, afterFactoryIdxs, finallyFactoryIdxs } = getMiddlewareIdxs(registration, middleware);
+    const { beforeFactoryIdxs, afterFactoryIdxs, finallyFactoryIdxs } = getMiddlewareIdxs(
+      registration,
+      middleware,
+      providedAtEntry,
+    );
     const execCount = beforeFactoryIdxs.length + 1 + afterFactoryIdxs.length + finallyFactoryIdxs.length;
     const middlewareFactoryByExecIdx = new Int32Array(execCount);
 
@@ -152,6 +165,7 @@ function compileMiddleware(middlewareRegistrations: MiddlewareRegistration[]): F
 function getMiddlewareIdxs(
   controller: ControllerRegistration,
   middleware: MiddlewareRegistration[],
+  providedAtEntry: readonly StateToken[] = [],
 ): {
   beforeFactoryIdxs: number[];
   afterFactoryIdxs: number[];
@@ -166,6 +180,15 @@ function getMiddlewareIdxs(
   const finallyFactoryIdxs: number[] = [];
   const providedStateTokens: Map<StateToken, string> = new Map();
   const providedBefore: Map<StateToken, string> = new Map();
+
+  // Seed tokens provided at arc entry (an opaque, caller-supplied token list). The Cloudflare
+  // adapter uses this to mark a Durable Object's `static state` tokens as available to consumers
+  // before any middleware runs, so a DO route consuming a forwarded token validates clean. This
+  // file carries no DO/CF semantics: it only treats these as already-provided state.
+  for (const token of providedAtEntry) {
+    providedBefore.set(token, "(arc entry)");
+    providedStateTokens.set(token, "(arc entry)");
+  }
 
   if (controller.groupMiddleware) {
     if (controller.groupIsolated) {

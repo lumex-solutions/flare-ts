@@ -6,8 +6,11 @@ import { Readable } from "node:stream";
 import type { ResponseLike } from "../../arcs/http/transport/types/response.js";
 import type { FlareHostConfig, FlareLogConfig } from "../../config/flare-config.js";
 import type { LogContext } from "../../logger/types.js";
+import type { LoggerTransportClass } from "../../logger/types.js";
 import type { FlareTestRequestInput } from "../../testing/types/flare-test-req.js";
 import type { HostRuntimeAdapter } from "../types/adapter.js";
+import type { SingletonExtension } from "../extensions/singleton.js";
+import { singletonExtension } from "../extensions/singleton.js";
 import { DRAIN_SET_COOKIES, FlareHttpContext } from "../../arcs/http/transport/flare-http-context.js";
 import { FlareRequest } from "../../arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../arcs/http/transport/flare-response.js";
@@ -102,7 +105,7 @@ function buildNodeTestRequest(input: FlareTestRequestInput): FlareRequest {
  * Node.js runtime adapter. Reads `flare.json` synchronously from {@link process.cwd}, exposes
  * `process.env`, and installs {@link ConsoleTransport} as the default logger transport.
  */
-export const node: HostRuntimeAdapter<FlareAppNode> = {
+export const node: HostRuntimeAdapter<FlareAppNode, LoggerTransportClass, "async", SingletonExtension> = {
   runtime: "node",
   lifecycle: "async",
   get flareJsonFile() {
@@ -119,6 +122,9 @@ export const node: HostRuntimeAdapter<FlareAppNode> = {
   },
   createTestRequest(input) {
     return buildNodeTestRequest(input);
+  },
+  extendHost(host) {
+    return singletonExtension(host);
   },
 };
 
@@ -257,6 +263,7 @@ export class FlareAppNode extends FlareAppBase {
       req,
       startTime,
     );
+
     const ctx = new FlareHttpContext(request);
 
     this.#activeRequests++;

@@ -7,6 +7,7 @@ import type { MiddlewareBase } from "./composition/classes/middleware-base.js";
 import type { HttpGroupFn } from "./composition/group.js";
 import type { FlareRouter } from "./routing/flare-router.js";
 import type { RouteSegment } from "./routing/types/route.js";
+import type { StateToken } from "./state/types/state-token.js";
 import type { FlareHttpContext } from "./transport/flare-http-context.js";
 import type { HandlerResult, ResponseLike } from "./transport/types/response.js";
 import type { ExecFn } from "./types/exec-fn.js";
@@ -23,7 +24,7 @@ import { HttpGroup } from "./composition/group.js";
 import { deriveAllowedMethods } from "./routing/allow-methods.js";
 import { INVALID_REQUEST_PATH_BODY, isValidInboundPath } from "./routing/request-path.js";
 import { METHOD_IDX_MAP } from "./routing/types/methods.js";
-import { SET_REQ_CTX } from "./transport/flare-http-context.js";
+import { INSTANCE_SINGLETONS, SET_REQ_CTX } from "./transport/flare-http-context.js";
 import { type FlareRequest, SET_MAX_BODY_BYTES, SET_ROUTE_PARAMS } from "./transport/flare-request.js";
 import { FlareResponse } from "./transport/flare-response.js";
 import { normalizeHandlerResult } from "./transport/normalize.js";
@@ -112,8 +113,12 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
   readonly groups: GroupRegistration[] = [];
 
   // Invoked by FlareHost.build() to compile the http arc into pipelines / router / middleware.
-  // All validation has already run in FlareHost.build() before this is called.
-  [COMPILE_HTTP_ARC](): void {
+  //
+  // `providedAtEntry` is an optional, opaque list of state tokens treated as provided before any
+  // middleware runs (i.e. seeded into the per-controller provided-state set). The Cloudflare
+  // adapter passes a Durable Object's `static state` tokens here so DO routes consuming forwarded
+  // state validate clean; the generic arc attaches no DO/CF meaning to them.
+  [COMPILE_HTTP_ARC](providedAtEntry: readonly StateToken[] = []): void {
     const controllers = [...this.conRegistrations];
 
     for (const group of this.groups) {
@@ -126,6 +131,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
       this.errorHandlers,
       this.groups,
       this.corsConfig,
+      providedAtEntry,
     );
 
     this.#pipelines = pipelines;
@@ -424,8 +430,14 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
   ): ResponseLike | Promise<ResponseLike> {
     // No middleware means _getMiddleware is never called, so the cache array is never written.
     const middlewareMap: MiddlewareBase[] = pipeline.execCount === 1 ? _EMPTY_MW_CACHE : [];
-    const container = this.#sharedContainer
-      ?? new Container(this.host.scopedServices, this.host.singletonServices, this.host.config);
+    // When the context carries a per-invocation singleton map (set by a runtime/extension), build a
+    // fresh container against it (never the shared one, whose singletons are module-level).
+    // Otherwise use the shared container when there are no scoped services, else a fresh one.
+    const instanceSingletons = ctx[INSTANCE_SINGLETONS];
+    const container = instanceSingletons
+      ? new Container(this.host.scopedServices, instanceSingletons, this.host.config)
+      : this.#sharedContainer
+        ?? new Container(this.host.scopedServices, this.host.singletonServices, this.host.config);
     const execution = this.#execFns[pipelineIdx]!(ctx, container, middlewareMap, methodIdx);
 
     // Shared container's instances map is always empty (all services are singletons),

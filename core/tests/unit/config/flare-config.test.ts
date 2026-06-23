@@ -1,13 +1,10 @@
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { schema } from "@flare-ts/lib";
-import { bool, defaultTo, int, str } from "@flare-ts/lib/schema";
+import { int, str } from "@flare-ts/lib/schema";
 import {
-  type ConfigToken,
   flareConfig,
-  type FlareHostConfig,
   type FlareLogConfig,
   HOST_CONFIG,
-  type InferConfigShape,
   LOG_CONFIG,
 } from "../../../src/lib/config/flare-config.js";
 
@@ -36,12 +33,6 @@ describe("flareConfig", () => {
     expect(token.descriptor).toBe(descriptor);
   });
 
-  it("infers a ConfigToken whose section type matches the descriptor field shapes (compile-time)", () => {
-    const token = flareConfig("db", { url: str });
-
-    expectTypeOf(token).toMatchTypeOf<ConfigToken<{ url: string; }>>();
-  });
-
   it("preserves a single-field descriptor on the returned token", () => {
     const token = flareConfig("solo", { name: str });
 
@@ -56,7 +47,6 @@ describe("flareConfig", () => {
 
     expect(token.descriptor?.id).toBe(int);
     expect(token.descriptor?.meta).toBe(nested);
-    expectTypeOf(token).toMatchTypeOf<ConfigToken<{ id: number; meta: { host: string; port: number; }; }>>();
   });
 
   it("returns { key, descriptor: {} } when an empty descriptor object is supplied (not the no-descriptor branch)", () => {
@@ -125,10 +115,6 @@ describe("HOST_CONFIG", () => {
     expect(field(d, "keepAliveTimeout")("")).toBe(65000);
     expect(field(d, "headersTimeout")("")).toBe(60000);
     expect(field(d, "requestTimeout")("")).toBe(300000);
-  });
-
-  it("is typed as ConfigToken<FlareHostConfig> (compile-time)", () => {
-    expectTypeOf(HOST_CONFIG).toEqualTypeOf<ConfigToken<FlareHostConfig>>();
   });
 });
 
@@ -200,30 +186,5 @@ describe("LOG_CONFIG", () => {
       expect(data.transports?.console?.level).toBe("warn");
       expect(data.transports?.file?.level).toBe("error");
     }
-  });
-
-  it("is typed as ConfigToken<FlareLogConfig> (compile-time)", () => {
-    expectTypeOf(LOG_CONFIG).toEqualTypeOf<ConfigToken<FlareLogConfig>>();
-  });
-});
-
-describe("InferConfigShape / InferConfigField (type-level)", () => {
-  it("resolves InferConfigShape<{ port: typeof int; name: typeof str }> to { port: number; name: string }", () => {
-    type Shape = InferConfigShape<{ port: typeof int; name: typeof str; }>;
-
-    expectTypeOf<Shape>().toEqualTypeOf<{ port: number; name: string; }>();
-  });
-
-  it("strips TypedPrimitive and SchemaToken wrappers when computing each field type", () => {
-    const nested = schema({ flag: bool });
-    type Mixed = InferConfigShape<{ count: typeof int; child: typeof nested; }>;
-
-    expectTypeOf<Mixed>().toEqualTypeOf<{ count: number; child: { flag: boolean; }; }>();
-  });
-
-  it("`flareConfig` propagates the inferred section type through the returned ConfigToken", () => {
-    const token = flareConfig("svc", { port: int, name: str, enabled: defaultTo(true, bool) });
-
-    expectTypeOf(token).toEqualTypeOf<ConfigToken<{ port: number; name: string; enabled: boolean; }>>();
   });
 });

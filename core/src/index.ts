@@ -21,6 +21,8 @@ export type {
   FinallyMiddlewareHandler,
   FlareErrorHandler,
   FlareHandlerScope,
+  InjectedMap,
+  InjectMap,
   MiddlewareOptions,
   RouteHandler,
   RouteOptions,

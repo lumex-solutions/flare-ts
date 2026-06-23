@@ -24,6 +24,11 @@ export class Container {
     private config: JsonObject = {},
   ) {}
 
+  /** The pre-created singleton instances this container resolves before scoped services. */
+  get singletonInstances(): ReadonlyMap<ServiceToken<FlareService>, FlareService> {
+    return this.singletons;
+  }
+
   /** Returns the resolved config value for the given token. */
   resolveCfg<T>(token: ConfigToken<T>): T {
     return this.config[token.key] as T;

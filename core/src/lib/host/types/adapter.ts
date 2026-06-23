@@ -18,11 +18,13 @@ import type { HostRuntime } from "./types";
  * @template TApp - Concrete {@link IFlareApp} produced by {@link createApp}.
  * @template TTransportClass - Logger transport class type understood by this runtime.
  * @template TLifecycle - `"sync"` or `"async"`; constrains whether service hooks may return Promises.
+ * @template TExt - Members the adapter stamps onto the host at construction via `extendHost`.
  */
 export interface HostRuntimeAdapter<
   TApp extends IFlareApp,
   TTransportClass extends LoggerTransportClass = LoggerTransportClass,
   TLifecycle extends HostRuntimeLifecycle = "async",
+  TExt = {},
 > {
   /** Identifier of the runtime this adapter targets. */
   runtime: HostRuntime;
@@ -40,4 +42,10 @@ export interface HostRuntimeAdapter<
   createLogger: (transports: LoggerTransport[], container: Container) => Logger;
   /** Synthesizes a {@link FlareRequest} from a {@link FlareTestRequestInput} for in-process tests. */
   createTestRequest: (input: FlareTestRequestInput) => FlareRequest;
+  /**
+   * Members the adapter stamps onto the host instance at construction. The host's constructor calls
+   * this and copies the returned members onto itself, and the host type intersects `TExt`, so a
+   * stamped member exists only on hosts whose adapter provides it.
+   */
+  extendHost?(host: IFlareHost): TExt;
 }

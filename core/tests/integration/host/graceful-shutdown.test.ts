@@ -20,9 +20,14 @@ import type { FlareAppBase } from "../../../src/lib/host/flare-app.js";
 import type { HostRuntimeAdapter } from "../../../src/lib/host/types/adapter.js";
 import type { LogRecord } from "../../../src/lib/logger/types.js";
 import type { LoggerTransportClass } from "../../../src/lib/logger/types.js";
+import type { SingletonExtension } from "../../../src/lib/host/extensions/singleton.js";
+import { singletonExtension } from "../../../src/lib/host/extensions/singleton.js";
 import { FlareHost, FlareResponse, Logger, LoggerTransport } from "../../../src/index.js";
 import { node, type FlareAppNode } from "../../../src/lib/host/runtime/node.js";
 import { FlareService } from "../../../src/lib/services/composition/flare-service.js";
+
+/** Node-style adapter shape carrying the singleton extension, mirroring the real `node` adapter. */
+type NodeAdapter = HostRuntimeAdapter<FlareAppBase, LoggerTransportClass, "async", SingletonExtension>;
 
 // Shared scaffolding
 
@@ -35,7 +40,7 @@ type ListenerSnapshot = {
 };
 
 type RunCtx = {
-  host: FlareHost<HostRuntimeAdapter<FlareAppBase>>;
+  host: FlareHost<NodeAdapter>;
   app: FlareAppNode;
   handle: ReturnType<FlareAppNode["run"]>;
   port: number;
@@ -71,7 +76,7 @@ function makeRecorder(): {
  */
 function buildNodeAdapter(
   TransportClass: LoggerTransportClass,
-): HostRuntimeAdapter<FlareAppBase> {
+): NodeAdapter {
   return {
     runtime: "node",
     lifecycle: "async",
@@ -88,6 +93,9 @@ function buildNodeAdapter(
     },
     createTestRequest(input) {
       return node.createTestRequest(input);
+    },
+    extendHost(host) {
+      return singletonExtension(host);
     },
   };
 }
@@ -193,8 +201,8 @@ function awaitListening(server: { listening: boolean; once: (event: string, fn: 
 }
 
 async function startApp(opts: {
-  routes?: (host: FlareHost<HostRuntimeAdapter<FlareAppBase>>) => void;
-  singletons?: (host: FlareHost<HostRuntimeAdapter<FlareAppBase>>) => void;
+  routes?: (host: FlareHost<NodeAdapter>) => void;
+  singletons?: (host: FlareHost<NodeAdapter>) => void;
   shutdownTimeout?: number;
 } = {}): Promise<RunCtx> {
   const { TransportClass, records } = makeRecorder();
@@ -648,7 +656,7 @@ describe("Cross-Feature Interactions", () => {
         }
       }
 
-      const host = new FlareHost({
+      const host = new FlareHost<NodeAdapter>({
         runtime: "node",
         lifecycle: "async",
         get flareJsonFile(): JsonObject {
@@ -664,6 +672,9 @@ describe("Cross-Feature Interactions", () => {
         },
         createTestRequest(input) {
           return node.createTestRequest(input);
+        },
+        extendHost(h) {
+          return singletonExtension(h);
         },
       });
       host.singleton(A);

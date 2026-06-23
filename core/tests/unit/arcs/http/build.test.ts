@@ -505,7 +505,7 @@ describe("compileExecStepNames (via execNames passed to compileExecFn — observ
 
   it("names every exec slot for global + combined group before middleware (error target)", () => {
     const captured: string[] = [];
-    const captureEh = makeCaptureEhReg((ctx) => captured.push(ctx.target));
+    const captureEh = makeCaptureEhReg((ctx) => captured.push(ctx.target!));
 
     const G1 = makeMiddlewareCls("G1", {
       hooks: { before: true },
@@ -589,7 +589,7 @@ describe("compileExecStepNames (via execNames passed to compileExecFn — observ
 
   it("names group-isolated middleware slots via groupMiddleware (error target)", () => {
     const captured: string[] = [];
-    const captureEh = makeCaptureEhReg((ctx) => captured.push(ctx.target));
+    const captureEh = makeCaptureEhReg((ctx) => captured.push(ctx.target!));
 
     const Group = makeMiddlewareCls("IsoGroupMw", {
       hooks: { before: true },

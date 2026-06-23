@@ -5,8 +5,10 @@ process.env["FLARE_MODE"] = "test";
 
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
+import type { SingletonExtension } from "../../../src/lib/host/extensions/singleton.js";
 import type { FlareAppNode } from "../../../src/lib/host/runtime/node.js";
 import type { HostRuntimeAdapter } from "../../../src/lib/host/types/adapter.js";
+import type { LoggerTransportClass } from "../../../src/lib/logger/types.js";
 import { LOG_CONFIG, type FlareLogConfig } from "../../../src/lib/config/flare-config.js";
 // FlareLogConfig used in the cross-feature test's `observed` typing below.
 import { FlareHost } from "../../../src/lib/host/flare-host.js";
@@ -27,7 +29,7 @@ import { registerMinimalPingRoute } from "../../helpers/host-fixtures.js";
  */
 function adapterWith(
   opts: { flareJson?: JsonObject; env?: Record<string, string | undefined>; },
-): HostRuntimeAdapter<FlareAppNode> {
+): HostRuntimeAdapter<FlareAppNode, LoggerTransportClass, "async", SingletonExtension> {
   return {
     runtime: node.runtime,
     lifecycle: node.lifecycle,
@@ -37,6 +39,7 @@ function adapterWith(
     createApp: node.createApp,
     createLogger: node.createLogger,
     createTestRequest: node.createTestRequest,
+    extendHost: node.extendHost!,
   };
 }
 

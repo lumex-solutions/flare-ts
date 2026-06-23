@@ -25,6 +25,7 @@ import type { FlareHttpFactory, Pipeline } from "./types/pipeline.js";
 import type { MiddlewareRegistration } from "./types/registration.js";
 import { stream } from "./composition/contract/flare-stream.js";
 import { dispatchErrorHandlers, prepareRequestBody } from "./exec-helpers.js";
+import { HANDLER_ERRORED } from "./transport/flare-http-context.js";
 
 // Startup assertion
 
@@ -205,12 +206,13 @@ function _buildShapeFactory(
       ? `return _fin(${rv}, cache, container, ctx, 0);`
       : `return ${rv};`;
 
-  // Error exit: dispatch the error and route the result through finally.
+  // Error exit: mark the context as having errored (suppresses DO outbound state
+  // encoding for mutations made before the throw), then dispatch and route through finally.
   const retErr = (stage: string, nameIdx: number): string =>
     retFin(
-      `_dispatchError(err, errorHandlers, container, { source: "flare:http", `
+      `(ctx[_he] = true, _dispatchError(err, errorHandlers, container, { source: "flare:http", `
         + `requestId: ctx.req.requestId, method: ctx.req.method, url: ctx.req.url, `
-        + `stage: "${stage}", target: stageNames[${nameIdx}] })`,
+        + `stage: "${stage}", target: stageNames[${nameIdx}] }))`,
     );
 
   // Cache-read-or-create for a before slot (index i = execIdx).
@@ -246,6 +248,7 @@ function _buildShapeFactory(
       // error response with the previous hook's success value.
       `    var _finRet = undefined; try { _finRet = _fm.finally(rv); }`,
       `    catch (err) {`,
+      `      ctx[_he] = true;`,
       `      rv = _dispatchError(err, errorHandlers, container, { source: "flare:http", `
       + `requestId: ctx.req.requestId, method: ctx.req.method, url: ctx.req.url, `
       + `stage: "finally", target: stageNames[${FS}+_s] });`,
@@ -398,9 +401,10 @@ function _buildShapeFactory(
     `//# sourceURL=flare://exec-shape/${shapeKey}`,
   ].join("\n");
 
-  return new Function("_dispatchError", "_prepareRequestBody", src)(
+  return new Function("_dispatchError", "_prepareRequestBody", "_he", src)(
     dispatchErrorHandlers,
     prepareRequestBody,
+    HANDLER_ERRORED,
   ) as (...args: unknown[]) => ExecFn;
 }
 

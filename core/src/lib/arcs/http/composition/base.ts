@@ -1,6 +1,7 @@
 import type { FlareError } from "../../../errors/flare-error.js";
 import type { HttpErrorContext } from "../../../logger/types.js";
-import type { HandlerResult } from "../transport/types/response.js";
+import type { FlareHttpContext } from "../transport/flare-http-context.js";
+import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../transport/types/response.js";
 import type {
   ControllerRegistration,
   ErrorHandlerRegistration,
@@ -17,6 +18,8 @@ import type {
   ErrorHandlerOptions,
   FinallyMiddlewareHandler,
   FlareErrorHandler,
+  FlareHandlerScope,
+  InjectMap,
   MiddlewareOptions,
   RouteHandler,
   RouteOptions,
@@ -27,6 +30,7 @@ import { ControllerBase } from "./classes/controller-base.js";
 import { ErrorHandlerBase } from "./classes/error-handler-base.js";
 import { MiddlewareBase } from "./classes/middleware-base.js";
 import { flareContract } from "./contract/flare-contract.js";
+import { assertInjectKeys, attachScopeDeps } from "./scope.js";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
 // TODO(review): replace any - HandlerFn covers heterogeneous handler signatures (route/before/after/finally/error).
@@ -80,7 +84,10 @@ export abstract class HttpBase {
   }
 
   public before(handler: BeforeMiddlewareHandler): void;
-  public before(options: MiddlewareOptions, handler: BeforeMiddlewareHandler): void;
+  public before<const D extends InjectMap>(
+    options: MiddlewareOptions<D>,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => MiddlewareOverride | Promise<MiddlewareOverride>,
+  ): void;
 
   public before(
     optionsOrHandler: MiddlewareOptions | BeforeMiddlewareHandler,
@@ -95,7 +102,14 @@ export abstract class HttpBase {
   }
 
   public after(handler: AfterMiddlewareHandler): void;
-  public after(options: MiddlewareOptions, handler: AfterMiddlewareHandler): void;
+  public after<const D extends InjectMap>(
+    options: MiddlewareOptions<D>,
+    handler: (
+      ctx: FlareHttpContext,
+      result: HandlerResult,
+      scope: FlareHandlerScope<D>,
+    ) => MiddlewareOverride | Promise<MiddlewareOverride>,
+  ): void;
 
   public after(
     optionsOrHandler: MiddlewareOptions | AfterMiddlewareHandler,
@@ -110,7 +124,14 @@ export abstract class HttpBase {
   }
 
   public finally(handler: FinallyMiddlewareHandler): void;
-  public finally(options: MiddlewareOptions, handler: FinallyMiddlewareHandler): void;
+  public finally<const D extends InjectMap>(
+    options: MiddlewareOptions<D>,
+    handler: (
+      ctx: FlareHttpContext,
+      result: HandlerResult,
+      scope: FlareHandlerScope<D>,
+    ) => MiddlewareOverride | Promise<MiddlewareOverride>,
+  ): void;
 
   public finally(
     optionsOrHandler: MiddlewareOptions | FinallyMiddlewareHandler,
@@ -145,49 +166,77 @@ export abstract class HttpBase {
   }
 
   public get(path: string, handler: RouteHandler): void;
-  public get(path: string, options: RouteOptions, handler: RouteHandler): void;
+  public get<const D extends InjectMap>(
+    path: string,
+    options: RouteOptions<D>,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => HandlerResult | Promise<HandlerResult>,
+  ): void;
 
   public get(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
     this.#syntheticController(path, "GET", optionsOrHandler, maybeHandler);
   }
 
   public post(path: string, handler: RouteHandler): void;
-  public post(path: string, options: RouteOptions, handler: RouteHandler): void;
+  public post<const D extends InjectMap>(
+    path: string,
+    options: RouteOptions<D>,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => HandlerResult | Promise<HandlerResult>,
+  ): void;
 
   public post(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
     this.#syntheticController(path, "POST", optionsOrHandler, maybeHandler);
   }
 
   public put(path: string, handler: RouteHandler): void;
-  public put(path: string, options: RouteOptions, handler: RouteHandler): void;
+  public put<const D extends InjectMap>(
+    path: string,
+    options: RouteOptions<D>,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => HandlerResult | Promise<HandlerResult>,
+  ): void;
 
   public put(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
     this.#syntheticController(path, "PUT", optionsOrHandler, maybeHandler);
   }
 
   public patch(path: string, handler: RouteHandler): void;
-  public patch(path: string, options: RouteOptions, handler: RouteHandler): void;
+  public patch<const D extends InjectMap>(
+    path: string,
+    options: RouteOptions<D>,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => HandlerResult | Promise<HandlerResult>,
+  ): void;
 
   public patch(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
     this.#syntheticController(path, "PATCH", optionsOrHandler, maybeHandler);
   }
 
   public delete(path: string, handler: RouteHandler): void;
-  public delete(path: string, options: RouteOptions, handler: RouteHandler): void;
+  public delete<const D extends InjectMap>(
+    path: string,
+    options: RouteOptions<D>,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => HandlerResult | Promise<HandlerResult>,
+  ): void;
 
   public delete(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
     this.#syntheticController(path, "DELETE", optionsOrHandler, maybeHandler);
   }
 
   public head(path: string, handler: RouteHandler): void;
-  public head(path: string, options: RouteOptions, handler: RouteHandler): void;
+  public head<const D extends InjectMap>(
+    path: string,
+    options: RouteOptions<D>,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => HandlerResult | Promise<HandlerResult>,
+  ): void;
 
   public head(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
     this.#syntheticController(path, "HEAD", optionsOrHandler, maybeHandler);
   }
 
   public options(path: string, handler: RouteHandler): void;
-  public options(path: string, options: RouteOptions, handler: RouteHandler): void;
+  public options<const D extends InjectMap>(
+    path: string,
+    options: RouteOptions<D>,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => HandlerResult | Promise<HandlerResult>,
+  ): void;
 
   public options(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
     this.#syntheticController(path, "OPTIONS", optionsOrHandler, maybeHandler);
@@ -195,7 +244,14 @@ export abstract class HttpBase {
 
   public error(handler: ErrorHandlerClass): void;
   public error(handler: FlareErrorHandler): void;
-  public error(options: ErrorHandlerOptions, handler: FlareErrorHandler): void;
+  public error<const D extends InjectMap>(
+    options: ErrorHandlerOptions<D>,
+    handler: (
+      err: FlareError | Error,
+      context: HttpErrorContext,
+      scope: FlareHandlerScope<D>,
+    ) => ResponseLike | void | Promise<ResponseLike | void>,
+  ): void;
 
   public error(
     optionsOrHandler: ErrorHandlerClass | ErrorHandlerOptions | FlareErrorHandler,
@@ -217,17 +273,24 @@ export abstract class HttpBase {
       maybeHandler,
       "error handler",
     );
-    const deps = [...(options.inject ?? [])];
+    assertInjectKeys(options.inject ?? {});
+    const deps = Object.values(options.inject ?? {});
     const name = options.name ?? "SyntheticErrorHandler";
+    const ownInject = (options.inject ?? {}) as InjectMap;
 
     const BuiltErrorHandler = class extends ErrorHandlerBase {
       static override deps = deps;
 
       override handle(err: FlareError | Error, context: HttpErrorContext) {
-        return handler(err, context, {
-          inject: (token) => this.inject(token),
-          config: (token) => this.config(token),
-        });
+        return handler(
+          err,
+          context,
+          attachScopeDeps(
+            { config: (token) => this.config(token) },
+            ownInject,
+            (token) => this.inject(token),
+          ),
+        );
       }
     };
     Object.defineProperty(BuiltErrorHandler, "name", { value: name });
@@ -259,17 +322,23 @@ export abstract class HttpBase {
 
       // Graft a new named method onto the existing prototype so the single
       // registration covers every HTTP method registered at this path.
+      assertInjectKeys(options.inject ?? {});
       const methodName = `handle${method}`;
       const fn = handler;
+      const ownInject = (options.inject ?? {}) as InjectMap; // captured per method
       Object.defineProperty(existing.cls.prototype, methodName, {
         value: function(this: ControllerBase) {
-          return fn(this.ctx, {
-            inject: (token) => this.inject(token),
-            // Inline handlers have no static config declaration site, so route
-            // config resolution directly through the container instead of
-            // this.config(), whose guardrail would always throw here.
-            config: (token) => this.container.resolveCfg(token),
-          });
+          // Inline handlers have no static config declaration site, so route
+          // config resolution directly through the container instead of
+          // this.config(), whose guardrail would always throw here.
+          return fn(
+            this.ctx,
+            attachScopeDeps(
+              { config: (token) => this.container.resolveCfg(token) },
+              ownInject,
+              (token) => this.inject(token),
+            ),
+          );
         },
         writable: true,
         configurable: true,
@@ -278,7 +347,7 @@ export abstract class HttpBase {
       // Apply the @Method decorator programmatically.
       registerRoute(existing.cls, method, methodName);
 
-      for (const dep of (options.inject ?? [])) {
+      for (const dep of Object.values(options.inject ?? {})) {
         if (!existing.cls.deps.includes(dep)) existing.cls.deps.push(dep);
       }
       for (const st of (options.state ?? [])) {
@@ -289,11 +358,14 @@ export abstract class HttpBase {
       return;
     }
 
-    const deps = [...(options.inject ?? [])];
+    assertInjectKeys(options.inject ?? {});
+    // Dedup: `inject: { a: Svc, b: Svc }` declares one dep, not two.
+    const deps = [...new Set(Object.values(options.inject ?? {}))];
     const state = [...(options.state ?? [])];
     const contract = options.contract ? flareContract({ handle: options.contract }) : undefined;
     const name = options.name ?? `Synthetic${method} ${fullPath}`;
     const fn = handler;
+    const ownInject = (options.inject ?? {}) as InjectMap;
 
     const SyntheticController = class extends ControllerBase {
       static override deps = deps;
@@ -302,13 +374,17 @@ export abstract class HttpBase {
 
       @Method(method)
       handle() {
-        return fn(this.ctx, {
-          inject: (token) => this.inject(token),
-          // Inline handlers have no static config declaration site, so route
-          // config resolution directly through the container instead of
-          // this.config(), whose guardrail would always throw here.
-          config: (token) => this.container.resolveCfg(token),
-        });
+        // Inline handlers have no static config declaration site, so route
+        // config resolution directly through the container instead of
+        // this.config(), whose guardrail would always throw here.
+        return fn(
+          this.ctx,
+          attachScopeDeps(
+            { config: (token) => this.container.resolveCfg(token) },
+            ownInject,
+            (token) => this.inject(token),
+          ),
+        );
       }
     };
     Object.defineProperty(SyntheticController, "name", { value: name });
@@ -340,10 +416,13 @@ export abstract class HttpBase {
     options: MiddlewareOptions,
     handler: BeforeMiddlewareHandler | AfterMiddlewareHandler | FinallyMiddlewareHandler,
   ): void {
-    const deps = [...(options.inject ?? [])];
+    assertInjectKeys(options.inject ?? {});
+    // Dedup: `inject: { a: Svc, b: Svc }` declares one dep, not two.
+    const deps = [...new Set(Object.values(options.inject ?? {}))];
     const state = [...(options.state ?? [])];
     const provides = options.provides ? [...options.provides] : undefined;
     const name = options.name ?? `Synthetic${this.#capitalize(lifecycle)}Middleware`;
+    const ownInject = (options.inject ?? {}) as InjectMap;
     // If the user's callback is async, the wrapper's prototype method is NOT async
     // (it's a plain function returning handler(...)), so exec-codegen's _isAsyncFn
     // would miss it. We mark the class with _asyncHook so _detectSlotAsync can detect
@@ -356,10 +435,14 @@ export abstract class HttpBase {
         static override state = state;
 
         override before() {
-          return (handler as BeforeMiddlewareHandler)(this.ctx, {
-            inject: (token) => this.inject(token),
-            config: (token) => this.config(token),
-          });
+          return (handler as BeforeMiddlewareHandler)(
+            this.ctx,
+            attachScopeDeps(
+              { config: (token) => this.config(token) },
+              ownInject,
+              (token) => this.inject(token),
+            ),
+          );
         }
       };
       if (callbackIsAsync) (BuiltMiddleware as { _asyncHook?: boolean; })._asyncHook = true;
@@ -373,10 +456,15 @@ export abstract class HttpBase {
         static override state = state;
 
         override after(result: HandlerResult) {
-          return (handler as AfterMiddlewareHandler)(this.ctx, result, {
-            inject: (token) => this.inject(token),
-            config: (token) => this.config(token),
-          });
+          return (handler as AfterMiddlewareHandler)(
+            this.ctx,
+            result,
+            attachScopeDeps(
+              { config: (token) => this.config(token) },
+              ownInject,
+              (token) => this.inject(token),
+            ),
+          );
         }
       };
       if (callbackIsAsync) (BuiltMiddleware as { _asyncHook?: boolean; })._asyncHook = true;
@@ -389,10 +477,15 @@ export abstract class HttpBase {
       static override state = state;
 
       override finally(result: HandlerResult) {
-        return (handler as FinallyMiddlewareHandler)(this.ctx, result, {
-          inject: (token) => this.inject(token),
-          config: (token) => this.config(token),
-        });
+        return (handler as FinallyMiddlewareHandler)(
+          this.ctx,
+          result,
+          attachScopeDeps(
+            { config: (token) => this.config(token) },
+            ownInject,
+            (token) => this.inject(token),
+          ),
+        );
       }
     };
     if (callbackIsAsync) (BuiltMiddleware as { _asyncHook?: boolean; })._asyncHook = true;

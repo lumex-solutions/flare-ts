@@ -5,7 +5,9 @@ process.env["FLARE_MODE"] = "test";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { JsonObject } from "@flare-ts/lib/schema";
 import { str } from "@flare-ts/lib/schema";
+import type { SingletonExtension } from "../../../src/lib/host/extensions/singleton.js";
 import type { HostRuntimeAdapter } from "../../../src/lib/host/types/adapter.js";
+import type { LoggerTransportClass } from "../../../src/lib/logger/types.js";
 import type { TestAppHandle } from "../../../src/lib/testing/test.js";
 import { ControllerBase } from "../../../src/lib/arcs/http/composition/classes/controller-base.js";
 import { Get } from "../../../src/lib/arcs/http/routing/decorators.js";
@@ -23,7 +25,10 @@ import { Container } from "../../../src/lib/services/container.js";
 // the same way a production node app would.
 
 function nodeWith(flareJson: JsonObject): HostRuntimeAdapter<
-  ReturnType<typeof node.createApp>
+  ReturnType<typeof node.createApp>,
+  LoggerTransportClass,
+  "async",
+  SingletonExtension
 > {
   return {
     runtime: node.runtime,
@@ -33,6 +38,7 @@ function nodeWith(flareJson: JsonObject): HostRuntimeAdapter<
     createApp: node.createApp.bind(node),
     createLogger: node.createLogger.bind(node),
     createTestRequest: node.createTestRequest.bind(node),
+    extendHost: node.extendHost!.bind(node),
     get flareJsonFile(): JsonObject {
       return flareJson;
     },

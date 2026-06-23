@@ -43,6 +43,8 @@ export type HttpLogContext<T extends LogMeta = LogMeta> = T & {
   requestId: string;
   method: string;
   url: string;
+  /** Correlation id: the front-door requestId that forwarded to this DO handler. DO context only. */
+  parentRequestId?: string;
 };
 
 /** Extension of {@link HttpLogContext} carrying stage and target metadata for error records. */

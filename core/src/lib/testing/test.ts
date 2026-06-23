@@ -11,7 +11,7 @@ import type { FlareTestReq } from "./types/flare-test-req.js";
 import { DRAIN_SET_COOKIES, FlareHttpContext } from "../arcs/http/transport/flare-http-context.js";
 import { FlareResponse } from "../arcs/http/transport/flare-response.js";
 import { FlareAppBase, type IFlareApp } from "../host/flare-app.js";
-import { COMPILE_FOR_TEST, SET_HOST_STATE, RESET_FOR_TEST } from "../host/types/const.js";
+import { COMPILE_FOR_TEST, RESET_FOR_TEST, SET_HOST_STATE } from "../host/types/const.js";
 import { FlareTestError } from "./error.js";
 
 type HostedApp = IFlareApp & { http: HttpArc; };
@@ -42,7 +42,11 @@ export class TestAppHandle {
   #resetFn: ResetFn;
   #seq = 0;
 
-  constructor(app: HostedApp, adapter: AnyAdapter, resetFn: ResetFn) {
+  constructor(
+    app: HostedApp,
+    adapter: AnyAdapter,
+    resetFn: ResetFn,
+  ) {
     this.#app = app;
     this.#adapter = adapter;
     this.#resetFn = resetFn;
