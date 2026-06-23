@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
+import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
+import { defineConfig } from "vitest/config";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 
@@ -14,7 +15,17 @@ const root = fileURLToPath(new URL(".", import.meta.url));
  *
  * Archived suite: none (see docs/testing.md).
  */
-export default defineWorkersConfig({
+export default defineConfig({
+  plugins: [
+    cloudflareTest({
+      wrangler: {
+        configPath: "./wrangler.toml",
+      },
+      miniflare: {
+        bindings: {},
+      },
+    }),
+  ],
   test: {
     name: "core:cloudflare",
     include: [
@@ -24,16 +35,6 @@ export default defineWorkersConfig({
     ],
     exclude: [],
     passWithNoTests: true,
-    poolOptions: {
-      workers: {
-        wrangler: {
-          configPath: "./wrangler.toml",
-        },
-        miniflare: {
-          bindings: {},
-        },
-      },
-    },
   },
   resolve: {
     alias: [
