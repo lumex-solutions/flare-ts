@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
+import type { CloudflareApp } from "../../../src/lib/host/runtime/cloudflare/index.js";
 import type { HostRuntimeAdapter } from "../../../src/lib/host/types/adapter.js";
 import type { LogRecord } from "../../../src/lib/logger/types.js";
 import { FlareHost, FlareResponse } from "../../../src/index.js";
-import { FlareAppCF } from "../../../src/lib/host/runtime/cloudflare.js";
+import { cf } from "../../../src/lib/host/runtime/cloudflare/index.js";
 import { CFWLogger } from "../../../src/lib/logger/logger.js";
 import { CFWLoggerTransport } from "../../../src/lib/logger/transport.js";
 import { cfProdAdapter } from "../helpers/cf-test-adapter.js";
@@ -17,7 +18,7 @@ class SilentCFWTransport extends CFWLoggerTransport {
   override write(_record: LogRecord): void {}
 }
 
-function buildSyncAdapter(): HostRuntimeAdapter<FlareAppCF, typeof SilentCFWTransport, "sync"> {
+function buildSyncAdapter(): HostRuntimeAdapter<CloudflareApp, typeof SilentCFWTransport, "sync"> {
   return {
     runtime: "cloudflare",
     lifecycle: "sync",
@@ -26,9 +27,7 @@ function buildSyncAdapter(): HostRuntimeAdapter<FlareAppCF, typeof SilentCFWTran
     },
     env: {},
     defaultLoggerTransports: [SilentCFWTransport],
-    createApp(host) {
-      return new FlareAppCF(host);
-    },
+    createApp: cf.createApp,
     createLogger(transports, container) {
       return new CFWLogger(transports, container);
     },
@@ -60,7 +59,7 @@ describe("Primary Behavior", () => {
         }
       }
 
-      const adapter: HostRuntimeAdapter<FlareAppCF, typeof RecordingTransport, "sync"> = {
+      const adapter: HostRuntimeAdapter<CloudflareApp, typeof RecordingTransport, "sync"> = {
         runtime: "cloudflare",
         lifecycle: "sync",
         get flareJsonFile(): JsonObject {
@@ -68,9 +67,7 @@ describe("Primary Behavior", () => {
         },
         env: {},
         defaultLoggerTransports: [RecordingTransport],
-        createApp(host) {
-          return new FlareAppCF(host);
-        },
+        createApp: cf.createApp,
         createLogger(transports, container) {
           return new CFWLogger(transports, container);
         },
@@ -137,7 +134,7 @@ describe("Edge Cases", () => {
 
 describe("Cross-Feature Interactions", () => {
   it(
-    "(with host/runtime-cloudflare) export() calls start() then jumps host.state to "
+    "(with host/runtime-cloudflare) export() runs the http arc start then jumps host.state to "
       + "'ready' without an intermediate 'listening' event",
     () => {
       // CF runtime has no socket; it goes from "starting" straight to
@@ -160,11 +157,11 @@ describe("Cross-Feature Interactions", () => {
       // Sanity: build alone does not flip state; only export() does.
       expect(host.state).toBe("starting");
 
-      const exported = app.export();
-      expect(exported).not.toBeNull();
+      const handle = (app as CloudflareApp).export();
+      expect(handle).not.toBeNull();
       // Synchronous transition: by the time export() has returned,
-      // start() has fully run (proven by the arc callback having fired) and
-      // host.state is already "ready". No micro-task gap is needed.
+      // the http arc start has fully run (proven by the arc callback having
+      // fired) and host.state is already "ready". No micro-task gap is needed.
       expect(events).toEqual(["start:S"]);
       expect(host.state).toBe("ready");
     },

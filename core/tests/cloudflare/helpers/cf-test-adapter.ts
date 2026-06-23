@@ -1,15 +1,16 @@
 import type { JsonObject } from "@flare-ts/lib";
-import type { FlareAppCF } from "../../../src/lib/host/runtime/cloudflare.js";
-import type { HostRuntimeAdapter } from "../../../src/lib/host/types/adapter.js";
+import type { CloudflareAdapter } from "../../../src/lib/host/runtime/cloudflare/index.js";
 import type { CFWLoggerTransportClass } from "../../../src/lib/logger/types.js";
-import { cf } from "../../../src/lib/host/runtime/cloudflare.js";
+import { cf } from "../../../src/lib/host/runtime/cloudflare/index.js";
 
 type CfTransport = typeof cf.defaultLoggerTransports[number];
-type CfAdapter = HostRuntimeAdapter<FlareAppCF, CfTransport, "sync">;
 
 /**
- * CF adapter for workerd tests that call `host.build().test()`.
- * Host test mode reads `adapter.env.FLARE_MODE`, not `process.env`.
+ * Builds a Cloudflare adapter bound to `flareJson`, carrying the real `setup` hook so `build()`
+ * defers validation + singleton compilation to the terminal (`.export()`),
+ * exactly like production.
+ *
+ * Test mode (`host.build().test()`) reads `adapter.env.FLARE_MODE`, not `process.env`.
  */
 export function cfTestAdapter(
   flareJson: JsonObject,
@@ -17,34 +18,38 @@ export function cfTestAdapter(
     env?: Record<string, string | undefined>;
     defaultLoggerTransports?: readonly CfTransport[];
   } = {},
-): CfAdapter {
+): CloudflareAdapter {
   return {
     runtime: cf.runtime,
     lifecycle: cf.lifecycle,
     env: opts.env ?? { FLARE_MODE: "test" },
     defaultLoggerTransports: opts.defaultLoggerTransports ?? cf.defaultLoggerTransports,
-    createApp: cf.createApp.bind(cf),
-    createLogger: cf.createLogger.bind(cf),
-    createTestRequest: cf.createTestRequest.bind(cf),
+    createApp: cf.createApp,
+    createLogger: cf.createLogger,
+    createTestRequest: cf.createTestRequest,
+    setup: cf.setup,
+    extendHost: cf.extendHost!,
     get flareJsonFile(): JsonObject {
       return flareJson;
     },
   };
 }
 
-/** CF adapter with no test mode — for `export().fetch()` production-path tests. */
+/** CF adapter with no test mode: for production-path tests that call the terminal (`.export()`). */
 export function cfProdAdapter(
   flareJson: JsonObject,
   env: Record<string, string | undefined> = {},
-): CfAdapter {
+): CloudflareAdapter {
   return {
     runtime: cf.runtime,
     lifecycle: cf.lifecycle,
     env,
     defaultLoggerTransports: cf.defaultLoggerTransports,
-    createApp: cf.createApp.bind(cf),
-    createLogger: cf.createLogger.bind(cf),
-    createTestRequest: cf.createTestRequest.bind(cf),
+    createApp: cf.createApp,
+    createLogger: cf.createLogger,
+    createTestRequest: cf.createTestRequest,
+    setup: cf.setup,
+    extendHost: cf.extendHost!,
     get flareJsonFile(): JsonObject {
       return flareJson;
     },
@@ -58,7 +63,7 @@ export function cfLoggerTestAdapter(
     env?: Record<string, string | undefined>;
     defaultLoggerTransports?: readonly CFWLoggerTransportClass[];
   } = {},
-): CfAdapter {
+): CloudflareAdapter {
   // Spread `env` conditionally so the literal does not include an explicit
   // `env: undefined` under exactOptionalPropertyTypes.
   return cfTestAdapter(flareJson, {

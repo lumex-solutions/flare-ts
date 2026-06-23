@@ -1,0 +1,269 @@
+// End-to-end real-binding test for DO state boundary crossing (Task 8) and
+// FINAL-REVIEW blind-spot closures (B1-B5).
+//
+// Drives the full front-door -> mount -> resolve gate -> DO route pipeline against
+// a real workerd binding via SELF (the fixture worker's default export).
+//
+// The fixture worker (fixtures/durable-worker.ts) wires:
+//   - RoomDO with static state = [SessionState, EchoState]
+//   - GET /whoami on RoomDO: requires SessionState inbound, sets EchoState outbound
+//   - GET /trace on RoomDO: returns the DO-side loggerALS parentRequestId
+//   - GET /throw-after-state on RoomDO: sets EchoState then throws (exercises #handleError)
+//   - GET /mutate-session on RoomDO: overwrites SessionState + EchoState with a DO-mutated value
+//   - /room/:name mount with a resolve gate: reads x-session-user header;
+//     returns 401 if missing, otherwise sets SessionState and returns the :name param
+//   - Inline after-middleware: stamps x-echo-state on the response from EchoState
+//   - GET /_fd-request-id (front-door): returns { requestId } of the front-door request
+//   - GET /_fwd/:name/whoami (front-door): calls forwardDurable -> RoomDO /whoami
+//
+// Assertions:
+//   1. 401 gate: no x-session-user -> 401; DO is never entered (no state crossing).
+//   2. Authorized round-trip: x-session-user: alice -> 200; response body contains
+//      the user name; x-echo-state header carries the EchoState value.
+//   3. Reserved headers x-flare-state and x-flare-trace are absent on the client response.
+//   B1. parentRequestId: DO-side parentRequestId equals the front-door requestId (not a hardcoded string).
+//   B2. forwardDurable real-binding: SessionState crosses in, EchoState crosses out.
+//   B3. DO throws after setting outbound state: clean 500; no x-flare-state / x-flare-trace on response.
+//   B4. Round-trip mutation: DO overwrites SessionState; front-door after-mw observes DO's value.
+import { reset, SELF } from "cloudflare:test";
+import { afterEach, describe, expect, it } from "vitest";
+
+afterEach(async () => {
+  await reset();
+});
+
+describe("DO state boundary crossing e2e (real binding)", () => {
+  // -------------------------------------------------------------------------
+  // Test 1: absent x-session-user -> 401; DO never entered.
+  // -------------------------------------------------------------------------
+  it("returns 401 when x-session-user is absent and the DO is never entered", async () => {
+    const res = await SELF.fetch("https://flare.test/room/alice/whoami");
+
+    expect(res.status).toBe(401);
+    // The resolve gate short-circuited before forwarding to any DO instance.
+    const body = await res.json() as { error: string };
+    expect(body.error).toBeDefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 2: authorized round-trip.
+  //   - Front-door resolve gate reads x-session-user, sets SessionState, returns "alice".
+  //   - DO /whoami reads ctx.state.require(SessionState), returns { user: "alice" }.
+  //   - DO sets EchoState outbound; front-door after-mw stamps x-echo-state.
+  // -------------------------------------------------------------------------
+  it("forwards SessionState to the DO and re-seeds EchoState into the front-door after-mw", async () => {
+    const res = await SELF.fetch("https://flare.test/room/alice/whoami", {
+      headers: { "x-session-user": "alice" },
+    });
+
+    expect(res.status).toBe(200);
+
+    const body = await res.json() as { user: string };
+    expect(body.user).toBe("alice");
+
+    // EchoState was set by the DO and re-seeded into the front-door context;
+    // the after-middleware stamped it onto the response header.
+    const echoHeader = res.headers.get("x-echo-state");
+    expect(echoHeader).not.toBeNull();
+    const echo = JSON.parse(echoHeader!) as { echo: string };
+    expect(echo.echo).toBe("alice");
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 3: reserved headers are not exposed to the client.
+  // -------------------------------------------------------------------------
+  it("does not expose x-flare-state or x-flare-trace on the client response", async () => {
+    const res = await SELF.fetch("https://flare.test/room/bob/whoami", {
+      headers: { "x-session-user": "bob" },
+    });
+
+    // Consume the body so the connection closes cleanly.
+    await res.text();
+
+    expect(res.headers.get("x-flare-state")).toBeNull();
+    expect(res.headers.get("x-flare-trace")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B1: parentRequestId equals the real front-door requestId (not a hardcoded string).
+//
+// Drives:
+//   1. GET /_fd-request-id -> reads { requestId } from front-door ctx.req.requestId.
+//   2. GET /room/:name/trace -> reads the DO-side loggerALS parentRequestId.
+//   Asserts the two values are equal.
+//
+// Requires enableContext: true in the fixture host config (already set).
+// ---------------------------------------------------------------------------
+
+describe("B1: DO-side parentRequestId equals the front-door requestId (real binding)", () => {
+  it("parentRequestId observed in the DO loggerALS store equals the front-door requestId", async () => {
+    // Drive /_fd-trace/:name: a single front-door request that (a) records its own
+    // ctx.req.requestId and (b) calls forwardDurable to the DO /trace route which
+    // reads loggerALS parentRequestId. Both values are returned in one response so
+    // we can assert strict equality - the x-flare-trace header carries the front-door
+    // requestId into the DO and is decoded as parentRequestId on the DO side.
+    const res = await SELF.fetch("https://flare.test/_fd-trace/b1-room");
+    expect(res.status).toBe(200);
+    const body = await res.json() as { frontDoorRequestId: string; parentRequestId: string | null };
+
+    expect(typeof body.frontDoorRequestId).toBe("string");
+    expect(body.frontDoorRequestId.length).toBeGreaterThan(0);
+
+    // The DO must observe the front-door requestId as its parentRequestId.
+    expect(body.parentRequestId).toBe(body.frontDoorRequestId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B2: forwardDurable real-binding round-trip.
+//
+// Front-door route /_fwd/:name/whoami calls forwardDurable(ctx, env.ROOM_DO, RoomDO, name, req)
+// with a synthetic /whoami request. The resolve gate sets SessionState inbound; the DO reads
+// it and sets EchoState outbound; the front-door after-mw stamps x-echo-state.
+//
+// forwardDurable previously had ZERO real-binding coverage.
+// ---------------------------------------------------------------------------
+
+describe("B2: forwardDurable real-binding round-trip (real CF binding)", () => {
+  it("forwardDurable carries SessionState to the DO and re-seeds EchoState back to the front-door", async () => {
+    // The resolve gate runs first (sets SessionState from x-session-user), then the
+    // front-door route calls forwardDurable to /whoami on the same DO instance.
+    // The after-mw stamps x-echo-state from the re-seeded EchoState.
+    const res = await SELF.fetch("https://flare.test/room/fwd-alice/whoami", {
+      headers: { "x-session-user": "fwd-alice" },
+    });
+    expect(res.status).toBe(200);
+
+    const body = await res.json() as { user: string };
+    expect(body.user).toBe("fwd-alice");
+
+    // EchoState was set by the DO /whoami route and re-seeded via reseedOutboundState;
+    // the after-mw stamped it onto the response.
+    const echoHeader = res.headers.get("x-echo-state");
+    expect(echoHeader).not.toBeNull();
+    const echo = JSON.parse(echoHeader!) as { echo: string };
+    expect(echo.echo).toBe("fwd-alice");
+  });
+
+  it("forwardDurable via front-door route /_fwd/:name/whoami crosses SessionState in and EchoState out", async () => {
+    // The fixture /_fwd route now sets SessionState from x-session-user before calling
+    // forwardDurable, so the full inbound state envelope is built and forwarded to the DO.
+    // The DO /whoami reads SessionState, sets EchoState outbound, and returns { user }.
+    // reseedOutboundState re-seeds EchoState into the front-door ctx; the after-mw stamps
+    // x-echo-state. This is the ONLY real-binding coverage of the /_fwd explicit route path.
+    const res = await SELF.fetch("https://flare.test/_fwd/fwd-bob/whoami", {
+      headers: { "x-session-user": "fwd-bob" },
+    });
+    expect(res.status).toBe(200);
+
+    // SessionState crossed inbound: DO read the user and returned it in the body.
+    const body = await res.json() as { user: string };
+    expect(body.user).toBe("fwd-bob");
+
+    // EchoState crossed outbound: re-seeded into the front-door ctx; after-mw stamped the header.
+    const echoHeader = res.headers.get("x-echo-state");
+    expect(echoHeader).not.toBeNull();
+    const echo = JSON.parse(echoHeader!) as { echo: string };
+    expect(echo.echo).toBe("fwd-bob");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B3: DO throws after setting outbound state -> clean 500, no reserved headers.
+//
+// Drives GET /room/:name/throw-after-state. The DO route sets EchoState outbound then throws.
+// #handleError in handler.ts bypasses the outbound-encode path (no x-flare-state on error).
+// The front-door receives a clean 500 with no x-flare-state or x-flare-trace.
+// ---------------------------------------------------------------------------
+
+describe("B3: DO throws after setting outbound state (exercises #handleError path)", () => {
+  it("returns clean 500 when the DO route throws, with no x-flare-state or x-flare-trace on response", async () => {
+    const res = await SELF.fetch("https://flare.test/room/throw-room/throw-after-state", {
+      headers: { "x-session-user": "thrower" },
+    });
+
+    expect(res.status).toBe(500);
+
+    // The #handleError path does not encode outbound state, so reserved headers must be absent.
+    // This is the key assertion: outbound state is lost on error (documented behavior).
+    expect(res.headers.get("x-flare-state")).toBeNull();
+    expect(res.headers.get("x-flare-trace")).toBeNull();
+
+    // The after-mw would stamp x-echo-state if EchoState were re-seeded, but since
+    // #handleError bypasses outbound encode, EchoState is NOT re-seeded into the front-door
+    // ctx.state. The after-mw therefore produces no x-echo-state header.
+    expect(res.headers.get("x-echo-state")).toBeNull();
+
+    await res.text(); // consume body
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B4: Round-trip mutation of the SAME token.
+//
+// Front-door before-mw (resolve gate) sets SessionState = { user: "original-user" }.
+// DO route /mutate-session overwrites SessionState = { user: "do-mutated-user" } and
+// sets EchoState = { echo: "do-mutated-user" }.
+// Front-door after-mw reads EchoState (re-seeded from DO response) and stamps x-echo-state.
+// The echo value must be "do-mutated-user" (the DO's value), not "original-user".
+// ---------------------------------------------------------------------------
+
+describe("B4: round-trip mutation: DO overwrites a state token; front-door after-mw observes DO value", () => {
+  it("DO-overwritten EchoState is observed by the front-door after-mw, not the original value", async () => {
+    const res = await SELF.fetch("https://flare.test/room/mutate-room/mutate-session", {
+      headers: { "x-session-user": "original-user" },
+    });
+
+    expect(res.status).toBe(200);
+
+    // The DO route set EchoState = { echo: "do-mutated-user" }.
+    // reseedOutboundState decoded the DO's response envelope back into the front-door ctx.
+    // The after-mw read EchoState from ctx and stamped x-echo-state.
+    const echoHeader = res.headers.get("x-echo-state");
+    expect(echoHeader).not.toBeNull();
+    const echo = JSON.parse(echoHeader!) as { echo: string };
+    expect(echo.echo).toBe("do-mutated-user");
+
+    // Reserved headers are stripped from the final response.
+    expect(res.headers.get("x-flare-state")).toBeNull();
+    expect(res.headers.get("x-flare-trace")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B5: finally-hook throws after DO handler sets outbound state -> no partial-state leak.
+//
+// The DO route /finally-group/set-state-then-throw:
+//   1. Sets EchoState outbound (ctx.state.set).
+//   2. Returns a 200 FlareResponse.
+//   3. An isolated finally hook then throws.
+//
+// The _fin catch in exec-codegen must set ctx[HANDLER_ERRORED] = true before
+// dispatching the error, so outbound state encoding is suppressed just as it
+// is for B3 (handler throws directly). Without the fix, EchoState would leak
+// into x-flare-state on the error response and re-seed into the front-door ctx.
+// ---------------------------------------------------------------------------
+
+describe("B5: DO finally-hook throws after setting outbound state (no partial-state leak)", () => {
+  it("returns an error response with no x-flare-state when a finally hook throws after ctx.state.set", async () => {
+    const res = await SELF.fetch(
+      "https://flare.test/room/finally-room/finally-group/set-state-then-throw",
+      { headers: { "x-session-user": "finally-user" } },
+    );
+
+    // The finally hook threw: the dispatch produces a 500 error response.
+    expect(res.status).toBe(500);
+
+    // HANDLER_ERRORED was set by the _fin catch: outbound state is NOT encoded.
+    // x-flare-state must be absent (no partial-state leak).
+    expect(res.headers.get("x-flare-state")).toBeNull();
+    expect(res.headers.get("x-flare-trace")).toBeNull();
+
+    // The after-mw only stamps x-echo-state when EchoState is re-seeded.
+    // Since x-flare-state is absent, EchoState was NOT re-seeded, so no x-echo-state.
+    expect(res.headers.get("x-echo-state")).toBeNull();
+
+    await res.text(); // consume body
+  });
+});

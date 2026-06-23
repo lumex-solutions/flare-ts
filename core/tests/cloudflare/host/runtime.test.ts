@@ -1,14 +1,14 @@
-// Production-path tests exercise FlareAppCF.export()/fetch() directly. Use
+// Production-path tests exercise CloudflareApp.export()/fetch() directly. Use
 // cfProdAdapter so adapter.env omits FLARE_MODE and host.build() returns the
-// live FlareAppCF rather than the test-mode shim.
+// live CloudflareApp rather than the test-mode shim.
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
-import type { FlareAppCF } from "../../../src/lib/host/runtime/cloudflare.js";
+import type { CloudflareApp } from "../../../src/lib/host/runtime/cloudflare/index.js";
 import { flareContract } from "../../../src/index.js";
+import { stream } from "../../../src/index.js";
 import { FlareResponse } from "../../../src/lib/arcs/http/transport/flare-response.js";
 import { FlareHost } from "../../../src/lib/host/flare-host.js";
-import { FlareService } from "../../../src/lib/services/composition/flare-service.js";
-import { stream } from "../../../src/index.js";
+import { makeEnv, makeExecutionContext } from "../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../helpers/cf-test-adapter.js";
 import { registerMinimalPingRoute } from "../helpers/minimal-route.js";
 
@@ -32,14 +32,14 @@ describe("Primary Behavior", () => {
       host.http.get("/ping", () => new FlareResponse(200, { ok: true, route: "/ping" }));
 
       // The export() return must satisfy Cloudflare's module-worker entrypoint
-      // shape: a plain object exposing `fetch(Request) => Promise<Response>`.
-      const handle = (host.build() as FlareAppCF).export();
+      // shape: a plain object exposing `fetch(Request, env, ctx) => Promise<Response>`.
+      const handle = (host.build() as CloudflareApp).export();
       expect(typeof handle.fetch).toBe("function");
       expect(Object.keys(handle)).toEqual(["fetch"]);
 
       // Fetch is invoked with a native Web `Request` and must resolve to a
       // native Web `Response` (no Flare-only wrapper leaks across the boundary).
-      const res = await handle.fetch(new Request("https://flare.test/ping"));
+      const res = await handle.fetch(new Request("https://flare.test/ping"), makeEnv(), makeExecutionContext());
       expect(res).toBeInstanceOf(Response);
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ ok: true, route: "/ping" });
@@ -67,8 +67,8 @@ describe("Primary Behavior", () => {
         () => new FlareResponse(200, chunks(), { headers: { "content-type": "text/plain" } }),
       );
 
-      const handle = (host.build() as FlareAppCF).export();
-      const res = await handle.fetch(new Request("https://flare.test/stream"));
+      const handle = (host.build() as CloudflareApp).export();
+      const res = await handle.fetch(new Request("https://flare.test/stream"), makeEnv(), makeExecutionContext());
       expect(res.status).toBe(200);
 
       // The body is a ReadableStream — the TransformStream readable end the
@@ -108,8 +108,8 @@ describe("Primary Behavior", () => {
       }));
       host.http.get("/bytes", () => new FlareResponse(200, view));
 
-      const handle = (host.build() as FlareAppCF).export();
-      const res = await handle.fetch(new Request("https://flare.test/bytes"));
+      const handle = (host.build() as CloudflareApp).export();
+      const res = await handle.fetch(new Request("https://flare.test/bytes"), makeEnv(), makeExecutionContext());
       expect(res.status).toBe(200);
 
       const ab = await res.arrayBuffer();
@@ -185,8 +185,12 @@ describe("Edge Cases", () => {
         return new FlareResponse(200, { ok: true });
       });
 
-      const handle = (host.build() as FlareAppCF).export();
-      const res = await handle.fetch(new Request("https://flare.test/multi-cookies"));
+      const handle = (host.build() as CloudflareApp).export();
+      const res = await handle.fetch(
+        new Request("https://flare.test/multi-cookies"),
+        makeEnv(),
+        makeExecutionContext(),
+      );
       expect(res.status).toBe(200);
 
       // Headers.getSetCookie() (when available) returns an array, one entry
@@ -233,8 +237,8 @@ describe("Failure Modes", () => {
         throw new Error("intentional crash inside handler");
       });
 
-      const handle = (host.build() as FlareAppCF).export();
-      const res = await handle.fetch(new Request("https://flare.test/boom"));
+      const handle = (host.build() as CloudflareApp).export();
+      const res = await handle.fetch(new Request("https://flare.test/boom"), makeEnv(), makeExecutionContext());
 
       // The runtime catches the throw and synthesises a uniform 500 JSON
       // payload. The error message is intentionally NOT leaked to the client.
@@ -259,27 +263,12 @@ describe("Failure Modes", () => {
         throw new Error("intentional async crash");
       });
 
-      const handle = (host.build() as FlareAppCF).export();
-      const res = await handle.fetch(new Request("https://flare.test/async-boom"));
+      const handle = (host.build() as CloudflareApp).export();
+      const res = await handle.fetch(new Request("https://flare.test/async-boom"), makeEnv(), makeExecutionContext());
       expect(res.status).toBe(500);
       expect(await res.json()).toEqual({ error: "Internal Server Error" });
     },
   );
-
-  it("host.singleton() on a Cloudflare-runtime host throws at registration time", () => {
-    class SomeService extends FlareService {
-      public static override deps = [];
-    }
-
-    const host = new FlareHost(cfProdAdapter({
-      host: { env: "test" },
-      log: { level: "fatal", format: "json" },
-    }));
-
-    expect(() => host.singleton(SomeService as never)).toThrow(
-      "[flare] host.singleton() is not supported on Cloudflare Workers",
-    );
-  });
 });
 
 // ===========================================================================
@@ -301,10 +290,10 @@ describe("Cross-Feature Interactions", () => {
         throw new Error("explode");
       });
 
-      const handle = (host.build() as FlareAppCF).export();
-      const okRes = await handle.fetch(new Request("https://flare.test/ok"));
-      const rawRes = await handle.fetch(new Request("https://flare.test/raw-ok"));
-      const errRes = await handle.fetch(new Request("https://flare.test/boom"));
+      const handle = (host.build() as CloudflareApp).export();
+      const okRes = await handle.fetch(new Request("https://flare.test/ok"), makeEnv(), makeExecutionContext());
+      const rawRes = await handle.fetch(new Request("https://flare.test/raw-ok"), makeEnv(), makeExecutionContext());
+      const errRes = await handle.fetch(new Request("https://flare.test/boom"), makeEnv(), makeExecutionContext());
 
       // All three response paths (FlareResponse, raw Response, error) stamp
       // a request id following the <8-hex>-<seq> contract.
@@ -334,10 +323,10 @@ describe("Cross-Feature Interactions", () => {
   );
 
   it(
-    "(with host/lifecycle) export() invokes start() synchronously; an async http arc callback returning a Promise throws",
+    "(with host/lifecycle) CloudflareApp.export() starts the http arc synchronously; an async http arc callback returning a Promise throws",
     () => {
-      // FlareAppCF.export() calls `this.start()` (sync), which walks the http
-      // arc via [START_HTTP_ARC] and runs each callback through `#assertSync`.
+      // CloudflareApp.export() starts the http arc synchronously via
+      // [START_HTTP_ARC] and runs each callback through `#assertSync`.
       // A hook that returns a Promise must throw the canonical message rather
       // than silently dropping the awaited work — Workers have no event loop
       // to await it on after the export handle is returned.
@@ -348,7 +337,7 @@ describe("Cross-Feature Interactions", () => {
       host.http.onStart(() => Promise.resolve() as never);
       registerMinimalPingRoute(host);
 
-      const app = host.build() as FlareAppCF;
+      const app = host.build() as CloudflareApp;
       expect(() => app.export()).toThrow(
         "[flare] Sync runtime lifecycle callback returned a Promise.",
       );
@@ -402,13 +391,13 @@ describe("Cross-Feature Interactions", () => {
         },
       );
 
-      const handle = (host.build() as FlareAppCF).export();
+      const handle = (host.build() as CloudflareApp).export();
       const inboundReq = new Request("https://flare.test/echo?ref=x", {
         method: "POST",
         headers: { "content-type": "application/json", "x-trace-id": "cf-trace-7" },
         body: JSON.stringify({ hello: "world", n: 42 }),
       });
-      const res = await handle.fetch(inboundReq);
+      const res = await handle.fetch(inboundReq, makeEnv(), makeExecutionContext());
       expect(res.status).toBe(200);
 
       // Method, URL path+query, header, body, and signal all line up.
@@ -444,9 +433,13 @@ describe("Cross-Feature Interactions", () => {
         return new FlareResponse(200, { ok: true });
       });
 
-      const handle = (host.build() as FlareAppCF).export();
+      const handle = (host.build() as CloudflareApp).export();
       const payload = "x".repeat(128); // over global 64, under route 1024
-      const res = await handle.fetch(new Request("https://flare.test/upload", { method: "POST", body: payload }));
+      const res = await handle.fetch(
+        new Request("https://flare.test/upload", { method: "POST", body: payload }),
+        makeEnv(),
+        makeExecutionContext(),
+      );
       expect(res.status).toBe(200);
       expect(observed).toEqual({ sameReference: true, total: 128 });
     },

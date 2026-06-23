@@ -1,40 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { FlareHost, FlareService } from "../../../src/index.js";
-import { buildCf } from "../../../src/lib/host/runtime/cloudflare.js";
+import type { CloudflareApp } from "../../../src/lib/host/runtime/cloudflare/index.js";
+import { FlareHost, FlareResponse, FlareService } from "../../../src/index.js";
+import { makeEnv, makeExecutionContext } from "../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../helpers/cf-test-adapter.js";
 
-describe("Edge Cases", () => {
-  it(
-    "host.singleton() on a Cloudflare-runtime host is a type-level `never` (compile-time error)",
-    () => {
-      const cfHost = new FlareHost(
-        buildCf({ host: { env: "test" }, log: { level: "fatal", format: "json" } }),
-      );
-
-      class SomeService extends FlareService {
-        public static override deps = [];
-      }
-
-      // Compile-time guard only: the CF adapter narrows the singleton parameter
-      // to `never`. Do not invoke singleton() here — the runtime guard throws.
-      // (Source no longer surfaces this as a static error; the runtime assertion
-      // in the following `it` covers the contract.)
-      const _forbidden: Parameters<typeof cfHost.singleton>[0] = SomeService;
-      expect(_forbidden).toBe(SomeService);
-    },
-  );
-
-  it("host.singleton() on a Cloudflare-runtime host throws at runtime", () => {
-    const cfHost = new FlareHost(
-      cfProdAdapter({ host: { env: "test" }, log: { level: "fatal", format: "json" } }),
-    );
-
-    class SomeService extends FlareService {
+// On Cloudflare, in-memory singletons cannot be relied upon (isolates and DOs are evicted), so the
+// host has no `singleton()` member. Use host.scoped() for per-context services instead.
+describe("scoped services on Cloudflare", () => {
+  it("host.scoped() does not throw on a Cloudflare host and builds/serves through .export()", async () => {
+    class Cache extends FlareService {
       public static override deps = [];
+      public readonly value = "cached";
     }
 
-    expect(() => cfHost.singleton(SomeService as never)).toThrow(
-      "[flare] host.singleton() is not supported on Cloudflare Workers",
+    const host = new FlareHost(
+      cfProdAdapter({ host: { env: "test" }, log: { level: "fatal", format: "json" } }),
     );
+    expect(() => host.scoped(Cache)).not.toThrow();
+    host.http.get("/", () => new FlareResponse(200, { ok: true }));
+
+    const handle = (host.build() as CloudflareApp).export();
+    const res = await handle.fetch(new Request("http://flare.test/"), makeEnv(), makeExecutionContext());
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
   });
 });

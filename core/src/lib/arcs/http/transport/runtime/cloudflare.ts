@@ -1,5 +1,5 @@
 import { waitUntil } from "cloudflare:workers";
-import type { RequestAdapter } from "../types/adapter";
+import type { RequestAdapter } from "../types/adapter.js";
 
 /**
  * Request adapter for Cloudflare Workers. Schedules background work via
@@ -16,3 +16,11 @@ export const CFWRequestAdapter: RequestAdapter = {
     waitUntil(fn());
   },
 };
+
+// Safety floor so `Cloudflare.Env` always resolves even before `wrangler types` runs. The app
+// project's generated `declare namespace Cloudflare { interface Env { ... } }` merges into this.
+declare global {
+  namespace Cloudflare {
+    interface Env {}
+  }
+}
