@@ -17,3 +17,9 @@ profiles/
 
 # Private workspace
 _internal/
+
+# Scratch: design specs, plans, audits, writeups
+docs/
+.lmx-worktrees/
+
+graphify*
