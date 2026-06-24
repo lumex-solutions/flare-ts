@@ -230,7 +230,21 @@ host.http.get(
 );
 ```
 
-`scope.users` is typed as the injected `UserService`, and the keys are yours to name. `config` is reserved for the config accessor (`scope.config(token)`), so a dependency cannot use that key. This replaces the previous `inject: [UserService]` array and the `scope.inject(UserService)` call, which is removed. Class controllers, middleware, services, and error handlers are unchanged: they still declare `static deps` and call `this.inject(token)`.
+`scope.users` is typed as the injected `UserService`, and the keys are yours to name. `config` is reserved for the config accessor (`scope.config(token)`) and `input` for the parsed request inputs (see below), so a dependency cannot use those keys. This replaces the previous `inject: [UserService]` array and the `scope.inject(UserService)` call, which is removed. Class controllers, middleware, services, and error handlers are unchanged: they still declare `static deps` and call `this.inject(token)`.
+
+A route that declares a `contract` also receives the parsed, typed request inputs on `scope.input`: `scope.input.route`, `scope.input.query`, and `scope.input.body`, each typed from the contract descriptor.
+
+```ts
+const byName = { route: { name: str }, query: { page: int } };
+
+host.http.get("/users/:name", { contract: byName }, (ctx, scope) => {
+  const { name } = scope.input.route; // string
+  const { page } = scope.input.query; // number
+  return new FlareResponse(200, { name, page });
+});
+```
+
+The handler reads inputs directly, with no need to re-derive them via `ctx.extract(descriptor)` inside the body. That older pattern required passing the same descriptor object back in and threw at runtime if you passed a different one; `scope.input` removes both the re-pass and that footgun. `ctx.extract` remains for class controllers.
 
 Durable Objects do not use the scope map; they declare `static deps` and call `this.inject(token)` (see Durable Objects and Workers above).
 

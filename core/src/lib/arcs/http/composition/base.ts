@@ -1,5 +1,6 @@
 import type { FlareError } from "../../../errors/flare-error.js";
 import type { HttpErrorContext } from "../../../logger/types.js";
+import type { RequestDescriptor } from "./contract/flare-contract.js";
 import type { FlareHttpContext } from "../transport/flare-http-context.js";
 import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../transport/types/response.js";
 import type {
@@ -24,6 +25,7 @@ import type {
   RouteHandler,
   RouteOptions,
 } from "./types/handlers.js";
+import { REQUEST_INPUT } from "../transport/flare-http-context.js";
 import { Method, registerRoute } from "../routing/decorators.js";
 import { assertRegistrationPath } from "../routing/path.js";
 import { ControllerBase } from "./classes/controller-base.js";
@@ -166,10 +168,10 @@ export abstract class HttpBase {
   }
 
   public get(path: string, handler: RouteHandler): void;
-  public get<const D extends InjectMap>(
+  public get<const D extends InjectMap, const C extends RequestDescriptor = {}>(
     path: string,
-    options: RouteOptions<D>,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => HandlerResult | Promise<HandlerResult>,
+    options: RouteOptions<D, C>,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D, C>) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public get(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -177,10 +179,10 @@ export abstract class HttpBase {
   }
 
   public post(path: string, handler: RouteHandler): void;
-  public post<const D extends InjectMap>(
+  public post<const D extends InjectMap, const C extends RequestDescriptor = {}>(
     path: string,
-    options: RouteOptions<D>,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => HandlerResult | Promise<HandlerResult>,
+    options: RouteOptions<D, C>,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D, C>) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public post(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -188,10 +190,10 @@ export abstract class HttpBase {
   }
 
   public put(path: string, handler: RouteHandler): void;
-  public put<const D extends InjectMap>(
+  public put<const D extends InjectMap, const C extends RequestDescriptor = {}>(
     path: string,
-    options: RouteOptions<D>,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => HandlerResult | Promise<HandlerResult>,
+    options: RouteOptions<D, C>,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D, C>) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public put(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -199,10 +201,10 @@ export abstract class HttpBase {
   }
 
   public patch(path: string, handler: RouteHandler): void;
-  public patch<const D extends InjectMap>(
+  public patch<const D extends InjectMap, const C extends RequestDescriptor = {}>(
     path: string,
-    options: RouteOptions<D>,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => HandlerResult | Promise<HandlerResult>,
+    options: RouteOptions<D, C>,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D, C>) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public patch(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -210,10 +212,10 @@ export abstract class HttpBase {
   }
 
   public delete(path: string, handler: RouteHandler): void;
-  public delete<const D extends InjectMap>(
+  public delete<const D extends InjectMap, const C extends RequestDescriptor = {}>(
     path: string,
-    options: RouteOptions<D>,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => HandlerResult | Promise<HandlerResult>,
+    options: RouteOptions<D, C>,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D, C>) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public delete(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -221,10 +223,10 @@ export abstract class HttpBase {
   }
 
   public head(path: string, handler: RouteHandler): void;
-  public head<const D extends InjectMap>(
+  public head<const D extends InjectMap, const C extends RequestDescriptor = {}>(
     path: string,
-    options: RouteOptions<D>,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => HandlerResult | Promise<HandlerResult>,
+    options: RouteOptions<D, C>,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D, C>) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public head(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -232,10 +234,10 @@ export abstract class HttpBase {
   }
 
   public options(path: string, handler: RouteHandler): void;
-  public options<const D extends InjectMap>(
+  public options<const D extends InjectMap, const C extends RequestDescriptor = {}>(
     path: string,
-    options: RouteOptions<D>,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => HandlerResult | Promise<HandlerResult>,
+    options: RouteOptions<D, C>,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D, C>) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public options(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -334,7 +336,7 @@ export abstract class HttpBase {
           return fn(
             this.ctx,
             attachScopeDeps(
-              { config: (token) => this.container.resolveCfg(token) },
+              { config: (token) => this.container.resolveCfg(token), input: this.ctx[REQUEST_INPUT]() },
               ownInject,
               (token) => this.inject(token),
             ),
@@ -380,7 +382,7 @@ export abstract class HttpBase {
         return fn(
           this.ctx,
           attachScopeDeps(
-            { config: (token) => this.container.resolveCfg(token) },
+            { config: (token) => this.container.resolveCfg(token), input: this.ctx[REQUEST_INPUT]() },
             ownInject,
             (token) => this.inject(token),
           ),

@@ -19,6 +19,15 @@ export const DRAIN_SET_COOKIES: unique symbol = Symbol("DRAIN_SET_COOKIES");
 /** @internal */
 export const INSTANCE_SINGLETONS: unique symbol = Symbol("INSTANCE_SINGLETONS");
 /**
+ * Neutral internal accessor: returns the populated parsed request context (the same `#requestCtx`
+ * that {@link FlareHttpContext.extract} returns) WITHOUT the descriptor-identity guard. Used to seed
+ * the handler scope's `input` so inline routes read `{ body, route, query }` directly. Returns an
+ * empty object when no inputs were parsed for this request.
+ *
+ * @internal
+ */
+export const REQUEST_INPUT: unique symbol = Symbol("flare.requestInput");
+/**
  * Neutral internal accessor: returns the RAW stored value for a token directly from the
  * underlying state map, WITHOUT going through `#resolve` (so no `.withDefault()`/`.from()`
  * derivation fires and nothing is written back). Returns `undefined` for any token the
@@ -153,6 +162,15 @@ export class FlareHttpContext {
       );
     }
     return (this.#requestCtx ?? {}) as unknown as TypedRequestContext<T>;
+  }
+
+  /**
+   * @internal
+   * Returns the populated parsed request context directly, bypassing the descriptor-identity guard
+   * that {@link extract} enforces. Reads the same `#requestCtx`. See {@link REQUEST_INPUT}.
+   */
+  [REQUEST_INPUT](): RequestContext {
+    return this.#requestCtx ?? {};
   }
 
   /**

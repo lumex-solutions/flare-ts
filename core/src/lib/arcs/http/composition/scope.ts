@@ -1,9 +1,10 @@
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { ServiceToken } from "../../../services/types/types.js";
+import type { RequestContext } from "../transport/types/request-context.js";
 import type { FlareHandlerScope, ScopeConfig } from "./types/handlers.js";
 
 /** Keys the framework owns on the handler scope; an `inject` map may not use them. */
-export const RESERVED_SCOPE_KEYS: ReadonlySet<string> = new Set(["config"]);
+export const RESERVED_SCOPE_KEYS: ReadonlySet<string> = new Set(["config", "input"]);
 
 /**
  * Throws if an `inject` map uses a reserved scope key.
@@ -23,7 +24,7 @@ export function assertInjectKeys(inject: Readonly<Record<string, unknown>>): voi
  * via `resolve(token)` on first access; returns the same object, typed as the scope.
  */
 export function attachScopeDeps<D extends Record<string, ServiceToken<FlareService>>>(
-  scope: { config: ScopeConfig; },
+  scope: { config: ScopeConfig; input?: RequestContext; },
   inject: D,
   resolve: (token: ServiceToken<FlareService>) => unknown,
 ): FlareHandlerScope<D> {

@@ -6,6 +6,7 @@ import type { FlareService } from "../../../../services/composition/flare-servic
 import type { ServiceToken } from "../../../../services/types/types.js";
 import type { StateToken } from "../../state/types/state-token.js";
 import type { FlareHttpContext } from "../../transport/flare-http-context.js";
+import type { TypedRequestContext } from "../../transport/types/request-context.js";
 import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../../transport/types/response.js";
 import type { RequestDescriptor } from "../contract/flare-contract.js";
 
@@ -16,25 +17,36 @@ import type { RequestDescriptor } from "../contract/flare-contract.js";
  * never collides with the scope's `config` accessor.
  */
 export type InjectedMap<D extends Record<string, ServiceToken<FlareService>>> = {
-  [K in keyof D as K extends "config" ? never : K]: D[K] extends ServiceToken<infer T> ? Injected<T> : never;
+  [K in keyof D as K extends "config" | "input" ? never : K]: D[K] extends ServiceToken<infer T> ? Injected<T>
+    : never;
 };
 
-/** `inject` declaration map. `config` is reserved (it is the scope's config accessor). */
-export type InjectMap = Record<string, ServiceToken<FlareService>> & { config?: never; };
+/**
+ * `inject` declaration map. `config` and `input` are reserved (they are the scope's config accessor
+ * and parsed-request accessor).
+ */
+export type InjectMap = Record<string, ServiceToken<FlareService>> & { config?: never; input?: never; };
 
 /** The scope's reserved `config` accessor: resolves a {@link ConfigToken} to its value. */
 export type ScopeConfig = <T>(token: ConfigToken<T>) => T;
 
-/** Per-request DI and config surface. Declared deps appear by name; `config` resolves config tokens. */
-export type FlareHandlerScope<D extends Record<string, ServiceToken<FlareService>> = {}> =
+/**
+ * Per-request DI and config surface. Declared deps appear by name; `config` resolves config tokens;
+ * `input` carries the parsed `{ body, route, query }` typed from the route's `contract`.
+ */
+export type FlareHandlerScope<
+  D extends Record<string, ServiceToken<FlareService>> = {},
+  C extends RequestDescriptor = {},
+> =
   & { config: ScopeConfig; }
-  & InjectedMap<D>;
+  & InjectedMap<D>
+  & { input: TypedRequestContext<C>; };
 
 /** Registration options for function routes. */
-export type RouteOptions<D extends InjectMap = InjectMap> = {
+export type RouteOptions<D extends InjectMap = InjectMap, C extends RequestDescriptor = RequestDescriptor> = {
   inject?: D;
   state?: readonly StateToken[];
-  contract?: RequestDescriptor;
+  contract?: C;
   isolated?: boolean;
   name?: string;
 };
