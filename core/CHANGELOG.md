@@ -16,7 +16,6 @@ Durable Objects become a first-class Flare primitive: one host emits the front-d
   - [durable() addressing helper](#durable-addressing-helper)
   - [State boundary crossing (static state)](#state-boundary-crossing-static-state)
   - [Co-location builder](#co-location-builder)
-  - [WebSocket through a mount](#websocket-through-a-mount)
 - [Named scope dependencies](#named-scope-dependencies)
 - [Fixes](#fixes)
 - [Tests and tooling](#tests-and-tooling)
@@ -30,7 +29,7 @@ Durable Objects become a first-class Flare primitive: one host emits the front-d
 
 A single host now emits the front-door Worker and any number of Durable Objects from one DI graph; you still `export default app.export()` to get the `{ fetch }` Worker handler.
 
-A Durable Object is a class that extends `FlareDurableObject` (from `@flare-ts/core/cloudflare`). It declares `static deps`, is registered via `host.durableObject(Class)` before `host.build()`, and one host can emit many DOs. RPC methods, `alarm`, and the WebSocket hooks (`webSocketMessage`, `webSocketClose`, `webSocketError`) are plain public methods. Async init goes in the constructor via `ctx.blockConcurrencyWhile`. Inside DO methods, `this.inject(token)` resolves a declared dep.
+A Durable Object is a class that extends `FlareDurableObject` (from `@flare-ts/core/cloudflare`). It declares `static deps`, is registered via `host.durableObject(Class)` before `host.build()`, and one host can emit many DOs. Its native Durable Object surface works as-is: RPC methods, `alarm`, and the WebSocket hibernation hooks (`webSocketMessage`/`webSocketClose`/`webSocketError`) are plain methods on your class - Flare does not wrap them. Async init goes in the constructor via `ctx.blockConcurrencyWhile`. Inside DO methods, `this.inject(token)` resolves a declared dep.
 
 Services reach what they need by injection, with no prop-drilling:
 
@@ -84,7 +83,7 @@ room.http.post("/bump", { inject: { c: RoomCounter } }, (ctx, scope) => {
 });
 ```
 
-A DO still has RPC methods (plain public class methods), `alarm`, and the `webSocketMessage`/`webSocketClose`/`webSocketError` hooks; the per-DO arc adds HTTP dispatch on top of those.
+The per-DO arc adds HTTP dispatch on top of the DO's native methods (RPC, `alarm`, the WebSocket hooks).
 
 #### DurableState in service deps
 
@@ -96,7 +95,7 @@ A service that depends on `DurableState` is valid when it is reachable only from
 
 #### Explicit per-DO mount: room.mount(path)
 
-`mount(path)` declares which URL subtree a DO owns. The mount installs two forwarding routes on the front-door arc: an exact route at `path` (strips the prefix, forwards to the DO arc as `"/"`) and a wildcard route at `path/*rest` (forwards the remainder). The raw request is forwarded unchanged (method, all headers including `Upgrade: websocket`, body). The binding name defaults to the class name; override it with `opts.binding`.
+`mount(path)` declares which URL subtree a DO owns. The mount installs two forwarding routes on the front-door arc: an exact route at `path` (strips the prefix, forwards to the DO arc as `"/"`) and a wildcard route at `path/*rest` (forwards the remainder). The raw request is forwarded unchanged (method, all headers including `Upgrade: websocket`, body), and a `101` upgrade response passes back through untouched, so a mounted DO's native WebSocket endpoint keeps working. The binding name defaults to the class name; override it with `opts.binding`.
 
 The mount path ends in either a route parameter or a literal segment:
 
@@ -207,7 +206,7 @@ Crossing is bidirectional over the declared set: front-door state flows IN befor
 
 Only tokens a DO route actually consumes inbound must be provided in the front-door context, or `host.build()` fails with `MOUNT_STATE_NOT_PROVIDED`. A token is provided if it has a default/derivation, is supplied by a front-door middleware, or is declared in a mount's `resolve` `provides`. Output-only tokens (set by the DO, read by front-door after-middleware) need no provider.
 
-`forwardDurable(ctx, namespace, cls, name, request)` performs the same state-carrying forward manually, for paths not covered by a mount. `ctx` is the required first argument so a manual forward cannot omit the state source.
+`forwardDurable(ctx, namespace, name, cls, request)` performs the same state-carrying forward manually, for paths not covered by a mount. `ctx` is the required first argument so a manual forward cannot omit the state source.
 
 #### Co-location builder
 
@@ -218,10 +217,6 @@ const room = host.durableObject(Room, { binding: "ROOM" });
 room.http.get("/", ...);
 room.mount("/rooms/:name");
 ```
-
-#### WebSocket through a mount
-
-A mount forwards the raw request, so `GET` with `Upgrade: websocket` reaches the DO's per-DO arc unmodified. A per-DO route handler performs the upgrade with `ctx.state.acceptWebSocket(server)` and returns the `101` response; events are dispatched to the DO class's `webSocketMessage`/`webSocketClose`/`webSocketError` methods.
 
 ### Named scope dependencies
 
