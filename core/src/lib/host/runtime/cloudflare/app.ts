@@ -130,9 +130,27 @@ export type CloudflareAdapter =
   & HostRuntimeAdapter<CloudflareApp, CFWLoggerTransportClass, "sync", CloudflareHostExtension>
   & { setup(host: IFlareHost): void; };
 
-/** @internal Looks up the per-DO arc for a registered Durable Object class (used by composeDurableInstance). */
+/**
+ * @internal Looks up the per-DO arc for a registered Durable Object class (used by composeDurableInstance).
+ *
+ * Walks the prototype chain so a SUBCLASS of a registered DO resolves its ancestor's arc. The
+ * Cloudflare runtime does not always construct the exact class you registered: miniflare's internal
+ * do-wrapper can `new` a wrapper SUBCLASS of the exported class. `DO_HOST` is stamped as an own
+ * property on the registered class, so it is INHERITED by that subclass and the base constructor's
+ * registration guard passes; but `durableArcs` is keyed by exact class identity, so a plain
+ * `.get(subclass)` would miss and composeDurableInstance would throw "<name> has no per-DO arc" at
+ * construction. The walk stops at the most-derived registered class (a class registered in its own
+ * right shadows its ancestors), and returns `undefined` only when no ancestor was ever registered.
+ */
 export function arcForDurableObject(cls: FlareDurableObjectClass): HttpArc<"sync"> | null | undefined {
-  return durableArcs.get(cls);
+  let cur: unknown = cls;
+  while (typeof cur === "function") {
+    if (durableArcs.has(cur as FlareDurableObjectClass)) {
+      return durableArcs.get(cur as FlareDurableObjectClass);
+    }
+    cur = Object.getPrototypeOf(cur);
+  }
+  return undefined;
 }
 
 /**
