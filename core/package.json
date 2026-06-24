@@ -53,6 +53,10 @@
       "types": "./dist/cloudflare.d.ts",
       "import": "./dist/cloudflare.js"
     },
+    "./cloudflare/testing": {
+      "types": "./dist/cloudflare/testing.d.ts",
+      "import": "./dist/cloudflare/testing.js"
+    },
     "./testing": {
       "types": "./dist/testing.d.ts",
       "import": "./dist/testing.js"

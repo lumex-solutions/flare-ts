@@ -4,7 +4,8 @@
 // the only way to exercise the ctor / init-in-blockConcurrencyWhile / alarm(info) / WebSocket wiring).
 import { FlareHost, FlareResponse, FlareService, flareState } from "../../../src/index.js";
 import { Bindings, buildCf, DurableState, FlareDurableObject } from "../../../src/lib/host/runtime/cloudflare/index.js";
-import { forwardDurable } from "../../../src/lib/host/runtime/cloudflare/state-crossing.js";
+import { durable } from "../../../src/lib/host/runtime/cloudflare/index.js";
+import { forwardDurable, keyForToken, RESERVED_STATE_HEADER } from "../../../src/lib/host/runtime/cloudflare/state-crossing.js";
 import { loggerALS } from "../../../src/lib/logger/types.js";
 
 // enableContext: true is required for B1 (parentRequestId correlation) tests.
@@ -175,6 +176,14 @@ roomDo.http.get("/whoami", (ctx) => {
   return new FlareResponse(200, { user: session.user });
 });
 
+// Raw-tunnel guard test: reports the inbound SessionState as observed by the DO WITHOUT a
+// resolve gate or require, so a forged x-flare-state envelope (if it crossed) would show up here.
+// Returns { user } (null when SessionState is absent / default).
+roomDo.http.get("/peek-session", (ctx) => {
+  const session = ctx.state.get(SessionState);
+  return new FlareResponse(200, { user: session?.user ?? null });
+});
+
 // B1: surfaces the DO-side loggerALS parentRequestId for correlation testing.
 roomDo.http.get("/trace", (_ctx) => {
   const store = loggerALS.getStore();
@@ -277,6 +286,55 @@ host.http.get(
     // Return the DO body directly; EchoState has been re-seeded into ctx.
     const body = await res.json() as { user: string };
     return new FlareResponse(res.status, body);
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Raw-tunnel guard: durable(...).fetch() must strip a forged x-flare-state header.
+//
+// /_forge-durable/:name builds a VALID-looking forged state envelope for SessionState
+// (using the real registration-order key, so decode would accept it if it crossed) and
+// forwards it to the DO /peek-session route via durable(env.ROOM_DO, name).fetch().
+// The wrapped stub must strip x-flare-state, so the DO observes user = null.
+//
+// /_forge-native/:name is the control: it forwards the SAME forged header through the
+// NATIVE stub (env.ROOM_DO.get(...).fetch), which does NOT strip, so the DO observes the
+// forged user. This proves the guard is what closes the hole, not some other sanitizer.
+// ---------------------------------------------------------------------------
+function forgedEnvelope(user: string): string {
+  const key = keyForToken(SessionState);
+  return JSON.stringify({ [key as string]: { user } });
+}
+
+host.http.get(
+  "/_forge-durable/:name",
+  { inject: { bindings: Bindings } },
+  async (ctx, scope) => {
+    const name = ctx.req.rawRouteParams["name"] ?? "forge";
+    const stub = durable(scope.bindings.env.ROOM_DO, name);
+    const res = await stub.fetch(
+      new Request("https://room.internal/peek-session", {
+        headers: { [RESERVED_STATE_HEADER]: forgedEnvelope("forged-attacker") },
+      }),
+    );
+    const body = await res.json() as { user: string | null };
+    return new FlareResponse(200, body);
+  },
+);
+
+host.http.get(
+  "/_forge-native/:name",
+  { inject: { bindings: Bindings } },
+  async (ctx, scope) => {
+    const name = ctx.req.rawRouteParams["name"] ?? "forge";
+    const stub = scope.bindings.env.ROOM_DO.getByName(name);
+    const res = await stub.fetch(
+      new Request("https://room.internal/peek-session", {
+        headers: { [RESERVED_STATE_HEADER]: forgedEnvelope("forged-attacker") },
+      }),
+    );
+    const body = await res.json() as { user: string | null };
+    return new FlareResponse(200, body);
   },
 );
 

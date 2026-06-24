@@ -151,7 +151,7 @@ room.mount("/profile");
 
 Because the resolve routes are installed into the front-door arc with the resolver's own `inject` deps, the existing front-door validation (`ServiceRegistrationValidator` with Worker tokens `{Bindings}`) automatically rejects a resolve that injects a `DurableState`-dependent service; no extra validation code is required.
 
-`resolve` is per-DO. On a param-trailing mount the resolver receives the URL parameter via `ctx.params` and may use it, override it, or reject the request - the parameter is an input, never a bypass. `provides` declares which `static state` tokens the resolver sets, so the front-door provision check (see State boundary crossing) can verify them at build time.
+`resolve` is per-DO. On a param-trailing mount the resolver receives the URL parameter via `ctx.req.rawRouteParams` and may use it, override it, or reject the request - the parameter is an input, never a bypass. `provides` declares which `static state` tokens the resolver sets, so the front-door provision check (see State boundary crossing) can verify them at build time.
 
 #### durable() addressing helper
 
@@ -159,19 +159,22 @@ Because the resolve routes are installed into the front-door arc with the resolv
 
 ```ts
 import { durable } from "@flare-ts/core/cloudflare";
+import { str } from "@flare-ts/lib/schema";
+
+const byName = { route: { name: str } };
 
 host.http.get(
   "/rooms/:name/hello",
-  { inject: { b: Bindings } },
+  { inject: { b: Bindings }, contract: byName },
   async (ctx, scope) => {
-    const stub = durable(scope.b.env.ROOM, ctx.params.name);
+    const stub = durable(scope.b.env.ROOM, scope.input.route.name);
     const msg = await stub.sayHello();
     return new FlareResponse(200, { msg });
   },
 );
 ```
 
-`durable(...).fetch(request)` forwards a request directly to the DO but does NOT carry request state across the boundary, and a raw client request passed this way could include a forged reserved header. For state-carrying forwards use a mount or `forwardDurable` (see State boundary crossing).
+`durable(...).fetch(request)` forwards a request directly to the DO but does NOT carry request state across the boundary; it strips the framework-reserved state headers before dispatch, so forwarding a raw client request through it cannot inject DO state. For state-carrying forwards use a mount or `forwardDurable` (see State boundary crossing).
 
 #### State boundary crossing (static state)
 
@@ -251,10 +254,13 @@ Durable Objects do not use the scope map; they declare `static deps` and call `t
 ### Fixes
 
 - The Cloudflare streaming-response writer aborts on a body-stream error instead of hanging.
+- `durable(...).fetch()` strips the framework-reserved state headers (`x-flare-state` / `x-flare-trace`) before dispatch, so forwarding a raw client request through the typed stub cannot inject a Durable Object's `static state`. The `room.mount` and `forwardDurable` seams already sanitized; this closes the raw-stub path. RPC methods on the stub are unaffected.
 
 ### Tests and tooling
 
 Moved the test toolchain to Vitest 4 (`@cloudflare/vitest-pool-workers` 0.16, Vite 7). Added real-binding Durable Object storage and alarm tests. This is test-only, so nothing changes at runtime for you.
+
+A new public entry `@flare-ts/core/cloudflare/testing` exports the white-box Durable Object testing primitives: `composeDurableInstance` (drives one DO's per-instance container in-process via `inst.fetch(req)` and `inst.inject(deps, token)`, with no miniflare), plus `makeFakeDurableState` and `makeFakeStorage`. Use it for fast unit tests of per-DO routes and injected services. `makeFakeStorage` is KV-only, so SQL-backed DOs still need the real `cloudflare:test` binding tier.
 
 ## 0.2.0
 

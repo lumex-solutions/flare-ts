@@ -34,11 +34,27 @@ export interface FlareDurableObjectClass {
 export const DO_HOST: unique symbol = Symbol("flare.do.host");
 
 /**
- * Composes one DO instance's per-instance lazy container (seeds DurableState + Bindings).
+ * Composes one DO instance's per-instance lazy container, seeding `DurableState` and `Bindings` for
+ * the given `state` and `env`, and returns a `FlareCfHandler` you can drive in-process for
+ * white-box tests.
  *
- * @internal Exported so white-box tests can drive the real per-instance composition with a synthetic
- * `DurableObjectState` (workerd's native `DurableObject` base rejects a fake ctx, so the DO class
- * itself can only be constructed by the runtime).
+ * ```ts
+ * const inst = composeDurableInstance(host, makeFakeDurableState({ name: "room-1" }), makeEnv(), MyDO);
+ * const res = await inst.fetch(new Request("https://do/route"));
+ * const svc = inst.inject([MyService], MyService);
+ * ```
+ *
+ * **The DO class constructor is bypassed.** workerd's native `DurableObject` base rejects a fake
+ * `DurableObjectState`, so the DO class itself can only be constructed by the workerd runtime. This
+ * function composes only the per-instance Flare container, not the DO class instance. To exercise the
+ * constructor, `alarm`, WebSocket, or RPC methods, use a real `cloudflare:test` binding.
+ *
+ * @param host - The built `FlareHost` that owns the DO registration and compiled arc.
+ * @param state - A real or fake `DurableObjectState` seeded as `DurableState` in the instance graph.
+ * @param env  - The Worker env seeded as `Bindings` in the instance graph.
+ * @param cls  - The registered DO class (must have been passed to `host.durableObject()` before `host.build()`).
+ * @returns A `FlareCfHandler` scoped to this instance. Call `inst.fetch(req)` to dispatch HTTP or
+ *   `inst.inject(deps, token)` to resolve services from the per-instance container.
  */
 export function composeDurableInstance(
   host: IFlareHost,

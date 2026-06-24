@@ -12,34 +12,67 @@
  * });
  *
  * @remarks
- * **Security: raw-fetch state injection risk.**
+ * **Security: `durable(...).fetch()` is a state-free raw tunnel by construction.**
  *
- * `durable(...)` returns a plain stub with no state-crossing logic. This is intentional for
- * RPC calls and state-free forwarding. However, if you forward a raw inbound client request
- * directly to a Durable Object that declares `static state`, the client-supplied request
- * headers arrive unmodified at the DO, including any `x-flare-state` header the client may
- * have crafted:
+ * The stub returned by `durable(...)` strips the framework-reserved `x-flare-state` and
+ * `x-flare-trace` headers on every `.fetch()` call before dispatch. A client-forged state
+ * envelope therefore can never reach a Durable Object through this path, even when you forward
+ * a raw inbound client request to a DO that declares `static state`:
  *
  * ```ts
- * // UNSAFE when RoomDO has static state - the client controls ctx.req.nativeRequest headers:
+ * // Safe: the wrapped stub deletes any client-supplied x-flare-state / x-flare-trace headers
+ * // before the request reaches the DO. No DO state crosses through durable().fetch().
  * const stub = durable(env.ROOM_DO, name);
  * await stub.fetch(ctx.req.nativeRequest);
  * ```
  *
- * The blessed forwarding seams (`room.mount` and `forwardDurable`) unconditionally strip
- * and rewrite the `x-flare-state` and `x-flare-trace` headers before dispatch, so they are
- * not vulnerable to this. Use them for any forward that should carry DO state:
+ * RPC methods, `Symbol.dispose`/`Symbol.asyncDispose`, and every non-`fetch` member pass
+ * through untouched, and a plain `fetch()` carrying no reserved headers is unaffected (method,
+ * body, and all non-reserved headers cross intact). Treat `durable(...).fetch(...)` as a
+ * state-free raw tunnel.
+ *
+ * To carry DO state across the boundary, use the blessed seams (`room.mount` and
+ * `forwardDurable`), which sanitize the reserved headers and then encode the framework-owned
+ * state tokens from `ctx` onto the forwarded request:
  *
  * ```ts
- * // SAFE: forwardDurable sanitizes reserved headers and encodes only the framework-owned
- * // state tokens from ctx onto the forwarded request.
+ * // State-carrying path: forwardDurable sanitizes reserved headers and encodes only the
+ * // framework-owned state tokens from ctx onto the forwarded request.
  * await forwardDurable(ctx, env.ROOM_DO, RoomDO, name, ctx.req.nativeRequest);
  * ```
- *
- * DOs are not internet-addressable, so exploiting this requires a developer to deliberately
- * forward a raw client request rather than using the provided seams. Treat
- * `durable(...).fetch(rawClientRequest)` as a state-free raw tunnel only.
  */
+
+import { sanitizeForwardHeaders } from "./state-crossing.js";
+
+/**
+ * Wraps a native `DurableObjectStub` in a `Proxy` whose `.fetch()` strips the framework-reserved
+ * `x-flare-state` / `x-flare-trace` headers before dispatch, while every other member (RPC method
+ * closures, `Symbol.dispose`/`Symbol.asyncDispose`, ...) passes straight through.
+ *
+ * This makes `durable(...).fetch()` a state-free raw tunnel by construction: a client-forged state
+ * envelope on a forwarded raw request can never reach the DO, so a developer cannot accidentally
+ * inject DO `static state` by forwarding `ctx.req.nativeRequest`. State-carrying forwards must go
+ * through `forwardDurable`, which encodes the framework-owned tokens after sanitizing.
+ *
+ * @internal Exported only for unit testing the proxy behavior in isolation.
+ */
+export function wrapStub<T extends Rpc.DurableObjectBranded | undefined>(
+  stub: DurableObjectStub<T>,
+): DurableObjectStub<T> {
+  return new Proxy(stub, {
+    get(target, prop) {
+      if (prop === "fetch") {
+        return (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+          const req = new Request(input as RequestInfo, init);
+          sanitizeForwardHeaders(req.headers);
+          return target.fetch(req);
+        };
+      }
+      // Preserve RPC method closures and disposal symbols by reading off the real stub.
+      return Reflect.get(target, prop, target);
+    },
+  }) as DurableObjectStub<T>;
+}
 
 /** Options for `durable(...)` placement. Extends the base get-options with `jurisdiction`. */
 export type DurableAddressingOpts =
@@ -66,6 +99,7 @@ export function durable<T extends Rpc.DurableObjectBranded | undefined>(
   name: string,
   opts?: DurableAddressingOpts,
 ): DurableObjectStub<T> {
+  let stub: DurableObjectStub<T>;
   if (opts?.jurisdiction !== undefined) {
     const { jurisdiction, ...rest } = opts;
     const scoped = namespace.jurisdiction(jurisdiction);
@@ -73,10 +107,11 @@ export function durable<T extends Rpc.DurableObjectBranded | undefined>(
     const getOpts = Object.keys(rest).length > 0
       ? (rest as DurableObjectNamespaceGetDurableObjectOptions)
       : undefined;
-    return getOpts !== undefined ? scoped.getByName(name, getOpts) : scoped.getByName(name);
+    stub = getOpts !== undefined ? scoped.getByName(name, getOpts) : scoped.getByName(name);
+  } else if (opts !== undefined && Object.keys(opts).length > 0) {
+    stub = namespace.getByName(name, opts as DurableObjectNamespaceGetDurableObjectOptions);
+  } else {
+    stub = namespace.getByName(name);
   }
-  if (opts !== undefined && Object.keys(opts).length > 0) {
-    return namespace.getByName(name, opts as DurableObjectNamespaceGetDurableObjectOptions);
-  }
-  return namespace.getByName(name);
+  return wrapStub(stub);
 }
