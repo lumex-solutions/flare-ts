@@ -357,9 +357,9 @@ describe("HttpBase.get / post / put / patch / delete / head / options (synthetic
     expect(reg.cls.state).toEqual([stateA, stateB]);
   });
 
-  it("contract option: wrapped via flareContract({ handle: contract })", () => {
+  it("loose request fields: wrapped via flareContract({ handle: descriptor })", () => {
     const responseSchema = {} as unknown as never;
-    base.get("/c", { contract: { response: { 200: responseSchema } } }, () => null);
+    base.get("/c", { response: { 200: responseSchema } }, () => null);
 
     const cls = base.conRegistrations[0]!.cls;
     const contract = cls.contract as unknown as Record<string | symbol, unknown> | undefined;

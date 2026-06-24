@@ -9,7 +9,7 @@ import type { JsonObject } from "@flare-ts/lib/schema";
 import { model, str } from "@flare-ts/lib/schema";
 import type { HostRuntimeAdapter } from "../../../src/lib/host/types/adapter.js";
 import type { TestAppHandle } from "../../../src/lib/testing/test.js";
-import { FlareHost, FlareResponse } from "../../../src/index.js";
+import { flareContract, FlareHost, FlareResponse } from "../../../src/index.js";
 import { stream } from "../../../src/index.js";
 import { FlareErrorCategories } from "../../../src/lib/errors/types/types.js";
 import { node } from "../../../src/lib/host/runtime/node.js";
@@ -53,8 +53,8 @@ describe("Primary Behavior", () => {
   // Held outside the host builder so the same descriptor reference can be
   // passed to both the route registration and ctx.extract() in the handler —
   // extract() asserts strict reference equality against the descriptor stored
-  // on the pipeline (which is the same object passed into options.contract).
-  const uploadDescriptor = { body: UploadBody, maxBodyBytes: 1024 };
+  // on the pipeline (the same branded entry passed into options.contract).
+  const UploadContract = flareContract({ upload: { body: UploadBody, maxBodyBytes: 1024 } });
 
   beforeAll(async () => {
     const host = new FlareHost(nodeAdapter({}));
@@ -63,9 +63,9 @@ describe("Primary Behavior", () => {
     // must return 413 with the ContentTooLarge payload shape.
     host.http.post(
       "/upload",
-      { contract: uploadDescriptor },
+      { contract: UploadContract.upload },
       (ctx) => {
-        const { body } = ctx.extract(uploadDescriptor);
+        const { body } = ctx.extract(UploadContract.upload);
         observed.body = body;
         return new FlareResponse(200, { ok: true });
       },
@@ -125,7 +125,7 @@ describe("Primary Behavior", () => {
       host.http.post(
         "/no-route-cap",
         {
-          contract: { body: UploadBody },
+          body: UploadBody,
         },
         () => new FlareResponse(200, { ok: true }),
       );
@@ -190,7 +190,7 @@ describe("Edge Cases", () => {
     host.http.post(
       "/stream-upload",
       {
-        contract: { body: stream },
+        body: stream,
       },
       async (ctx) => {
         let total = 0;
@@ -206,7 +206,7 @@ describe("Edge Cases", () => {
     host.http.post(
       "/stream-upload-loose",
       {
-        contract: { body: stream, maxBodyBytes: 1024 },
+        body: stream, maxBodyBytes: 1024,
       },
       async (ctx) => {
         let total = 0;
@@ -304,7 +304,7 @@ describe("Failure Modes", () => {
     host.http.post(
       "/strict",
       {
-        contract: { body: UploadBody, maxBodyBytes: 128 },
+        body: UploadBody, maxBodyBytes: 128,
       },
       () => {
         flags.handlerRan = true;
@@ -359,7 +359,7 @@ describe("Cross-Feature Interactions", () => {
     host.http.post(
       "/dispatch",
       {
-        contract: { body: UploadBody, maxBodyBytes: 64 },
+        body: UploadBody, maxBodyBytes: 64,
       },
       () => new FlareResponse(200, { ok: true }),
     );
@@ -371,7 +371,7 @@ describe("Cross-Feature Interactions", () => {
     host.http.post(
       "/stream-only",
       {
-        contract: { body: stream },
+        body: stream,
       },
       async (ctx) => {
         streamHandlerCalled = true;

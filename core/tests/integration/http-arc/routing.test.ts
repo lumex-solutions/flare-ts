@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { int } from "@flare-ts/lib/schema";
 import type { FlareHttpContext } from "../../../src/lib/arcs/http/transport/flare-http-context.js";
 import type { TestAppHandle } from "../../../src/lib/testing/test.js";
-import { FlareHost, FlareResponse } from "../../../src/index.js";
+import { flareContract, FlareHost, FlareResponse } from "../../../src/index.js";
 import { node } from "../../../src/lib/host/runtime/node.js";
 
 // Helpers
@@ -53,12 +53,12 @@ describe("Primary Behavior", () => {
     // for us (see HttpBase.#syntheticController). When the contract is
     // present, the framework parses the segment through the primitive and
     // ctx.extract({...}) yields the typed value.
-    const itemContract = { route: { id: int } };
+    const ItemContract = flareContract({ item: { route: { id: int } } });
     host.http.get(
       "/items/:id",
-      { contract: itemContract },
+      { contract: ItemContract.item },
       (ctx: FlareHttpContext) => {
-        const { route } = ctx.extract(itemContract);
+        const { route } = ctx.extract(ItemContract.item);
         // `route.id` is typed `number` at the contract level; assert both the
         // raw view and the typed view here so a single round trip proves both
         // surfaces are populated correctly.

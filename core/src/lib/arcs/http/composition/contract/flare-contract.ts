@@ -6,6 +6,12 @@ import { Primitive } from "@flare-ts/lib/schema";
  * plain object literal being accidentally accepted where a ContractToken is expected. */
 export const CONTRACT_BRAND: unique symbol = Symbol("contract_brand");
 
+/** @internal Nominal brand marking a single {@link RequestDescriptor} that originated from a
+ * {@link flareContract} entry (never a bare object literal). Purely a compile-time gate: never set or
+ * inspected at runtime. It is what lets a route's `contract` option accept `myContract.handlerName`
+ * while rejecting an inline `{ route: {...} }` literal (which must use the loose route-option keys). */
+export const REQUEST_BRAND: unique symbol = Symbol("request_brand");
+
 type QueryPrimitive =
   | TypedPrimitive<number>
   | TypedPrimitive<number | undefined>
@@ -35,10 +41,10 @@ type QueryPrimitive =
  * @typeParam T - The descriptor map passed to {@link flareContract}, keyed by
  * handler name and valued by {@link RequestDescriptor}.
  */
-type TypedContractToken<T> =
+type TypedContractToken<T extends Record<string, RequestDescriptor>> =
   & ContractToken
   & {
-    [K in keyof T]: T[K];
+    readonly [K in keyof T]: RequestToken<T[K]>;
   };
 
 /**
@@ -125,6 +131,21 @@ export type RequestDescriptor = {
 
 export type ContractToken = {
   readonly [CONTRACT_BRAND]: true;
+};
+
+/**
+ * A single, branded {@link RequestDescriptor} — the per-handler shape carried by one
+ * {@link flareContract} entry.
+ *
+ * Obtained only by indexing a contract (`myContract.getUser`), never written as a bare literal. A
+ * route's `contract` option accepts this branded form; the inline alternative is to spell the
+ * descriptor's fields (`body`/`route`/`query`/...) directly in the route options. A route uses one
+ * or the other, never both.
+ *
+ * @typeParam T - The concrete descriptor this token carries.
+ */
+export type RequestToken<T extends RequestDescriptor = RequestDescriptor> = T & {
+  readonly [REQUEST_BRAND]: true;
 };
 
 /**

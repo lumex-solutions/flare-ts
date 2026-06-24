@@ -165,7 +165,7 @@ describe("Primary Behavior", () => {
       const host = new FlareHost(node);
       host.http.post(
         "/items",
-        { contract: { body: CreateBody } },
+        { body: CreateBody },
         () => {
           handlerCalled = true;
           return new FlareResponse(201, { ok: true });
@@ -514,7 +514,7 @@ describe("Cross-Feature Interactions", () => {
       const host = new FlareHost(node);
       host.http.post(
         "/tiny",
-        { contract: { body: TinyBody, maxBodyBytes: 16 } },
+        { body: TinyBody, maxBodyBytes: 16 },
         () => new FlareResponse(200, { ok: true }),
       );
 
@@ -551,7 +551,7 @@ describe("Cross-Feature Interactions", () => {
       const host = new FlareHost(node);
       host.http.post(
         "/validated",
-        { contract: { body: Body } },
+        { body: Body },
         () => new FlareResponse(200, { ok: true }),
       );
       host.http.get("/throws", () => {

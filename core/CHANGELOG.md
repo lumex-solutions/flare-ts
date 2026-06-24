@@ -161,11 +161,9 @@ Because the resolve routes are installed into the front-door arc with the resolv
 import { durable } from "@flare-ts/core/cloudflare";
 import { str } from "@flare-ts/lib/schema";
 
-const byName = { route: { name: str } };
-
 host.http.get(
   "/rooms/:name/hello",
-  { inject: { b: Bindings }, contract: byName },
+  { inject: { b: Bindings }, route: { name: str } },
   async (ctx, scope) => {
     const stub = durable(scope.b.env.ROOM, scope.input.route.name);
     const msg = await stub.sayHello();
@@ -183,7 +181,7 @@ A Durable Object declares the request-scoped state it accepts across the boundar
 ```ts
 import { flareState } from "@flare-ts/core";
 
-const SessionState = flareState<{ userId: string }>("SessionState");
+const SessionState = flareState<{ userId: string; }>("SessionState");
 
 class Room extends FlareDurableObject {
   static override deps = [DurableState];
@@ -195,12 +193,15 @@ host.durableObject(Room, { binding: "ROOM" }, (room) => {
     const { userId } = ctx.state.require(SessionState); // crossed in from the front door
     return new FlareResponse(200, { userId });
   });
-  room.resolve({ inject: { auth: AuthService }, provides: [SessionState] }, (ctx, scope) => {
-    const session = scope.auth.verify(ctx.req);
-    if (!session) return new FlareResponse(401, { error: "unauthenticated" });
-    ctx.state.set(SessionState, { userId: session.userId });
-    return session.userId;
-  });
+  room.resolve(
+    { inject: { auth: AuthService }, provides: [SessionState] },
+    (ctx, scope) => {
+      const session = scope.auth.verify(ctx.req);
+      if (!session) return new FlareResponse(401, { error: "unauthenticated" });
+      ctx.state.set(SessionState, { userId: session.userId });
+      return session.userId;
+    },
+  );
   room.mount("/me");
 });
 ```
@@ -235,19 +236,36 @@ host.http.get(
 
 `scope.users` is typed as the injected `UserService`, and the keys are yours to name. `config` is reserved for the config accessor (`scope.config(token)`) and `input` for the parsed request inputs (see below), so a dependency cannot use those keys. This replaces the previous `inject: [UserService]` array and the `scope.inject(UserService)` call, which is removed. Class controllers, middleware, services, and error handlers are unchanged: they still declare `static deps` and call `this.inject(token)`.
 
-A route that declares a `contract` also receives the parsed, typed request inputs on `scope.input`: `scope.input.route`, `scope.input.query`, and `scope.input.body`, each typed from the contract descriptor.
+A route declares the shape it parses one of two ways, never both, and reads the parsed, typed inputs from `scope.input` (`scope.input.route`, `scope.input.query`, `scope.input.body`).
+
+Loose fields for an inline route: spell the descriptor (`body`/`route`/`query`/`response`/`maxBodyBytes`) directly in the options.
 
 ```ts
-const byName = { route: { name: str }, query: { page: int } };
+host.http.get(
+  "/users/:name",
+  { route: { name: str }, query: { page: int } },
+  (ctx, scope) => {
+    const { name } = scope.input.route; // string
+    const { page } = scope.input.query; // number
+    return new FlareResponse(200, { name, page });
+  },
+);
+```
 
-host.http.get("/users/:name", { contract: byName }, (ctx, scope) => {
-  const { name } = scope.input.route; // string
-  const { page } = scope.input.query; // number
-  return new FlareResponse(200, { name, page });
+A branded `flareContract` entry when you want a named, reusable shape (sharing, codegen). `flareContract` entries are branded, so an entry drops straight into a route's `contract` with the same `scope.input` inference.
+
+```ts
+const Users = flareContract({
+  getUser: { route: { name: str }, query: { page: int } },
+});
+
+host.http.get("/users/:name", { contract: Users.getUser }, (ctx, scope) => {
+  const { name } = scope.input.route; // string, identical inference to the loose form
+  return new FlareResponse(200, { name });
 });
 ```
 
-The handler reads inputs directly, with no need to re-derive them via `ctx.extract(descriptor)` inside the body. That older pattern required passing the same descriptor object back in and threw at runtime if you passed a different one; `scope.input` removes both the re-pass and that footgun. `ctx.extract` remains for class controllers.
+The two forms are mutually exclusive: mixing loose fields with `contract` is a type error, and `contract` no longer accepts a bare object literal (it must be a `flareContract` entry). The handler reads inputs directly from `scope.input`, with no need to re-derive them via `ctx.extract(descriptor)` inside the body; that older pattern required passing the same descriptor object back in and threw at runtime if you passed a different one. `ctx.extract(entry)` remains available for the branded form and for class controllers.
 
 Durable Objects do not use the scope map; they declare `static deps` and call `this.inject(token)` (see Durable Objects and Workers above).
 

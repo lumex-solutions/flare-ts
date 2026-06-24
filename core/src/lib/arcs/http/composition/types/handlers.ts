@@ -8,7 +8,7 @@ import type { StateToken } from "../../state/types/state-token.js";
 import type { FlareHttpContext } from "../../transport/flare-http-context.js";
 import type { TypedRequestContext } from "../../transport/types/request-context.js";
 import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../../transport/types/response.js";
-import type { RequestDescriptor } from "../contract/flare-contract.js";
+import type { RequestDescriptor, RequestToken } from "../contract/flare-contract.js";
 
 /**
  * Resolved-instance map derived from a declared `inject` token map.
@@ -42,14 +42,48 @@ export type FlareHandlerScope<
   & InjectedMap<D>
   & { input: TypedRequestContext<C>; };
 
-/** Registration options for function routes. */
-export type RouteOptions<D extends InjectMap = InjectMap, C extends RequestDescriptor = RequestDescriptor> = {
+/** The {@link RequestDescriptor} field names usable as loose inline route-option keys. */
+export type RequestKey = "body" | "route" | "query" | "response" | "maxBodyBytes";
+
+/** Registration options common to both route-option forms (DI, state, and registration flags). */
+export type RouteOptionsBase<D extends InjectMap = InjectMap> = {
   inject?: D;
   state?: readonly StateToken[];
-  contract?: C;
   isolated?: boolean;
   name?: string;
 };
+
+/**
+ * Inline form: the request descriptor's fields (`body`/`route`/`query`/...) are spelled directly in
+ * the route options. `contract` is forbidden here — use one form or the other, never both.
+ */
+export type LooseRouteOptions<D extends InjectMap = InjectMap> =
+  & RouteOptionsBase<D>
+  & RequestDescriptor
+  & { contract?: never; };
+
+/**
+ * Branded form: the request descriptor is supplied as a {@link RequestToken} from a `flareContract`
+ * entry. The loose descriptor keys are forbidden here.
+ */
+export type ContractRouteOptions<D extends InjectMap = InjectMap> =
+  & RouteOptionsBase<D>
+  & { contract: RequestToken; }
+  & { [K in RequestKey]?: never; };
+
+/** Registration options for function routes: loose inline fields OR a branded `contract`, never both. */
+export type RouteOptions<D extends InjectMap = InjectMap> = LooseRouteOptions<D> | ContractRouteOptions<D>;
+
+/** Recovers the `inject` token map from a concrete route-options object (defaults to `{}`). */
+export type InjectOf<O> = O extends { inject: infer D extends InjectMap; } ? D : {};
+
+/**
+ * Recovers the {@link RequestDescriptor} a route's options describe: the `contract` token's payload
+ * when present, otherwise the loose descriptor keys picked off the options object.
+ */
+export type DescriptorOf<O> = O extends { contract: RequestToken<infer C>; } ? C
+  : Pick<O, Extract<keyof O, RequestKey>> extends infer P ? (P extends RequestDescriptor ? P : {})
+  : {};
 
 /** Registration options for `before`/`after`/`finally`. */
 export type MiddlewareOptions<D extends InjectMap = InjectMap> = {

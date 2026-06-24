@@ -16,11 +16,13 @@ import type { CorsConfig } from "./types/cors.js";
 import type {
   AfterMiddlewareHandler,
   BeforeMiddlewareHandler,
+  DescriptorOf,
   ErrorHandlerOptions,
   FinallyMiddlewareHandler,
   FlareErrorHandler,
   FlareHandlerScope,
   InjectMap,
+  InjectOf,
   MiddlewareOptions,
   RouteHandler,
   RouteOptions,
@@ -39,6 +41,24 @@ type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTION
 type HandlerFn = (...args: any[]) => unknown;
 type Resolved<TOptions, THandler extends HandlerFn> = { options: TOptions; handler: THandler; };
 type SyntheticEntry = { cls: ControllerClass; registration: ControllerRegistration; methods: Set<HttpMethod>; };
+
+/** RequestDescriptor fields usable as loose inline route-option keys (the alternative to `contract`). */
+const REQUEST_FIELDS = ["body", "route", "query", "response", "maxBodyBytes"] as const;
+
+/**
+ * Resolves a route's {@link RequestDescriptor} from its options. A route supplies its request shape one
+ * of two ways: a branded `contract` entry (which IS a descriptor; the brand is an inert extra symbol),
+ * or the loose descriptor fields spelled inline. Returns undefined when the route declares neither.
+ */
+function routeDescriptor(options: RouteOptions): RequestDescriptor | undefined {
+  if (options.contract) return options.contract as RequestDescriptor;
+  let descriptor: Record<string, unknown> | undefined;
+  for (const field of REQUEST_FIELDS) {
+    const value = (options as Record<string, unknown>)[field];
+    if (value !== undefined) (descriptor ??= {})[field] = value;
+  }
+  return descriptor as RequestDescriptor | undefined;
+}
 
 /**
  * Shared base for {@link FlareApp} and {@link HttpGroup}.
@@ -168,10 +188,10 @@ export abstract class HttpBase {
   }
 
   public get(path: string, handler: RouteHandler): void;
-  public get<const D extends InjectMap, const C extends RequestDescriptor = {}>(
+  public get<const O extends RouteOptions>(
     path: string,
-    options: RouteOptions<D, C>,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D, C>) => HandlerResult | Promise<HandlerResult>,
+    options: O,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public get(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -179,10 +199,10 @@ export abstract class HttpBase {
   }
 
   public post(path: string, handler: RouteHandler): void;
-  public post<const D extends InjectMap, const C extends RequestDescriptor = {}>(
+  public post<const O extends RouteOptions>(
     path: string,
-    options: RouteOptions<D, C>,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D, C>) => HandlerResult | Promise<HandlerResult>,
+    options: O,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public post(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -190,10 +210,10 @@ export abstract class HttpBase {
   }
 
   public put(path: string, handler: RouteHandler): void;
-  public put<const D extends InjectMap, const C extends RequestDescriptor = {}>(
+  public put<const O extends RouteOptions>(
     path: string,
-    options: RouteOptions<D, C>,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D, C>) => HandlerResult | Promise<HandlerResult>,
+    options: O,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public put(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -201,10 +221,10 @@ export abstract class HttpBase {
   }
 
   public patch(path: string, handler: RouteHandler): void;
-  public patch<const D extends InjectMap, const C extends RequestDescriptor = {}>(
+  public patch<const O extends RouteOptions>(
     path: string,
-    options: RouteOptions<D, C>,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D, C>) => HandlerResult | Promise<HandlerResult>,
+    options: O,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public patch(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -212,10 +232,10 @@ export abstract class HttpBase {
   }
 
   public delete(path: string, handler: RouteHandler): void;
-  public delete<const D extends InjectMap, const C extends RequestDescriptor = {}>(
+  public delete<const O extends RouteOptions>(
     path: string,
-    options: RouteOptions<D, C>,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D, C>) => HandlerResult | Promise<HandlerResult>,
+    options: O,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public delete(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -223,10 +243,10 @@ export abstract class HttpBase {
   }
 
   public head(path: string, handler: RouteHandler): void;
-  public head<const D extends InjectMap, const C extends RequestDescriptor = {}>(
+  public head<const O extends RouteOptions>(
     path: string,
-    options: RouteOptions<D, C>,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D, C>) => HandlerResult | Promise<HandlerResult>,
+    options: O,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public head(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -234,10 +254,10 @@ export abstract class HttpBase {
   }
 
   public options(path: string, handler: RouteHandler): void;
-  public options<const D extends InjectMap, const C extends RequestDescriptor = {}>(
+  public options<const O extends RouteOptions>(
     path: string,
-    options: RouteOptions<D, C>,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D, C>) => HandlerResult | Promise<HandlerResult>,
+    options: O,
+    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public options(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -364,7 +384,8 @@ export abstract class HttpBase {
     // Dedup: `inject: { a: Svc, b: Svc }` declares one dep, not two.
     const deps = [...new Set(Object.values(options.inject ?? {}))];
     const state = [...(options.state ?? [])];
-    const contract = options.contract ? flareContract({ handle: options.contract }) : undefined;
+    const descriptor = routeDescriptor(options);
+    const contract = descriptor ? flareContract({ handle: descriptor }) : undefined;
     const name = options.name ?? `Synthetic${method} ${fullPath}`;
     const fn = handler;
     const ownInject = (options.inject ?? {}) as InjectMap;

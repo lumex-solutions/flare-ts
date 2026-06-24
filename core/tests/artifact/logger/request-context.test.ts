@@ -7,7 +7,6 @@ import type { AddressInfo } from "node:net";
 import { once } from "node:events";
 import { afterEach, describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
-import type { HostRuntimeAdapter } from "../../../src/lib/host/types/adapter.js";
 import { FlareHost } from "../../../src/index.js";
 import { FlareResponse } from "../../../src/lib/arcs/http/transport/flare-response.js";
 import { node } from "../../../src/lib/host/runtime/node.js";
@@ -23,7 +22,7 @@ import {
   type LogRecord,
 } from "../../../src/lib/logger/types.js";
 import { registerMinimalPingRoute } from "../../helpers/host-fixtures.js";
-import { nodeAdapter } from "../../helpers/node-adapter.js";
+import { nodeAdapter, type NodeTestAdapter } from "../../helpers/node-adapter.js";
 
 // Recording transport — captures every record. Per-test reset keeps assertions
 // scoped to the call under inspection.
@@ -69,7 +68,7 @@ function newTestHost(adapter: ReturnType<typeof nodeAdapter>) {
 // integration end-to-end.
 function nodeLiveAdapter(
   flareJson: JsonObject,
-): HostRuntimeAdapter<ReturnType<typeof node.createApp>> {
+): NodeTestAdapter {
   return {
     runtime: node.runtime,
     lifecycle: node.lifecycle,
@@ -78,6 +77,7 @@ function nodeLiveAdapter(
     createApp: node.createApp.bind(node),
     createLogger: node.createLogger.bind(node),
     createTestRequest: node.createTestRequest.bind(node),
+    extendHost: node.extendHost!.bind(node),
     get flareJsonFile(): JsonObject {
       return flareJson;
     },

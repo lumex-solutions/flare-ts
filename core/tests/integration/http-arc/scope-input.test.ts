@@ -10,10 +10,11 @@ import { FlareHost, FlareResponse } from "../../../src/index.js";
 import { node } from "../../../src/lib/host/runtime/node.js";
 
 // scope.input gives inline route handlers the already-parsed `{ body, route,
-// query }` typed from the route's own `contract` literal, with NO re-passing a
-// descriptor to ctx.extract and no runtime identity footgun. The suite simply
-// compiling validates the types; the assertions below confirm the runtime
-// values reach the handler.
+// query }` typed from the route's own loose descriptor fields (body/route/query
+// spelled directly in the options), with NO re-passing a descriptor to
+// ctx.extract and no runtime identity footgun. The suite simply compiling
+// validates the types; the assertions below confirm the runtime values reach
+// the handler.
 
 class CreateBody extends model({ y: str.min(1) }) {}
 
@@ -29,7 +30,7 @@ describe("scope.input", () => {
     // ctx.extract and no descriptor re-passing.
     host.http.get(
       "/greet/:name",
-      { contract: { route: { name: str }, query: { n: int } } },
+      { route: { name: str }, query: { n: int } },
       (_ctx, scope) => {
         return new FlareResponse(200, {
           name: scope.input.route.name,
@@ -39,20 +40,20 @@ describe("scope.input", () => {
       },
     );
 
-    // POST with a body schema contract: scope.input.body is the parsed body.
+    // POST with a body schema: scope.input.body is the parsed body.
     host.http.post(
       "/create",
-      { contract: { body: CreateBody } },
+      { body: CreateBody },
       (_ctx, scope) => {
         return new FlareResponse(200, { y: scope.input.body.y });
       },
     );
 
-    // Single contract carrying BOTH a route param and a body: the one scope
+    // A single route declaring BOTH a route param and a body: the one scope
     // exposes both input.route.x and input.body.y with no extract call.
     host.http.post(
       "/both/:x",
-      { contract: { route: { x: int }, body: CreateBody } },
+      { route: { x: int }, body: CreateBody },
       (_ctx, scope) => {
         return new FlareResponse(200, {
           x: scope.input.route.x,
