@@ -12,6 +12,7 @@ import { ControllerBase } from "../../../../../src/lib/arcs/http/composition/cla
 import { ErrorHandlerBase } from "../../../../../src/lib/arcs/http/composition/classes/error-handler-base.js";
 import { MiddlewareBase } from "../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
 import { CONTRACT_BRAND } from "../../../../../src/lib/arcs/http/composition/contract/flare-contract.js";
+import { REQUEST_INPUT } from "../../../../../src/lib/arcs/http/transport/flare-http-context.js";
 import { HttpGroup } from "../../../../../src/lib/arcs/http/composition/group.js";
 
 /**
@@ -308,7 +309,9 @@ describe("HttpBase.get / post / put / patch / delete / head / options (synthetic
       handlePOST: (this: unknown) => unknown;
     };
     const container = { resolveCfg: () => undefined } as unknown as Container;
-    const ctx = {} as FlareHttpContext;
+    // handle() builds the handler scope's `input` from ctx[REQUEST_INPUT](); these handlers ignore
+    // input, so an empty parsed context is enough. A bare {} stub lacks the method and throws.
+    const ctx = { [REQUEST_INPUT]: () => ({}) } as unknown as FlareHttpContext;
     const instance = reg.factory(container, ctx);
 
     expect(proto.handle.call(instance)).toEqual({ via: "GET" });
