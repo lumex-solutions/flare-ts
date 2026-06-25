@@ -69,6 +69,10 @@ Durable Objects become a first-class Flare primitive, function-handler dependenc
 
 - Moved the test toolchain to Vitest 4 (`@cloudflare/vitest-pool-workers` 0.16, Vite 7) and added real-binding Durable Object storage and alarm tests. Test-only; nothing changes at runtime.
 
+### Internal
+
+- Unified the app lifecycle orchestration. The four `start`/`startAsync`/`stop`/`stopAsync` methods on `FlareAppBase` collapsed into one startup program and one shutdown program (each expressing the arc/singleton ordering, Logger deferral, partial-start window, and error aggregation once) interpreted by a sync or async driver. Removes ~250 lines of duplicated start/stop and sync/async policy. Behavior-preserving; nothing changes at runtime.
+
 ## 0.2.0
 
 ### Minor Changes
