@@ -3,7 +3,7 @@ import type { HttpArc } from "../../../src/lib/arcs/http/http-arc.js";
 import type { FlareHttpContext } from "../../../src/lib/arcs/http/transport/flare-http-context.js";
 import type { ResponseLike } from "../../../src/lib/arcs/http/transport/types/response.js";
 import type { IFlareApp } from "../../../src/lib/host/flare-app.js";
-import type { IFlareHost } from "../../../src/lib/host/flare-host.js";
+import type { IFlareHost, IFlareTestHost } from "../../../src/lib/host/flare-host.js";
 import type { HostRuntimeAdapter } from "../../../src/lib/host/types/adapter.js";
 import type { HostRuntimeLifecycle } from "../../../src/lib/host/types/lifecycle.js";
 import type { LoggerTransportClass } from "../../../src/lib/logger/types.js";
@@ -355,7 +355,7 @@ describe("FlareTestApp.run / FlareTestApp.export", () => {
   let app: FlareTestApp;
 
   beforeEach(() => {
-    const host = { http: {} } as unknown as IFlareHost;
+    const host = { http: {} } as unknown as IFlareHost & IFlareTestHost;
     const adapter = {} as unknown as AnyAdapter;
     app = new FlareTestApp(host, adapter);
   });

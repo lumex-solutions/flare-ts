@@ -1,6 +1,6 @@
 import type { FlareHostConfig } from "../config/flare-config.js";
 import type { IFlareApp } from "../host/flare-app.js";
-import type { IFlareHost } from "../host/flare-host.js";
+import type { IFlareHost, IFlareTestHost } from "../host/flare-host.js";
 import type { AppInspectSnapshot, FlareBuildSnapshot } from "./types/inspect-build.js";
 import { INSPECT_HTTP_ARC } from "../arcs/http/http-arc.js";
 import { INSPECT_HOST } from "../host/types/const.js";
@@ -21,7 +21,7 @@ export type {
  * Callable before or after `build()`. Pre-compile sections return empty or partial data.
  * Intended for artifact-tier tests only — not part of the public application API.
  */
-export function inspectBuild(input: { host: IFlareHost; app?: IFlareApp; }): FlareBuildSnapshot {
+export function inspectBuild(input: { host: IFlareHost & IFlareTestHost; app?: IFlareApp; }): FlareBuildSnapshot {
   const hostSnap = input.host[INSPECT_HOST]();
   const httpSnap = input.host.http[INSPECT_HTTP_ARC]();
 

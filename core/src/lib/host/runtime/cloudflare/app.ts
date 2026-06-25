@@ -1,5 +1,6 @@
 import type { JsonObject } from "@flare-ts/lib";
 import type { FlareHandlerScope, InjectMap } from "../../../arcs/http/composition/types/handlers.js";
+import type { StateToken } from "../../../arcs/http/state/types/state-token.js";
 import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
 import type { CFWLoggerTransport } from "../../../logger/transport.js";
 import type { CFWLoggerTransportClass } from "../../../logger/types.js";
@@ -7,12 +8,14 @@ import type { FlareService } from "../../../services/composition/flare-service.j
 import type { Container } from "../../../services/container.js";
 import type { ServiceToken } from "../../../services/types/types.js";
 import type { FlareTestRequestInput } from "../../../testing/types/flare-test-req.js";
+import type { ValidationError } from "../../../validation/types.js";
 import type { IFlareHost } from "../../flare-host.js";
 import type { HostRuntimeAdapter } from "../../types/adapter.js";
 import type { FlareDurableObjectClass } from "./durable-object.js";
 import type { InstanceResult, MountRecord } from "./router.js";
 import type { CfValidationGraph } from "./validate-graph.js";
 import { HttpArc } from "../../../arcs/http/http-arc.js";
+import { getTokenDefault, getTokenDerivation } from "../../../arcs/http/state/flare-state.js";
 import { CFWLogger } from "../../../logger/logger.js";
 import { CFWConsoleTransport } from "../../../logger/transports/console.js";
 import { FlareValidationError } from "../../../validation/flare-validation-error.js";
@@ -22,11 +25,8 @@ import { DO_HOST } from "./durable-object.js";
 import { buildCfTestRequest, FlareCfHandler } from "./handler.js";
 import { installExplicitMount, mountOverlapErrors, snapshotFrontDoorPatterns } from "./router.js";
 import { Bindings } from "./services.js";
-import { compileDurableArcs, validateCfGraph } from "./validate-graph.js";
 import { registerStateTokens, staticStateTokens } from "./state-crossing.js";
-import { getTokenDefault, getTokenDerivation } from "../../../arcs/http/state/flare-state.js";
-import type { StateToken } from "../../../arcs/http/state/types/state-token.js";
-import type { ValidationError } from "../../../validation/types.js";
+import { compileDurableArcs, validateCfGraph } from "./validate-graph.js";
 
 /** Map of per-context seed factories handed to `[COMPILE_INSTANCE_CONTAINER]`. */
 type SeedMap = Map<ServiceToken<FlareService>, (container: Container) => FlareService>;
@@ -295,16 +295,13 @@ function consumedTokensByClass(
 
 /**
  * Build hook the Cloudflare adapter registers via {@link HostRuntimeAdapter} `setup`. Sets
- * `deferValidation = true` so `build()` skips the host's generic validation suite (which has no
- * concept of CF execution contexts). The adapter's `extendHost` build hook takes over: it runs
- * `validateCfGraph` in the same `build()` call, validating every arc in its execution context.
- * `deferSingletonCompile` is also set because there are no user singletons on CF; services resolve
- * lazily per context. `.export()` does NOT revalidate; it only starts the shared graph and returns
- * the Worker fetch handler.
+ * `deferSingletonCompile` because there are no user singletons on CF; services resolve lazily per
+ * context. The adapter's `extendHost` hook owns validation (via `ctx.ownValidation`) so the host skips
+ * its generic suite, which has no concept of CF execution contexts. `.export()` does NOT revalidate;
+ * it only starts the shared graph and returns the Worker fetch handler.
  */
 function cfSetup(host: IFlareHost): void {
   host[REGISTER_BUILD_HOOK]((ctx) => {
-    ctx.deferValidation = true;
     ctx.deferSingletonCompile = true;
   });
 }
@@ -404,46 +401,49 @@ export const cf: CloudflareAdapter = {
       }
     });
 
-    // Validate + compile hook: runs AFTER the mount hook so it sees the installed wildcard routes.
+    // Own the build's validation. The host runs this after all build hooks (so installed mount routes
+    // are visible), then owns the outcome (throws on errors, emits warnings). On success it also
+    // compiles the per-DO arcs.
     host[REGISTER_BUILD_HOOK]((buildCtx) => {
-      // Identify zero-route DOs: their arcs get nulled so FlareCfHandler returns 404 for them, but
-      // they still participate in dep validation (a DO can exist for state only, with no HTTP routes).
-      const zeroRoute = new Set<FlareDurableObjectClass>();
-      for (const cls of durableObjects) {
-        const arc = durableArcs.get(cls);
-        if (arc && arc.conRegistrations.length === 0 && arc.groups.length === 0) {
-          zeroRoute.add(cls);
+      buildCtx.ownValidation((): ValidationError[] => {
+        // Identify zero-route DOs: their arcs get nulled so FlareCfHandler returns 404 for them, but
+        // they still participate in dep validation (a DO can exist for state only, with no HTTP routes).
+        const zeroRoute = new Set<FlareDurableObjectClass>();
+        for (const cls of durableObjects) {
+          const arc = durableArcs.get(cls);
+          if (arc && arc.conRegistrations.length === 0 && arc.groups.length === 0) {
+            zeroRoute.add(cls);
+          }
         }
-      }
-      // The validation graph includes ALL DOs for dep/reachability checks but only arced DOs for HTTP
-      // arc validation. Zero-route DOs have no arc to validate and are null-marked after validation.
-      const arcedDurables = durableObjects
-        .filter((cls) => !zeroRoute.has(cls))
-        .map((cls) => ({ cls, arc: durableArcs.get(cls)! }));
-      // Zero-route DOs still need dep validation. Represent them with a stub entry (empty arc) so
-      // durableDepErrors sees their static deps. We reuse their existing (empty) arc temporarily.
-      const allDurables = durableObjects.map((cls) => ({
-        cls,
-        arc: durableArcs.get(cls)! as HttpArc<"sync">,
-      }));
-      const graph: CfValidationGraph = {
-        frontDoor: host.http as HttpArc<"sync">,
-        durables: allDurables,
-        scoped: [...buildCtx.scopedRegistrations],
-        singletons: [...buildCtx.singletonRegistrations],
-        prebuiltTokens: buildCtx.prebuiltTokens,
-        configRegistrations: buildCtx.configRegistrations,
-        defaultConfigTokens: buildCtx.defaultConfigTokens,
-        resolvedConfig: buildCtx.resolvedConfig,
-      };
-      const results = validateCfGraph(graph);
-      const errors = results.filter((e) => e.severity === "error");
-      if (errors.length > 0) throw new FlareValidationError(errors);
-      // Null-out zero-route arcs after validation (FlareCfHandler will 404 for them).
-      for (const cls of zeroRoute) durableArcs.set(cls, null);
-      // Compile only the arced (non-zero-route) DO arcs.
-      const arcedGraph: CfValidationGraph = { ...graph, durables: arcedDurables };
-      compileDurableArcs(arcedGraph);
+        // The validation graph includes ALL DOs for dep/reachability checks but only arced DOs for HTTP
+        // arc validation. Zero-route DOs have no arc to validate and are null-marked after validation.
+        const arcedDurables = durableObjects
+          .filter((cls) => !zeroRoute.has(cls))
+          .map((cls) => ({ cls, arc: durableArcs.get(cls)! }));
+        // Zero-route DOs still need dep validation. Represent them with a stub entry (empty arc) so
+        // durableDepErrors sees their static deps. We reuse their existing (empty) arc temporarily.
+        const allDurables = durableObjects.map((cls) => ({
+          cls,
+          arc: durableArcs.get(cls)! as HttpArc<"sync">,
+        }));
+        const graph: CfValidationGraph = {
+          frontDoor: host.http as HttpArc<"sync">,
+          durables: allDurables,
+          scoped: [...buildCtx.scopedRegistrations],
+          singletons: [...buildCtx.singletonRegistrations],
+          prebuiltTokens: buildCtx.prebuiltTokens,
+          configRegistrations: buildCtx.configRegistrations,
+          defaultConfigTokens: buildCtx.defaultConfigTokens,
+          resolvedConfig: buildCtx.resolvedConfig,
+        };
+        const results = validateCfGraph(graph);
+        // On any error, return the results for the host to throw; do not compile a rejected graph.
+        if (results.some((e) => e.severity === "error")) return results;
+        // No errors: null-out zero-route arcs (FlareCfHandler 404s for them) and compile the arced ones.
+        for (const cls of zeroRoute) durableArcs.set(cls, null);
+        compileDurableArcs({ ...graph, durables: arcedDurables });
+        return results;
+      });
     });
 
     return {

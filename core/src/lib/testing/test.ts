@@ -1,7 +1,7 @@
 import type { HttpArc } from "../arcs/http/http-arc.js";
 import type { ResponseLike } from "../arcs/http/transport/types/response.js";
 import type { AppTestOptions } from "../host/flare-app.js";
-import type { IFlareHost } from "../host/flare-host.js";
+import type { IFlareHost, IFlareTestHost } from "../host/flare-host.js";
 import type { HostRuntimeAdapter } from "../host/types/adapter.js";
 import type { HostRuntimeLifecycle } from "../host/types/lifecycle.js";
 import type { LoggerTransportClass } from "../logger/types.js";
@@ -184,10 +184,13 @@ export class TestAppHandle {
 export class FlareTestApp extends FlareAppBase {
   #adapter: AnyAdapter;
   #handleIssued = false;
+  /** Test-only host view (`compileForTest` / `resetForTest`), kept off the runtime-facing `host`. */
+  #testHost: IFlareTestHost;
 
-  constructor(host: IFlareHost, adapter: AnyAdapter) {
+  constructor(host: IFlareHost & IFlareTestHost, adapter: AnyAdapter) {
     super(host);
     this.#adapter = adapter;
+    this.#testHost = host;
   }
 
   /** No-op shim in test mode; returns `null`. Use `test()` instead. */
@@ -213,7 +216,7 @@ export class FlareTestApp extends FlareAppBase {
       );
     }
 
-    this.host[COMPILE_FOR_TEST](opts);
+    this.#testHost[COMPILE_FOR_TEST](opts);
     await this.startAsync();
     this.host[SET_HOST_STATE]("ready");
 
@@ -247,8 +250,8 @@ export class FlareTestApp extends FlareAppBase {
 
     this.host[SET_HOST_STATE]("draining");
     await this.stopAsync();
-    this.host[RESET_FOR_TEST]();
-    this.host[COMPILE_FOR_TEST](opts);
+    this.#testHost[RESET_FOR_TEST]();
+    this.#testHost[COMPILE_FOR_TEST](opts);
     await this.startAsync();
     this.host[SET_HOST_STATE]("ready");
   }

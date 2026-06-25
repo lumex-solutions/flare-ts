@@ -3,8 +3,6 @@ import type { ConfigToken } from "../../config/flare-config.js";
 import type { FlareService } from "../../services/composition/flare-service.js";
 import type { FlareServiceClass } from "../../services/types/types.js";
 
-type UnionToIntersection<U> = (U extends unknown ? (x: U) => void : never) extends (x: infer I) => void ? I : never;
-
 /**
  * Narrow composition surface handed to a host extension installer. Exactly the application-author
  * capabilities: register services, config, and HTTP routes/middleware.
@@ -36,7 +34,7 @@ export type ExtensionMemberMap = Record<string, unknown>;
  * members to install onto the host. The member map type `M` is carried as a type parameter so the
  * constructor types `host.<member>` for every member directly from the extensions array.
  */
-export interface HostExtension<M extends ExtensionMemberMap = ExtensionMemberMap> {
+export interface HostExtension<M extends ExtensionMemberMap = Record<never, never>> {
   install(ctx: HostExtensionContext): M;
 }
 
@@ -44,11 +42,14 @@ export interface HostExtension<M extends ExtensionMemberMap = ExtensionMemberMap
  * Maps a tuple of host extensions to the intersection of all members they install. Used by the
  * `FlareHost` constructor (with a `const` type parameter on the extensions array) so that
  * `new FlareHost(adapter, [drizzle, auth])` returns a host typed with every member drizzle and auth
- * install -- and a host that did not pass an extension does not have those members at all.
+ * install. Recurses over the tuple; a non-tuple array (the bare-array constraint) and the empty tuple
+ * both resolve to `{}`, so a host that did not pass an extension gains no members (and no index
+ * signature).
  */
-export type ExtensionMembers<E extends readonly HostExtension[]> = UnionToIntersection<
-  E[number] extends HostExtension<infer M> ? M : never
->;
+export type ExtensionMembers<E extends readonly HostExtension[]> = E extends
+  readonly [infer Head extends HostExtension, ...infer Tail extends readonly HostExtension[]]
+  ? (Head extends HostExtension<infer M> ? M : Record<never, never>) & ExtensionMembers<Tail>
+  : Record<never, never>;
 
 /**
  * Defines a first-class host extension. The installer runs once at construction: it composes via the

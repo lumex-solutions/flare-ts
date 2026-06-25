@@ -73,17 +73,18 @@ interface FlareHostConstructor {
 
 /**
  * Mutable context passed to {@link FlareHost} build hooks. Hooks are registered by a runtime adapter
- * via `[REGISTER_BUILD_HOOK]` and run once during `build()` before validation/compilation; they may
- * flip flags to alter the build. This keeps runtime-specific behavior on the adapter rather than as
- * `runtime === X` branches scattered through the host.
+ * via `[REGISTER_BUILD_HOOK]` and run once during `build()` before validation/compilation; they expose
+ * read-only views of the graph and let the adapter own validation or defer singleton compilation. This
+ * keeps runtime-specific behavior on the adapter rather than as `runtime === X` branches in the host.
  */
 export interface FlareBuildContext {
   /**
-   * When a hook sets this, `build()` skips the host's generic dependency/HTTP/config validation
-   * suite. An adapter that runs its own context-aware validation in a build hook (e.g. the Cloudflare
-   * adapter validating each execution-context arc) sets it.
+   * Registers the adapter's validator, replacing the host's generic dependency/HTTP/config suite (which
+   * has no concept of an adapter's execution contexts). The host runs it after all build hooks, then
+   * owns the outcome: it throws {@link FlareValidationError} on any `error` result and emits `warning`
+   * results. The validator returns all results rather than throwing itself, so there is one error path.
    */
-  deferValidation: boolean;
+  ownValidation(validate: () => ValidationError[]): void;
   /**
    * When a hook sets this, the host skips module-level singleton instantiation. An adapter whose
    * exported instances each need their own singleton graph sets it and compiles the singletons
@@ -125,12 +126,6 @@ export interface IFlareHost {
   scopedServices: Pick<FlareRegistrationMap, "get" | "tokens" | "length">;
   singletonServices: ReadonlyMap<ServiceToken<FlareService>, FlareService>;
   [SET_HOST_STATE](state: HostState): void;
-  /** @internal Driven by `FlareTestApp.test()` to apply replacements, validate, and compile singletons. */
-  [COMPILE_FOR_TEST](opts?: { replace?: ReadonlyMap<ServiceToken<FlareService>, FlareServiceClass>; }): void;
-  /** @internal Driven by `TestAppHandle.reset()`. Restores registrations and clears compiled singletons. */
-  [RESET_FOR_TEST](): void;
-  /** @internal Snapshot for {@link inspectBuild} in test infrastructure. */
-  [INSPECT_HOST](): HostInspectSnapshot;
   /**
    * @internal Registers a framework-provided (custom-factory) service. Used by a runtime adapter's
    * app/terminal to contribute services whose instances the runtime seeds rather than building from
@@ -148,8 +143,22 @@ export interface IFlareHost {
   [REGISTER_BUILD_HOOK](hook: (ctx: FlareBuildContext) => void): void;
 }
 
+/**
+ * Test-only host capabilities, kept off {@link IFlareHost} so a runtime adapter never sees them. The
+ * concrete host implements both; only the test infrastructure (`FlareTestApp`, `inspectBuild`) consumes
+ * this.
+ */
+export interface IFlareTestHost {
+  /** @internal Driven by `FlareTestApp.test()` to apply replacements, validate, and compile singletons. */
+  [COMPILE_FOR_TEST](opts?: { replace?: ReadonlyMap<ServiceToken<FlareService>, FlareServiceClass>; }): void;
+  /** @internal Driven by `TestAppHandle.reset()`. Restores registrations and clears compiled singletons. */
+  [RESET_FOR_TEST](): void;
+  /** @internal Snapshot for {@link inspectBuild} in test infrastructure. */
+  [INSPECT_HOST](): HostInspectSnapshot;
+}
+
 class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTransportClass, HostRuntimeLifecycle>>
-  implements IFlareHost {
+  implements IFlareHost, IFlareTestHost {
   public readonly http: HttpArc<AdapterLifecycle<TAdapter>> = new HttpArc(this);
   public readonly logging: Logging<AdapterTransportClass<TAdapter>> = new Logging();
 
@@ -166,6 +175,8 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
   #testMode: boolean;
   #app: IFlareApp | undefined;
   #buildHooks: Array<(ctx: FlareBuildContext) => void> = [];
+  /** Set when a build hook calls `ctx.ownValidation`; the host runs it instead of its generic suite. */
+  #adapterValidator: (() => ValidationError[]) | undefined;
   #singletonsCompiled = false;
   /** Snapshot of registrations taken before the first test-mode replacement runs; restored on reset. */
   #originalScopedRegs: ServiceRegistration<FlareService>[] | undefined;
@@ -566,7 +577,9 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
     // terminal can finalize the graph per exported instance. Runtime-specific build behavior lives
     // on the adapter rather than as a `runtime === X` branch here.
     const buildCtx: FlareBuildContext = {
-      deferValidation: false,
+      ownValidation: (validate) => {
+        this.#adapterValidator = validate;
+      },
       deferSingletonCompile: false,
       registeredServiceTokens: new Set<ServiceToken<FlareService>>([
         ...this.#scopedRegistrations.map((r) => r.token),
@@ -582,7 +595,18 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
     };
     for (const hook of this.#buildHooks) hook(buildCtx);
 
-    const warnings = buildCtx.deferValidation ? [] : this.#runValidationSuite();
+    // Validation runs after all hooks (so installed mount routes are visible). The host owns the
+    // outcome for both its own suite and an adapter-registered validator: throw on errors, emit
+    // warnings (after compile, below).
+    const results = this.#adapterValidator ? this.#adapterValidator() : this.#collectHostValidation();
+    const validationErrors = results.filter((r) => r.severity === "error");
+    const warnings = results.filter((r) => r.severity === "warning");
+    if (validationErrors.length > 0) {
+      this.logger.error(
+        `Host build failed with ${validationErrors.length} validation error(s) and ${warnings.length} warning(s).`,
+      );
+      throw new FlareValidationError(validationErrors);
+    }
 
     try {
       const compileStart = Date.now();
@@ -630,12 +654,12 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
   }
 
   /**
-   * Builds the validation contexts from the current graph, runs the service/HTTP/config suite,
-   * throws {@link FlareValidationError} on any error, and returns the warnings (the caller emits
-   * them). An adapter that runs its own context-aware suite (setting `deferValidation = true`) does
+   * Builds the validation contexts from the current graph and runs the generic service/HTTP/config
+   * suite, returning all results (errors and warnings). The caller in {@link build} owns throwing on
+   * errors and emitting warnings. An adapter that registers its own validator via `ownValidation` does
    * not use this.
    */
-  #runValidationSuite(): ValidationError[] {
+  #collectHostValidation(): ValidationError[] {
     const allControllers = [...this.http.conRegistrations, ...this.http.groups.flatMap((g) => g.controllers)];
     const allMiddleware = [...this.http.mwRegistrations, ...this.http.groups.flatMap((g) => g.middleware)];
 
@@ -675,24 +699,16 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
       ...createConfigValidator().validate(configCtx),
     ];
 
-    const warnings = allResults.filter((e) => e.severity === "warning");
-    const errors = allResults.filter((e) => e.severity === "error");
     this.logger.trace("Lifecycle event", {
       phase: "build",
       component: "host",
       event: "validation:ready",
       durationMs: Date.now() - validationStart,
-      warnings: warnings.length,
-      errors: errors.length,
+      warnings: allResults.filter((e) => e.severity === "warning").length,
+      errors: allResults.filter((e) => e.severity === "error").length,
     });
 
-    if (errors.length > 0) {
-      this.logger.error(
-        `Host build failed with ${errors.length} validation error(s) and ${warnings.length} warning(s).`,
-      );
-      throw new FlareValidationError(errors);
-    }
-    return warnings;
+    return allResults;
   }
 
   #compileConfig(): void {

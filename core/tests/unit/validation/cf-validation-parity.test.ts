@@ -5,9 +5,9 @@ import { createHttpValidator } from "../../../src/lib/validation/validators/http
 import { createServiceValidator } from "../../../src/lib/validation/validators/service-composite-validator.js";
 
 /**
- * Parity guard: the Cloudflare adapter sets deferValidation = true, skipping the generic host
- * validation suite, and reimplements validation in validate-graph.ts validateCfGraph. That
- * function hand-lists individual validators rather than calling the three composite factories.
+ * Parity guard: the Cloudflare adapter owns validation (via `ctx.ownValidation`), so the host skips
+ * its generic suite, and reimplements validation in validate-graph.ts validateCfGraph. That function
+ * hand-lists individual validators rather than calling the three composite factories.
  * This test ensures every validator class in the composites is accounted for in the CF-covered
  * set below. If a new validator is added to a composite without being wired into validateCfGraph,
  * this test fails, forcing a conscious decision to include (or explicitly exclude) it from the CF path.
@@ -72,9 +72,9 @@ describe("CF validation parity guard", () => {
     for (const name of names) {
       expect(
         CF_COVERED_VALIDATORS.has(name) || CF_EXCLUDED_VALIDATORS.has(name),
-        `HTTP validator "${name}" is not accounted for in the CF path. ` +
-        `Add it to CF_COVERED_VALIDATORS after wiring it into validateCfGraph, ` +
-        `or add it to CF_EXCLUDED_VALIDATORS with a reason.`,
+        `HTTP validator "${name}" is not accounted for in the CF path. `
+          + `Add it to CF_COVERED_VALIDATORS after wiring it into validateCfGraph, `
+          + `or add it to CF_EXCLUDED_VALIDATORS with a reason.`,
       ).toBe(true);
     }
   });
@@ -84,9 +84,9 @@ describe("CF validation parity guard", () => {
     for (const name of names) {
       expect(
         CF_COVERED_VALIDATORS.has(name) || CF_EXCLUDED_VALIDATORS.has(name),
-        `Service validator "${name}" is not accounted for in the CF path. ` +
-        `Add it to CF_COVERED_VALIDATORS after wiring it into validateCfGraph, ` +
-        `or add it to CF_EXCLUDED_VALIDATORS with a reason.`,
+        `Service validator "${name}" is not accounted for in the CF path. `
+          + `Add it to CF_COVERED_VALIDATORS after wiring it into validateCfGraph, `
+          + `or add it to CF_EXCLUDED_VALIDATORS with a reason.`,
       ).toBe(true);
     }
   });
@@ -96,9 +96,9 @@ describe("CF validation parity guard", () => {
     for (const name of names) {
       expect(
         CF_COVERED_VALIDATORS.has(name) || CF_EXCLUDED_VALIDATORS.has(name),
-        `Config validator "${name}" is not accounted for in the CF path. ` +
-        `Add it to CF_COVERED_VALIDATORS after wiring it into validateCfGraph, ` +
-        `or add it to CF_EXCLUDED_VALIDATORS with a reason.`,
+        `Config validator "${name}" is not accounted for in the CF path. `
+          + `Add it to CF_COVERED_VALIDATORS after wiring it into validateCfGraph, `
+          + `or add it to CF_EXCLUDED_VALIDATORS with a reason.`,
       ).toBe(true);
     }
   });
@@ -112,8 +112,8 @@ describe("CF validation parity guard", () => {
     for (const name of CF_COVERED_VALIDATORS) {
       expect(
         allCompositeNames.has(name),
-        `CF_COVERED_VALIDATORS includes "${name}" but no composite contains a validator with that constructor name. ` +
-        `Remove the stale entry.`,
+        `CF_COVERED_VALIDATORS includes "${name}" but no composite contains a validator with that constructor name. `
+          + `Remove the stale entry.`,
       ).toBe(true);
     }
   });
