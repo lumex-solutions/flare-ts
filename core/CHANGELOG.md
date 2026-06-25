@@ -6,8 +6,9 @@ Durable Objects become a first-class Flare primitive, function-handler dependenc
 
 ### Added
 
-- **Durable Objects.** One host emits the front-door Worker and any number of Durable Objects from a single dependency-injection graph: typed per-DO routes, explicit mounts (`room.mount`), a per-mount resolver gateway (`room.resolve`), request state that crosses the Worker to Durable Object boundary, the `durable(...)` addressing helper, and `host.build()` validation of the combined graph. Full reference: the [Durable Objects guide](../docs/durable-objects.md).
+- **Durable Objects.** One host emits the front-door Worker and any number of Durable Objects from a single dependency-injection graph: typed per-DO routes, explicit mounts (`room.mount`), a per-mount resolver gateway (`room.resolve`), request state that crosses the Worker to Durable Object boundary, the `durable(...)` addressing helper, and `host.build()` validation of the combined graph. Full reference: guide coming soon.
 - **White-box Durable Object testing** at a new entry, `@flare-ts/core/cloudflare/testing`: `composeDurableInstance` drives a DO's per-instance container in-process (`inst.fetch(req)`, `inst.inject(deps, token)`) with no miniflare, plus `makeFakeDurableState` and `makeFakeStorage` (KV-only; SQL-backed DOs still need the real `cloudflare:test` tier).
+- **Host extensions.** A first-class extension API lets a package add typed members to the host. `defineHostExtension((host) => members)` returns a descriptor whose installer composes through a narrow context (`scoped`/`cfg`/`http`) and returns a map of members; passing it to `new FlareHost(adapter, [ext])` installs and types each member directly from the array, so a host that did not opt into an extension does not have its members. Extensions contribute services, config, and routes/middleware that compile into the normal pipeline. Full reference: guide coming soon.
 
 ### Changed
 

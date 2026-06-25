@@ -1,3 +1,5 @@
+export { defineHostExtension } from "./lib/host/extensions/extension.js";
+export type { ExtensionMembers, HostExtension, HostExtensionContext } from "./lib/host/extensions/extension.js";
 export { FlareHost } from "./lib/host/flare-host.js";
 export { FlareBase } from "./lib/services/composition/flare-base.js";
 export { FlareService } from "./lib/services/composition/flare-service.js";

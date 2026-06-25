@@ -38,22 +38,6 @@ export const PROVIDE_SERVICE: unique symbol = Symbol("PROVIDE_SERVICE");
 
 /**
  * @internal
- * Re-runs the dependency/HTTP/config validation suite against the current graph. A terminal calls
- * this after registering its framework services post-`build()`, so the now-complete graph is checked
- * (and injecting a service only another terminal provides fails clearly).
- */
-export const REVALIDATE: unique symbol = Symbol("REVALIDATE");
-
-/**
- * @internal
- * Builds a fresh singleton map seeded with the given service factories (on top of the framework
- * prebuilts, e.g. Logger), then compiles the user singletons into it. Lets a terminal produce a
- * singleton graph scoped to one exported instance (e.g. a Durable Object) rather than the shared one.
- */
-export const COMPILE_INSTANCE_SINGLETONS: unique symbol = Symbol("COMPILE_INSTANCE_SINGLETONS");
-
-/**
- * @internal
  * Builds a per-context Container from framework seed factories plus the user scoped registry
  * resolved lazily. Used by the CF Worker (per request) and DO (per instance).
  */
