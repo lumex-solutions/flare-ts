@@ -1,6 +1,6 @@
 {
   "name": "@flare-ts/lib",
-  "version": "0.3.0-next.5",
+  "version": "0.3.0-next.6",
   "description": "Schema primitives and standard library for Flare, with zero runtime dependencies.",
   "license": "MIT",
   "author": "Lumex Solutions",
