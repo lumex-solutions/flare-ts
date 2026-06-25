@@ -194,6 +194,27 @@ describe("resolve() throwing -> propagates error", () => {
     // Workerd turns an unhandled handler throw into a 500 Internal Server Error.
     expect(res.status).toBe(500);
   });
+
+  it('resolve returning an empty string -> 404 (never forwards to getByName(""))', async () => {
+    // An empty instance name would hand getByName("") an opaque 500; the mount installer rejects it
+    // up front with a 404 (same guard the param-trailing path applies to a missing route param).
+    const host = new FlareHost(cfProdAdapter(cfJson()));
+    const Room = makeRoomDO();
+    const room = host.durableObject(Room);
+    room.http.get("/", () => new FlareResponse(200));
+    room.resolve(() => "");
+    room.mount("/api/me");
+
+    const { ns, calls } = fakeNamespace();
+    const handle = (host.build() as CloudflareApp).export();
+    const res = await handle.fetch(
+      new Request("https://flare.test/api/me"),
+      { Room: ns } as unknown as Cloudflare.Env,
+      makeExecutionContext(),
+    );
+    expect(res.status).toBe(404);
+    expect(calls).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------

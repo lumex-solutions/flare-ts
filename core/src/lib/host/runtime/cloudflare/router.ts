@@ -1,7 +1,7 @@
 import type { FlareHandlerScope, InjectMap } from "../../../arcs/http/composition/types/handlers.js";
 import type { HttpArc } from "../../../arcs/http/http-arc.js";
-import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
 import type { StateToken } from "../../../arcs/http/state/types/state-token.js";
+import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
 import type { ResponseLike } from "../../../arcs/http/transport/types/response.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { ServiceToken } from "../../../services/types/types.js";
@@ -93,19 +93,6 @@ export type MountRecord =
  */
 export function resolveStub(ns: DurableObjectNamespace, instance: string): DurableObjectStub {
   return ns.getByName(instance);
-}
-
-/**
- * Dispatches to the correct mount installer based on the record kind.
- * - param-trailing: {@link installParamMount}
- * - literal-trailing (resolve): {@link installResolveMount}
- */
-export function installExplicitMount(frontDoor: HttpArc<"sync">, record: MountRecord): void {
-  if (record.kind === "param") {
-    installParamMount(frontDoor, record);
-  } else {
-    installResolveMount(frontDoor, record);
-  }
 }
 
 /**
@@ -242,28 +229,38 @@ export function mountOverlapErrors(
 }
 
 /**
- * Installs two forwarding routes for a param-trailing DO mount into the front-door arc:
- *   - `<mountPath>` (exact): strips the full prefix+param, forwards to "/".
- *   - `<mountPath>/*rest` (wildcard): strips prefix+param, forwards the remainder.
+ * Installs a Durable Object mount into the front-door arc: two forwarding routes, the exact mount
+ * path and its `/*rest` wildcard, registered under every verb. A matching request forwards to the
+ * addressed DO stub with the mount prefix stripped (preserving method, all headers, body, Upgrade),
+ * carrying request state across the boundary via the inbound/outbound envelope.
  *
- * The handler decodes the trailing param value from rawRouteParams (using the trailing param name
- * from the mount path), resolves the stub via resolveStub, and forwards a new Request with the
- * stripped URL (preserving method, all headers, body, Upgrade).
+ * The DO instance name is derived per request:
+ *   - a resolver (always present for a literal-trailing `resolve` mount, optional for a param-trailing
+ *     mount) runs in the front-door context; a returned FlareResponse short-circuits with no DO
+ *     forward, a returned string is the instance name;
+ *   - otherwise the decoded trailing route param is the instance name.
+ *
+ * The forwarding routes are installed WITH the resolver's own `inject` map (plus `bindings`) as the
+ * routes' inject deps, so the existing front-door arc validation (ServiceRegistrationValidator with
+ * Worker tokens {Bindings}) automatically rejects a resolver that injects a DurableState-dependent
+ * service -- no extra validation code needed.
  *
  * The prefix-strip count: the number of slashes to skip equals the number of segments in mountPath.
  * For "/rooms/:name" that is 2 segments, so the remainder begins at the 3rd slash.
  */
-function installParamMount(frontDoor: HttpArc<"sync">, record: Extract<MountRecord, { kind: "param"; }>): void {
-  const { mountPath, bindingName, cls, resolve: resolveRecord } = record;
+export function installExplicitMount(frontDoor: HttpArc<"sync">, record: MountRecord): void {
+  const { mountPath, bindingName, cls } = record;
+  const resolveRecord = record.resolve;
   const segments = mountPath.split("/").filter((s) => s.length > 0);
   const depth = segments.length; // number of path segments in the mount path
-  const trailingParamName = segments[segments.length - 1]!.slice(1); // strip leading ":"
+  // Only a param-trailing mount with no resolver reads the instance from the trailing route param; a
+  // resolve mount's last segment is a literal (and its resolver is always present), so this is unused.
+  const trailingParamName = record.kind === "param" ? segments[segments.length - 1]!.slice(1) : "";
 
   const wildcardPath = `${mountPath}/*rest`;
   const barePath = mountPath;
 
-  // When a resolver is present, the inject map is the resolver's inject + bindings (mirrors
-  // installResolveMount). When absent, only bindings is needed.
+  // Route inject = the resolver's own inject map (when present) + bindings (needed to resolve the ns).
   const combinedInject: Record<string, ServiceToken<FlareService>> = resolveRecord
     ? { ...resolveRecord.inject, bindings: Bindings }
     : { bindings: Bindings };
@@ -283,7 +280,7 @@ function installParamMount(frontDoor: HttpArc<"sync">, record: Extract<MountReco
         // Short-circuit: return this response; do NOT enter any DO.
         return result;
       }
-      // result is a string: overrides the raw trailing param.
+      // result is a string: the DO instance name (for a param mount, it overrides the trailing param).
       instance = result;
     } else {
       // rawRouteParams[trailingParamName] is already decoded (HttpArc.#extractRouteParams decodes
@@ -310,112 +307,6 @@ function installParamMount(frontDoor: HttpArc<"sync">, record: Extract<MountReco
     } else {
       // Wildcard match - strip the first `depth` path segments (the mount path), keep the remainder.
       // This preserves the exact encoding of the remainder path.
-      const pathname = original.pathname;
-      let slashCount = 0;
-      let splitAt = -1;
-      for (let i = 0; i < pathname.length; i++) {
-        if (pathname.charCodeAt(i) === 47) { // '/'
-          slashCount++;
-          if (slashCount === depth + 1) {
-            splitAt = i;
-            break;
-          }
-        }
-      }
-      const remainder = splitAt === -1 ? "/" : pathname.slice(splitAt);
-      strippedUrl = `${original.origin}${remainder}${original.search}`;
-    }
-
-    const forwarded = new Request(strippedUrl, native);
-    applyInboundEnvelope(ctx, cls, forwarded);
-    const res = await stub.fetch(forwarded);
-    return reseedOutboundState(ctx, cls, res);
-  };
-
-  const wildcardHandler = makeHandler(false);
-  const bareHandler = makeHandler(true);
-
-  for (const verb of ALL_VERBS) {
-    const register = (
-      frontDoor[verb] as unknown as (
-        p: string,
-        opts: { inject: Record<string, ServiceToken<FlareService>>; },
-        h: (ctx: FlareHttpContext, scope: CombinedScope) => Promise<ResponseLike>,
-      ) => void
-    ).bind(frontDoor);
-    register(wildcardPath, { inject: combinedInject }, wildcardHandler);
-    register(barePath, { inject: combinedInject }, bareHandler);
-  }
-}
-
-/**
- * Installs two forwarding routes for a literal-trailing (resolve-based) DO mount into the front-door
- * arc:
- *   - `<mountPath>` (exact): invokes the resolver in the front-door context, then strips the full
- *     mount path, forwards to the DO arc as "/".
- *   - `<mountPath>/*rest` (wildcard): same, but strips the mount path prefix and forwards the
- *     remainder path.
- *
- * KEY design: the forwarding routes are installed WITH the resolver's own `inject` map as the routes'
- * inject deps, so the existing front-door arc validation (ServiceRegistrationValidator with Worker
- * tokens {Bindings}) automatically rejects a resolve that injects a DurableState-dependent service --
- * no new validation code needed for that.
- *
- * The resolver result determines behaviour:
- *  - string   -> use as the DO instance name (getByName + forward)
- *  - FlareResponse -> short-circuit (return it directly; do not enter any DO)
- *  - throws   -> propagate (normal error pipeline)
- */
-function installResolveMount(frontDoor: HttpArc<"sync">, record: Extract<MountRecord, { kind: "resolve"; }>): void {
-  const { mountPath, bindingName, cls, resolve: resolveRecord } = record;
-  const segments = mountPath.split("/").filter((s) => s.length > 0);
-  const depth = segments.length; // number of path segments in the mount path
-
-  const wildcardPath = `${mountPath}/*rest`;
-  const barePath = mountPath;
-
-  // The inject map for the route = the resolver's own inject map + bindings (needed to resolve the ns).
-  // We merge them: bindings is always present; the resolver's keys override nothing (bindings is a
-  // framework key, not user-exposed on the scope).
-  const combinedInject: Record<string, ServiceToken<FlareService>> = {
-    ...resolveRecord.inject,
-    bindings: Bindings,
-  };
-
-  // The scope type seen by the handler is the merged inject; the user's resolver fn sees the
-  // resolver-inject-derived scope (subset). We cast to the combined scope internally.
-  type CombinedScope = FlareHandlerScope<InjectMap> & { bindings: Bindings; };
-
-  const makeHandler = (stripToRoot: boolean) =>
-  async (
-    ctx: FlareHttpContext,
-    scope: CombinedScope,
-  ): Promise<ResponseLike> => {
-    // Build the resolver's scope (the user-visible portion, minus the internal 'bindings' key).
-    // The combined inject was built with the resolver's own inject PLUS bindings. The user's
-    // handler only sees the keys they declared; since we attached them all to the same scope
-    // object, we can pass `scope` directly -- extra keys (bindings) are just ignored by the user.
-    const result = await resolveRecord.handler(ctx, scope as FlareHandlerScope<InjectMap>);
-
-    if (result instanceof FlareResponse) {
-      // Short-circuit: return this response; do NOT enter any DO.
-      return result;
-    }
-
-    // result is a string: the DO instance name.
-    const instance = result;
-    const ns = namespaceFor(scope.bindings.env, bindingName);
-    const stub = resolveStub(ns, instance);
-
-    const native = ctx.req.nativeRequest as Request;
-    const original = new URL(native.url);
-
-    let strippedUrl: string;
-    if (stripToRoot) {
-      // Bare mount-path match - forward to "/" preserving query.
-      strippedUrl = `${original.origin}/${original.search}`;
-    } else {
-      // Wildcard match - strip the first `depth` path segments (the mount path), keep the remainder.
       const pathname = original.pathname;
       let slashCount = 0;
       let splitAt = -1;
