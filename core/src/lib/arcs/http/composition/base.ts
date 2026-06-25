@@ -1,6 +1,5 @@
 import type { FlareError } from "../../../errors/flare-error.js";
 import type { HttpErrorContext } from "../../../logger/types.js";
-import type { RequestDescriptor } from "./contract/flare-contract.js";
 import type { FlareHttpContext } from "../transport/flare-http-context.js";
 import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../transport/types/response.js";
 import type {
@@ -11,6 +10,7 @@ import type {
 import type { ControllerClass } from "./classes/controller-base.js";
 import type { ErrorHandlerClass } from "./classes/error-handler-base.js";
 import type { MiddlewareClass } from "./classes/middleware-base.js";
+import type { RequestDescriptor } from "./contract/flare-contract.js";
 import type { HttpGroup } from "./group.js";
 import type { CorsConfig } from "./types/cors.js";
 import type {
@@ -27,9 +27,9 @@ import type {
   RouteHandler,
   RouteOptions,
 } from "./types/handlers.js";
-import { REQUEST_INPUT } from "../transport/flare-http-context.js";
 import { Method, registerRoute } from "../routing/decorators.js";
 import { assertRegistrationPath } from "../routing/path.js";
+import { REQUEST_INPUT } from "../transport/flare-http-context.js";
 import { ControllerBase } from "./classes/controller-base.js";
 import { ErrorHandlerBase } from "./classes/error-handler-base.js";
 import { MiddlewareBase } from "./classes/middleware-base.js";
@@ -43,22 +43,7 @@ type Resolved<TOptions, THandler extends HandlerFn> = { options: TOptions; handl
 type SyntheticEntry = { cls: ControllerClass; registration: ControllerRegistration; methods: Set<HttpMethod>; };
 
 /** RequestDescriptor fields usable as loose inline route-option keys (the alternative to `contract`). */
-const REQUEST_FIELDS = ["body", "route", "query", "response", "maxBodyBytes"] as const;
-
-/**
- * Resolves a route's {@link RequestDescriptor} from its options. A route supplies its request shape one
- * of two ways: a branded `contract` entry (which IS a descriptor; the brand is an inert extra symbol),
- * or the loose descriptor fields spelled inline. Returns undefined when the route declares neither.
- */
-function routeDescriptor(options: RouteOptions): RequestDescriptor | undefined {
-  if (options.contract) return options.contract as RequestDescriptor;
-  let descriptor: Record<string, unknown> | undefined;
-  for (const field of REQUEST_FIELDS) {
-    const value = (options as Record<string, unknown>)[field];
-    if (value !== undefined) (descriptor ??= {})[field] = value;
-  }
-  return descriptor as RequestDescriptor | undefined;
-}
+const REQUEST_FIELDS = ["body", "route", "query", "response", "maxBodyBytes", "signedCookies"] as const;
 
 /**
  * Shared base for {@link FlareApp} and {@link HttpGroup}.
@@ -187,7 +172,10 @@ export abstract class HttpBase {
   public get<const O extends RouteOptions>(
     path: string,
     options: O,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>) => HandlerResult | Promise<HandlerResult>,
+    handler: (
+      ctx: FlareHttpContext,
+      scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>,
+    ) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public get(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -198,7 +186,10 @@ export abstract class HttpBase {
   public post<const O extends RouteOptions>(
     path: string,
     options: O,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>) => HandlerResult | Promise<HandlerResult>,
+    handler: (
+      ctx: FlareHttpContext,
+      scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>,
+    ) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public post(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -209,7 +200,10 @@ export abstract class HttpBase {
   public put<const O extends RouteOptions>(
     path: string,
     options: O,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>) => HandlerResult | Promise<HandlerResult>,
+    handler: (
+      ctx: FlareHttpContext,
+      scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>,
+    ) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public put(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -220,7 +214,10 @@ export abstract class HttpBase {
   public patch<const O extends RouteOptions>(
     path: string,
     options: O,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>) => HandlerResult | Promise<HandlerResult>,
+    handler: (
+      ctx: FlareHttpContext,
+      scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>,
+    ) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public patch(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -231,7 +228,10 @@ export abstract class HttpBase {
   public delete<const O extends RouteOptions>(
     path: string,
     options: O,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>) => HandlerResult | Promise<HandlerResult>,
+    handler: (
+      ctx: FlareHttpContext,
+      scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>,
+    ) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public delete(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -242,7 +242,10 @@ export abstract class HttpBase {
   public head<const O extends RouteOptions>(
     path: string,
     options: O,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>) => HandlerResult | Promise<HandlerResult>,
+    handler: (
+      ctx: FlareHttpContext,
+      scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>,
+    ) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public head(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -253,7 +256,10 @@ export abstract class HttpBase {
   public options<const O extends RouteOptions>(
     path: string,
     options: O,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>) => HandlerResult | Promise<HandlerResult>,
+    handler: (
+      ctx: FlareHttpContext,
+      scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>,
+    ) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
   public options(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
@@ -560,4 +566,19 @@ export abstract class HttpBase {
   #capitalize(value: string): string {
     return value.charAt(0).toUpperCase() + value.slice(1);
   }
+}
+
+/**
+ * Resolves a route's {@link RequestDescriptor} from its options. A route supplies its request shape one
+ * of two ways: a branded `contract` entry (which IS a descriptor; the brand is an inert extra symbol),
+ * or the loose descriptor fields spelled inline. Returns undefined when the route declares neither.
+ */
+function routeDescriptor(options: RouteOptions): RequestDescriptor | undefined {
+  if (options.contract) return options.contract as RequestDescriptor;
+  let descriptor: Record<string, unknown> | undefined;
+  for (const field of REQUEST_FIELDS) {
+    const value = (options as Record<string, unknown>)[field];
+    if (value !== undefined) (descriptor ??= {})[field] = value;
+  }
+  return descriptor as RequestDescriptor | undefined;
 }

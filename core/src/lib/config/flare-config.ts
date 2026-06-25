@@ -1,9 +1,11 @@
 import { enums, schema } from "@flare-ts/lib";
 import {
+  array,
   bool,
   defaultTo,
   type DescriptorValue,
   int,
+  optional,
   type SchemaToken,
   str,
   type TypedPrimitive,
@@ -102,6 +104,24 @@ export interface FlareHostConfig {
 }
 
 /**
+ * Resolved shape of the `cookies` section of `flare.json`, holding the secret(s)
+ * used to sign and verify cookies via `ctx.cookies.setSigned` / `getSigned`.
+ */
+export interface FlareCookiesConfig {
+  /**
+   * Secret used to sign cookies and to verify incoming signatures. Required for
+   * any route that declares `signedCookies: true`; absent by default, in which
+   * case signed-cookie methods throw at runtime.
+   */
+  secret?: string;
+  /**
+   * Older secrets still accepted when verifying (but never used to sign), so a
+   * secret can be rotated without invalidating cookies signed under the prior one.
+   */
+  previousSecrets?: string[];
+}
+
+/**
  * Resolved shape of the `log` section of `flare.json`, covering level threshold,
  * output format, async-context stamping, and per-transport level overrides.
  */
@@ -173,6 +193,16 @@ export const HOST_CONFIG: ConfigToken<FlareHostConfig> = flareConfig("host", {
   keepAliveTimeout: defaultTo(65000, int),
   headersTimeout: defaultTo(60000, int),
   requestTimeout: defaultTo(300000, int),
+});
+
+/**
+ * Pre-defined token for Flare-internal cookie config (`cookies.secret`). Both fields are optional, so
+ * the type is left to inference: {@link FlareCookiesConfig} is the resolved shape carried on
+ * {@link FlareConfig}.
+ */
+export const COOKIES_CONFIG = flareConfig("cookies", {
+  secret: optional(str),
+  previousSecrets: optional(array(str)),
 });
 
 const TRANSPORT_SCHEMA = schema({ level: enums(["trace", "debug", "info", "warn", "error", "fatal"]) });

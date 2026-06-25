@@ -43,7 +43,7 @@ export type FlareHandlerScope<
   & { input: TypedRequestContext<C>; };
 
 /** The {@link RequestDescriptor} field names usable as loose inline route-option keys. */
-export type RequestKey = "body" | "route" | "query" | "response" | "maxBodyBytes";
+export type RequestKey = "body" | "route" | "query" | "response" | "maxBodyBytes" | "signedCookies";
 
 /** Registration options common to both route-option forms (DI, state, and registration flags). */
 export type RouteOptionsBase<D extends InjectMap = InjectMap> = {

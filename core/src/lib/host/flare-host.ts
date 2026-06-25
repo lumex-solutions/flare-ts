@@ -19,7 +19,8 @@ import type { HostRuntimeAdapter } from "./types/adapter.js";
 import type { HostRuntimeLifecycle } from "./types/lifecycle.js";
 import type { FlareApp, FlareConfig, HostRuntime, HostState } from "./types/types.js";
 import { COMPILE_HTTP_ARC, HttpArc, INSPECT_HTTP_ARC, REEVALUATE_CONTAINER_STRATEGY } from "../arcs/http/http-arc.js";
-import { type ConfigToken, HOST_CONFIG, LOG_CONFIG } from "../config/flare-config.js";
+import { CookieSigner } from "../arcs/http/transport/cookie-signer.js";
+import { type ConfigToken, COOKIES_CONFIG, HOST_CONFIG, LOG_CONFIG } from "../config/flare-config.js";
 import { _log, Logger, toErrorField } from "../logger/logger.js";
 import { loggerALS } from "../logger/types.js";
 import { Container } from "../services/container.js";
@@ -123,6 +124,8 @@ export interface IFlareHost {
   runtime: HostRuntime;
   config: Readonly<FlareConfig>;
   logger: Logger;
+  /** @internal Cookie signer derived from `cookies.secret`, or `undefined` when no secret is configured. */
+  cookieSigner: CookieSigner | undefined;
   scopedServices: Pick<FlareRegistrationMap, "get" | "tokens" | "length">;
   singletonServices: ReadonlyMap<ServiceToken<FlareService>, FlareService>;
   [SET_HOST_STATE](state: HostState): void;
@@ -162,7 +165,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
   public readonly http: HttpArc<AdapterLifecycle<TAdapter>> = new HttpArc(this);
   public readonly logging: Logging<AdapterTransportClass<TAdapter>> = new Logging();
 
-  #defaultConfigSet: ReadonlySet<OpaqueConfigToken> = new Set([HOST_CONFIG, LOG_CONFIG]);
+  #defaultConfigSet: ReadonlySet<OpaqueConfigToken> = new Set([HOST_CONFIG, LOG_CONFIG, COOKIES_CONFIG]);
   #config: FlareConfig = {};
   #configRegistrations: Set<OpaqueConfigToken> = new Set();
   #scopedRegistrations: ServiceRegistration<FlareService>[] = [];
@@ -178,6 +181,8 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
   /** Set when a build hook calls `ctx.ownValidation`; the host runs it instead of its generic suite. */
   #adapterValidator: (() => ValidationError[]) | undefined;
   #singletonsCompiled = false;
+  /** Cookie signer derived from `cookies.secret`; `null` until first computed, `undefined` when unset. */
+  #cookieSigner: CookieSigner | null | undefined = null;
   /** Snapshot of registrations taken before the first test-mode replacement runs; restored on reset. */
   #originalScopedRegs: ServiceRegistration<FlareService>[] | undefined;
   #originalSingletonRegs: ServiceRegistration<FlareService>[] | undefined;
@@ -187,6 +192,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
     this.#testMode = adapter.env?.FLARE_MODE === "test";
     this.#configRegistrations.add(HOST_CONFIG);
     this.#configRegistrations.add(LOG_CONFIG);
+    this.#configRegistrations.add(COOKIES_CONFIG);
     // Adapters stamp runtime-specific members onto the host. The host TYPE intersects the adapter's
     // extension, so a member exists only when its adapter provides it.
     const extension = adapter.extendHost?.(this);
@@ -266,6 +272,22 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
    */
   public get config(): Readonly<FlareConfig> {
     return this.#config;
+  }
+
+  /**
+   * @internal Cookie signer built from the resolved `cookies.secret`, or `undefined` when no secret is
+   * configured. Computed once on first access (after config is resolved during {@link build}) and reused
+   * across requests so the HMAC key is imported at most once. Read by the HTTP arc to back
+   * `ctx.cookies.setSigned` / `getSigned`.
+   */
+  public get cookieSigner(): CookieSigner | undefined {
+    if (this.#cookieSigner === null) {
+      const secret = this.#config.cookies?.secret;
+      this.#cookieSigner = secret
+        ? new CookieSigner(secret, this.#config.cookies?.previousSecrets)
+        : undefined;
+    }
+    return this.#cookieSigner;
   }
 
   /**
@@ -670,6 +692,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
       globalMiddleware: this.http.mwRegistrations,
       groups: this.http.groups,
       corsConfig: this.http.corsConfig,
+      cookieSecretConfigured: Boolean(this.#config.cookies?.secret),
     };
 
     const configCtx: ConfigValidationContext = {

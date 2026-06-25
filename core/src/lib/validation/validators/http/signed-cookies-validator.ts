@@ -1,0 +1,37 @@
+import type { RequestDescriptor } from "../../../arcs/http/composition/contract/flare-contract.js";
+import type { HttpValidationContext } from "../../contexts.js";
+import type { IValidator, ValidationError } from "../../types.js";
+
+/**
+ * Fails the build when a route declares `signedCookies: true` but no cookie secret is configured.
+ *
+ * Signed-cookie methods (`ctx.cookies.setSigned` / `getSigned`) need `cookies.secret`. A route opts
+ * into the build-time check by setting `signedCookies: true` on its descriptor, turning a would-be
+ * runtime throw on the first request into a build failure. Middleware that signs cookies without a
+ * declaring route is not covered here and is guarded at runtime instead.
+ */
+export class SignedCookiesValidator implements IValidator<HttpValidationContext> {
+  validate(ctx: HttpValidationContext): ValidationError[] {
+    if (ctx.cookieSecretConfigured) return [];
+
+    const errors: ValidationError[] = [];
+    for (const controller of ctx.controllers) {
+      const contract = controller.cls.contract as unknown as Record<string, RequestDescriptor> | undefined;
+      if (!contract) continue;
+
+      for (const key of Object.keys(contract)) {
+        if (contract[key]?.signedCookies === true) {
+          errors.push({
+            severity: "error",
+            code: "SIGNED_COOKIES_NO_SECRET",
+            message:
+              `Controller ${controller.cls.name} declares signedCookies on "${key}" but no cookie secret is configured.`,
+            hint:
+              `Set cookies.secret in flare.json (or FLARE__COOKIES__SECRET) so signed cookies can be signed and verified.`,
+          });
+        }
+      }
+    }
+    return errors;
+  }
+}

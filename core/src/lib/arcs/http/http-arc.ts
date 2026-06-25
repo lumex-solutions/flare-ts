@@ -8,6 +8,7 @@ import type { HttpGroupFn } from "./composition/group.js";
 import type { FlareRouter } from "./routing/flare-router.js";
 import type { RouteSegment } from "./routing/types/route.js";
 import type { StateToken } from "./state/types/state-token.js";
+import type { CookieSigner } from "./transport/cookie-signer.js";
 import type { FlareHttpContext } from "./transport/flare-http-context.js";
 import type { HandlerResult, ResponseLike } from "./transport/types/response.js";
 import type { ExecFn } from "./types/exec-fn.js";
@@ -24,7 +25,7 @@ import { HttpGroup } from "./composition/group.js";
 import { deriveAllowedMethods } from "./routing/allow-methods.js";
 import { INVALID_REQUEST_PATH_BODY, isValidInboundPath } from "./routing/request-path.js";
 import { METHOD_IDX_MAP } from "./routing/types/methods.js";
-import { INSTANCE_SINGLETONS, SET_REQ_CTX } from "./transport/flare-http-context.js";
+import { COOKIE_SIGNER, INSTANCE_SINGLETONS, SET_REQ_CTX } from "./transport/flare-http-context.js";
 import { type FlareRequest, SET_MAX_BODY_BYTES, SET_ROUTE_PARAMS } from "./transport/flare-request.js";
 import { FlareResponse } from "./transport/flare-response.js";
 import { normalizeHandlerResult } from "./transport/normalize.js";
@@ -56,6 +57,8 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
   #router?: FlareRouter;
   /** Pre-built once at compile time; reused every request when there are no scoped services. */
   #sharedContainer: Container | undefined;
+  /** Cached at compile time; stamped onto each ctx only when a cookie secret is configured. */
+  #cookieSigner: CookieSigner | undefined;
 
   readonly #onStartCallbacks: Array<LifecycleCallback<TLifecycle>> = [];
   readonly #onStopCallbacks: Array<LifecycleCallback<TLifecycle>> = [];
@@ -137,6 +140,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
     this.#pipelines = pipelines;
     this.#router = router;
     this.#execFns = execFns;
+    this.#cookieSigner = this.host.cookieSigner;
 
     // If there are no per-request (scoped) services, a single Container instance can be
     // shared across all requests: its `instances` map is never written so it is safe.
@@ -430,6 +434,9 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
   ): ResponseLike | Promise<ResponseLike> {
     // No middleware means _getMiddleware is never called, so the cache array is never written.
     const middlewareMap: MiddlewareBase[] = pipeline.execCount === 1 ? _EMPTY_MW_CACHE : [];
+    // Stamp the signed-cookie signer only when one is configured, so apps that do not use signed
+    // cookies pay a single branch and nothing reaches the context.
+    if (this.#cookieSigner !== undefined) ctx[COOKIE_SIGNER] = this.#cookieSigner;
     // When the context carries a per-invocation singleton map (set by a runtime/extension), build a
     // fresh container against it (never the shared one, whose singletons are module-level).
     // Otherwise use the shared container when there are no scoped services, else a fresh one.

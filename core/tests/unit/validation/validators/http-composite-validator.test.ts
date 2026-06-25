@@ -10,6 +10,7 @@ import { DuplicateRouteValidator } from "../../../../src/lib/validation/validato
 import { MiddlewareStateCycleValidator } from "../../../../src/lib/validation/validators/http/middleware-state-cycle-validator.js";
 import { RouteParamValidator } from "../../../../src/lib/validation/validators/http/route-param-validator.js";
 import { RouteSyntaxValidator } from "../../../../src/lib/validation/validators/http/route-syntax-validator.js";
+import { SignedCookiesValidator } from "../../../../src/lib/validation/validators/http/signed-cookies-validator.js";
 
 /**
  * Reach into the (TS-only) private `validators` array of a CompositeValidator.
@@ -27,11 +28,11 @@ describe("createHttpValidator", () => {
     expect(composite).toBeInstanceOf(CompositeValidator);
   });
 
-  it("composes exactly [CorsValidator, RouteSyntaxValidator, RouteParamValidator, DuplicateRouteValidator, MiddlewareStateCycleValidator, ContractValidator, DeadMiddlewareValidator] in that order", () => {
+  it("composes exactly [CorsValidator, RouteSyntaxValidator, RouteParamValidator, DuplicateRouteValidator, MiddlewareStateCycleValidator, ContractValidator, DeadMiddlewareValidator, SignedCookiesValidator] in that order", () => {
     const composite = createHttpValidator();
     const inner = innerValidators(composite);
 
-    expect(inner).toHaveLength(7);
+    expect(inner).toHaveLength(8);
     expect(inner[0]).toBeInstanceOf(CorsValidator);
     expect(inner[1]).toBeInstanceOf(RouteSyntaxValidator);
     expect(inner[2]).toBeInstanceOf(RouteParamValidator);
@@ -39,6 +40,7 @@ describe("createHttpValidator", () => {
     expect(inner[4]).toBeInstanceOf(MiddlewareStateCycleValidator);
     expect(inner[5]).toBeInstanceOf(ContractValidator);
     expect(inner[6]).toBeInstanceOf(DeadMiddlewareValidator);
+    expect(inner[7]).toBeInstanceOf(SignedCookiesValidator);
   });
 
   it("invokes every inner validator when .validate() runs and concatenates their errors in order", () => {
@@ -54,6 +56,7 @@ describe("createHttpValidator", () => {
       "middleware-state-cycle",
       "contract",
       "dead-middleware",
+      "signed-cookies",
     ] as const;
 
     tags.forEach((tag, i) => {
@@ -86,10 +89,11 @@ describe("createHttpValidator", () => {
       "STUB_MIDDLEWARE-STATE-CYCLE",
       "STUB_CONTRACT",
       "STUB_DEAD-MIDDLEWARE",
+      "STUB_SIGNED-COOKIES",
     ]);
   });
 
-  it("constructs inner validators in the order described by the source JSDoc (CORS -> route syntax -> route params -> duplicate routes -> middleware state cycles -> contracts -> dead middleware)", () => {
+  it("constructs inner validators in the order described by the source JSDoc (CORS -> route syntax -> route params -> duplicate routes -> middleware state cycles -> contracts -> dead middleware -> signed cookies)", () => {
     // This pins the runtime run-order to the documented order. If either drifts,
     // this test fails and the divergence must be reconciled.
     const composite = createHttpValidator();
@@ -104,6 +108,7 @@ describe("createHttpValidator", () => {
       "MiddlewareStateCycleValidator",
       "ContractValidator",
       "DeadMiddlewareValidator",
+      "SignedCookiesValidator",
     ]);
   });
 });

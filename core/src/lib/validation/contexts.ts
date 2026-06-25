@@ -43,6 +43,11 @@ export type HttpValidationContext = {
   readonly groups: GroupRegistration[];
   /** Arc-level CORS policy, if configured via `host.http.cors()`. */
   readonly corsConfig?: CorsConfig | undefined;
+  /**
+   * Whether `cookies.secret` is set in the resolved config; gates the signed-cookies check.
+   * Absent is treated as not configured (fail-closed), so a route declaring `signedCookies` errors.
+   */
+  readonly cookieSecretConfigured?: boolean;
 };
 
 /**

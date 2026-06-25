@@ -85,10 +85,12 @@ export function validateCfGraph(graph: CfValidationGraph): ValidationError[] {
   const doTokens = new Set<ServiceToken<FlareService>>([Bindings, DurableState]);
   const results: ValidationError[] = [];
 
-  // HTTP per arc: front door (Worker context) + each per-DO arc (DO context).
-  results.push(...createHttpValidator().validate(httpCtx(graph.frontDoor)));
+  // HTTP per arc: front door (Worker context) + each per-DO arc (DO context). The cookie-secret fact is
+  // host-level, so it is computed once and applied to every arc's context.
+  const cookieSecretConfigured = Boolean((graph.resolvedConfig as { cookies?: { secret?: string; }; }).cookies?.secret);
+  results.push(...createHttpValidator().validate(httpCtx(graph.frontDoor, cookieSecretConfigured)));
   for (const { arc } of graph.durables) {
-    results.push(...createHttpValidator().validate(httpCtx(arc)));
+    results.push(...createHttpValidator().validate(httpCtx(arc, cookieSecretConfigured)));
   }
 
   // Service-graph integrity ONCE globally with the full framework set. These validators iterate the
@@ -206,12 +208,13 @@ function durableDepErrors(graph: CfValidationGraph): ValidationError[] {
 }
 
 /** Builds the HTTP validation context for one arc. */
-function httpCtx(arc: HttpArc<"sync">): HttpValidationContext {
+function httpCtx(arc: HttpArc<"sync">, cookieSecretConfigured: boolean): HttpValidationContext {
   return {
     controllers: arcControllers(arc),
     globalMiddleware: arc.mwRegistrations,
     groups: arc.groups,
     corsConfig: arc.corsConfig,
+    cookieSecretConfigured,
   };
 }
 

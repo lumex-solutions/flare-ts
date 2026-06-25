@@ -118,15 +118,16 @@ export type RequestDescriptor = {
    * ```
    */
   maxBodyBytes?: number;
+
   /**
-   * Primitive descriptors for path parameters passed to the handler.
+   * Declares that this route reads or writes signed cookies via
+   * `ctx.cookies.setSigned` / `getSigned`.
    *
-   * Similar to `route`, but used when path parameters are declared separately
-   * from the route pattern (e.g. in fully class-based controllers). Each value
-   * is a {@link Primitive} that coerces the raw string to the appropriate type.
+   * When `true`, `host.build()` fails unless `cookies.secret` is configured, so a
+   * missing secret is caught at build time rather than as a runtime throw on the
+   * first request. Does not change request handling otherwise.
    */
-  // TODO: Implement controller method param binding
-  // params?: Record<string, TypedFlarePrimitive<string> | TypedFlarePrimitive<number>>;
+  signedCookies?: boolean;
 };
 
 export type ContractToken = {

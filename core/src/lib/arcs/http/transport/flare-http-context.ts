@@ -3,6 +3,7 @@ import type { ServiceToken } from "../../../services/types/types.js";
 import type { RequestDescriptor } from "../composition/contract/flare-contract.js";
 import type { FlareReadonly } from "../state/types/readonly.js";
 import type { StateToken, TypedStateToken } from "../state/types/state-token.js";
+import type { CookieSigner } from "./cookie-signer.js";
 import type { FlareRequest } from "./flare-request.js";
 import type { SseEvent, SseWriter } from "./sse.js";
 import type { RequestContext, TypedRequestContext } from "./types/request-context.js";
@@ -21,6 +22,12 @@ export const SET_PARSED_BODY: unique symbol = Symbol("SET_PARSED_BODY");
 export const DRAIN_SET_COOKIES: unique symbol = Symbol("DRAIN_SET_COOKIES");
 /** @internal */
 export const INSTANCE_SINGLETONS: unique symbol = Symbol("INSTANCE_SINGLETONS");
+/**
+ * @internal Slot for the host's cookie signer, stamped by the HTTP arc only when a `cookies.secret`
+ * is configured. Backs {@link FlareCookies.setSigned} / {@link FlareCookies.getSigned}; absent
+ * otherwise, in which case those methods throw.
+ */
+export const COOKIE_SIGNER: unique symbol = Symbol("flare.cookieSigner");
 /**
  * Neutral internal accessor: returns the populated parsed request context (the same `#requestCtx`
  * that {@link FlareHttpContext.extract} returns) WITHOUT the descriptor-identity guard. Used to seed
@@ -90,6 +97,9 @@ export class FlareHttpContext {
    * module-level singletons are used.
    */
   [INSTANCE_SINGLETONS]?: ReadonlyMap<ServiceToken<FlareService>, FlareService>;
+
+  /** @internal Cookie signer for this request, stamped by the HTTP arc when a secret is configured. */
+  [COOKIE_SIGNER]?: CookieSigner;
 
   /**
    * @internal
@@ -396,6 +406,44 @@ export class FlareCookies {
     if (options?.path !== undefined) opts.path = options.path;
     if (options?.domain !== undefined) opts.domain = options.domain;
     this.set(name, "", opts);
+  }
+
+  /**
+   * Sets a cookie whose value is signed with the host's cookie secret, producing a
+   * tamper-evident payload that {@link getSigned} verifies on read.
+   *
+   * Signing provides integrity, not confidentiality: the value is encoded (not
+   * encrypted) and is recoverable by anyone who reads the cookie. Do not store
+   * secrets in a signed cookie.
+   *
+   * Requires `cookies.secret` to be configured; a route can declare `signedCookies: true`
+   * to have `host.build()` enforce that at build time. Throws if no secret is configured.
+   */
+  async setSigned(name: string, value: string, options?: CookieOptions): Promise<void> {
+    this.set(name, await this.#requireSigner().sign(value), options);
+  }
+
+  /**
+   * Reads a cookie written by {@link setSigned}, returning its value when the signature is
+   * valid and `undefined` when the cookie is absent, tampered with, or signed under a secret
+   * that is no longer accepted.
+   *
+   * Requires `cookies.secret` to be configured. Throws if no secret is configured.
+   */
+  async getSigned(name: string): Promise<string | undefined> {
+    const raw = this.#getAll()[name];
+    if (raw === undefined) return undefined;
+    return this.#requireSigner().verify(raw);
+  }
+
+  #requireSigner(): CookieSigner {
+    const signer = this.#ctx[COOKIE_SIGNER];
+    if (!signer) {
+      throw new Error(
+        "[flare] Signed cookies require a secret. Set `cookies.secret` in flare.json (or via FLARE__COOKIES__SECRET) before calling setSigned/getSigned.",
+      );
+    }
+    return signer;
   }
 
   #getAll(): Record<string, string> {

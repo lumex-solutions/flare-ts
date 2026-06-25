@@ -1,5 +1,5 @@
 import type { JsonObject } from "@flare-ts/lib";
-import type { FlareHostConfig, FlareLogConfig } from "../../config/flare-config";
+import type { FlareCookiesConfig, FlareHostConfig, FlareLogConfig } from "../../config/flare-config";
 import type { LoggerTransportClass } from "../../logger/types";
 import type { HostRuntimeAdapter } from "./adapter";
 import type { HostRuntimeLifecycle } from "./lifecycle";
@@ -38,4 +38,5 @@ export type FlareApp<TAdapter> = TAdapter extends
 export type FlareConfig = JsonObject & {
   host?: FlareHostConfig;
   log?: FlareLogConfig;
+  cookies?: FlareCookiesConfig;
 };
