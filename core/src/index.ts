@@ -43,6 +43,7 @@ export type { CorsConfig } from "./lib/arcs/http/composition/types/cors.js";
 export { FlareHttpContext } from "./lib/arcs/http/transport/flare-http-context.js";
 export type { CookieOptions } from "./lib/arcs/http/transport/flare-http-context.js";
 export { FlareRequest } from "./lib/arcs/http/transport/flare-request.js";
+export type { SseEvent, SseWriter } from "./lib/arcs/http/transport/sse.js";
 export type { ServiceToken } from "./lib/services/types/types.js";
 
 export { FlareError } from "./lib/errors/flare-error.js";

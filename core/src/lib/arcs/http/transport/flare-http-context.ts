@@ -4,11 +4,14 @@ import type { RequestDescriptor } from "../composition/contract/flare-contract.j
 import type { FlareReadonly } from "../state/types/readonly.js";
 import type { StateToken, TypedStateToken } from "../state/types/state-token.js";
 import type { FlareRequest } from "./flare-request.js";
+import type { SseEvent, SseWriter } from "./sse.js";
 import type { RequestContext, TypedRequestContext } from "./types/request-context.js";
 import type { ResponseSerializers, Serializer } from "./types/response.js";
 import { loggerALS } from "../../../logger/types.js";
 import { getTokenDefault, getTokenDerivation, getTokenLogMapper } from "../state/flare-state.js";
 import { StateMap } from "../state/state-map.js";
+import { FlareResponse } from "./flare-response.js";
+import { encodeSseComment, encodeSseEvent, SseStream } from "./sse.js";
 
 /** @internal */
 export const SET_REQ_CTX: unique symbol = Symbol("SET_REQ_CTX");
@@ -133,6 +136,56 @@ export class FlareHttpContext {
 
   get cookies(): FlareCookies {
     return (this.#cookies ??= new FlareCookies(this));
+  }
+
+  /**
+   * Opens a Server-Sent Events response and runs `producer` as the event source.
+   *
+   * The response returns immediately with `Content-Type: text/event-stream`; the
+   * producer pushes frames through the {@link SseWriter}, which paces itself
+   * against the connection (one frame buffered). The stream ends when the
+   * producer settles or the request aborts; the producer's `signal` is the
+   * request's `AbortSignal`, so a long-lived loop can stop when the client leaves.
+   *
+   * @example
+   * ```ts
+   * return ctx.sse(async (sse, signal) => {
+   *   while (!signal.aborted) {
+   *     await sse.send({ event: "tick", data: { now: Date.now() } });
+   *     await delay(1000);
+   *   }
+   * });
+   * ```
+   */
+  sse(producer: (sse: SseWriter, signal: AbortSignal) => void | Promise<void>): FlareResponse {
+    const stream = new SseStream();
+    const signal = this.req.signal;
+    const writer: SseWriter = {
+      send: (event: SseEvent) => stream.push(encodeSseEvent(event)),
+      comment: (text: string) => stream.push(encodeSseComment(text)),
+    };
+
+    if (signal.aborted) {
+      stream.close();
+    } else {
+      const onAbort = (): void => stream.abort();
+      signal.addEventListener("abort", onAbort, { once: true });
+      // Runs un-awaited: the response is returned now and frames stream out as the
+      // producer pushes them. When it settles (or the request aborts) the stream
+      // closes and the transport ends the response.
+      void (async () => {
+        try {
+          await producer(writer, signal);
+        } finally {
+          signal.removeEventListener("abort", onAbort);
+          stream.close();
+        }
+      })();
+    }
+
+    return new FlareResponse(200, stream, {
+      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+    });
   }
 
   /**
