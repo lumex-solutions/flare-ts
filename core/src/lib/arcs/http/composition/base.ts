@@ -180,10 +180,6 @@ export abstract class HttpBase {
       cls: controller,
       path: fullPath,
       standalone: false,
-      groupIsolated: false,
-      groupErrorHandlers: [],
-      groupExcludeList: [],
-      groupReplacements: [],
     });
   }
 
@@ -417,10 +413,6 @@ export abstract class HttpBase {
       cls: SyntheticController as ControllerClass,
       path: fullPath,
       standalone: options.isolated ?? false,
-      groupIsolated: false,
-      groupErrorHandlers: [],
-      groupExcludeList: [],
-      groupReplacements: [],
     };
 
     this.#syntheticControllers.set(fullPath, {

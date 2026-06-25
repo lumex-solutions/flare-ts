@@ -440,10 +440,6 @@ describe("Failure Modes", () => {
         cls: OrphanController,
         path: "/orphan",
         standalone: true,
-        groupIsolated: false,
-        groupErrorHandlers: [],
-        groupExcludeList: [],
-        groupReplacements: [],
       });
 
       // No throw: warnings alone do not fail the build.
@@ -580,50 +576,30 @@ describe("Cross-Feature Interactions", () => {
         cls: SyntaxBad,
         path: "/a",
         standalone: true,
-        groupIsolated: false,
-        groupErrorHandlers: [],
-        groupExcludeList: [],
-        groupReplacements: [],
       });
       host.http.conRegistrations.push({
         factory: (container, ctx) => new ParamDup(container, ctx),
         cls: ParamDup,
         path: "/b",
         standalone: true,
-        groupIsolated: false,
-        groupErrorHandlers: [],
-        groupExcludeList: [],
-        groupReplacements: [],
       });
       host.http.conRegistrations.push({
         factory: (container, ctx) => new DupA(container, ctx),
         cls: DupA,
         path: "/c",
         standalone: true,
-        groupIsolated: false,
-        groupErrorHandlers: [],
-        groupExcludeList: [],
-        groupReplacements: [],
       });
       host.http.conRegistrations.push({
         factory: (container, ctx) => new DupB(container, ctx),
         cls: DupB,
         path: "/c", // DUPLICATE_ROUTE_PIPELINE
         standalone: true,
-        groupIsolated: false,
-        groupErrorHandlers: [],
-        groupExcludeList: [],
-        groupReplacements: [],
       });
       host.http.conRegistrations.push({
         factory: (container, ctx) => new WithContract(container, ctx),
         cls: WithContract, // ORPHANED_CONTRACT_ENTRY
         path: "/with",
         standalone: true,
-        groupIsolated: false,
-        groupErrorHandlers: [],
-        groupExcludeList: [],
-        groupReplacements: [],
       });
 
       const err = captureBuildError(host);

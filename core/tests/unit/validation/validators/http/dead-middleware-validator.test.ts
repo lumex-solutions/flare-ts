@@ -23,15 +23,23 @@ function makeMiddleware(name: string): MiddlewareRegistration {
 }
 
 function makeController(opts: ControllerOpts = {}): ControllerRegistration {
+  const grouped = opts.groupIsolated !== undefined || opts.groupExcludeList !== undefined;
   return {
     factory: (() => undefined) as never,
     cls: function NoopCtrl() {} as never,
     path: "/",
     standalone: opts.standalone ?? false,
-    groupIsolated: opts.groupIsolated ?? false,
-    groupErrorHandlers: [],
-    groupExcludeList: opts.groupExcludeList ?? [],
-    groupReplacements: [],
+    ...(grouped
+      ? {
+        group: {
+          middleware: [],
+          isolated: opts.groupIsolated ?? false,
+          errorHandlers: [],
+          excludeList: opts.groupExcludeList ?? [],
+          replacements: [],
+        },
+      }
+      : {}),
   };
 }
 

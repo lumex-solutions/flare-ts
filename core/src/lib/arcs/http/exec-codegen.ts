@@ -421,12 +421,12 @@ function _resolveMwClass(
   const middlewareIdx = pipeline.middlewareFactoryByExecIdx[execIdx];
   if (middlewareIdx === undefined || middlewareIdx < 0) return undefined;
 
-  const ctrl = pipeline.registration;
-  if (ctrl.groupIsolated && ctrl.groupMiddleware) {
-    return ctrl.groupMiddleware[middlewareIdx]?.cls;
+  const group = pipeline.registration.group;
+  if (group?.isolated) {
+    return group.middleware[middlewareIdx]?.cls;
   }
-  if (middlewareIdx >= factories.length && ctrl.combinedGroupMw) {
-    return ctrl.combinedGroupMw[middlewareIdx - factories.length]?.cls;
+  if (middlewareIdx >= factories.length && group?.combinedMw) {
+    return group.combinedMw[middlewareIdx - factories.length]?.cls;
   }
   return globalMwRegs[middlewareIdx]?.cls;
 }
@@ -469,15 +469,15 @@ function _resolveFactory(
   execIdx: number,
 ): FlareHttpFactory<MiddlewareBase> {
   const middlewareIdx = pipeline.middlewareFactoryByExecIdx[execIdx]!;
-  const ctrl = pipeline.registration;
+  const group = pipeline.registration.group;
 
-  if (ctrl.groupIsolated && ctrl.groupMiddleware) {
-    const f = ctrl.groupMiddleware[middlewareIdx]?.factory;
+  if (group?.isolated) {
+    const f = group.middleware[middlewareIdx]?.factory;
     if (!f) throw new Error(`[flare] No factory for exec slot ${execIdx} in isolated group scope.`);
     return f;
   }
-  if (middlewareIdx >= factories.length && ctrl.combinedGroupMw) {
-    const f = ctrl.combinedGroupMw[middlewareIdx - factories.length]?.factory;
+  if (middlewareIdx >= factories.length && group?.combinedMw) {
+    const f = group.combinedMw[middlewareIdx - factories.length]?.factory;
     if (!f) throw new Error(`[flare] No factory for exec slot ${execIdx} in combined group scope.`);
     return f;
   }

@@ -254,10 +254,8 @@ describe("HttpBase.controller", () => {
     // No group parent here, so fullPath === path.
     expect(reg.path).toBe("/users");
     expect(reg.standalone).toBe(false);
-    expect(reg.groupIsolated).toBe(false);
-    expect(reg.groupErrorHandlers).toEqual([]);
-    expect(reg.groupExcludeList).toEqual([]);
-    expect(reg.groupReplacements).toEqual([]);
+    // Not registered inside a group, so there is no group scope.
+    expect(reg.group).toBeUndefined();
     expect(typeof reg.factory).toBe("function");
   });
 

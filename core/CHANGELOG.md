@@ -73,6 +73,7 @@ Durable Objects become a first-class Flare primitive, function-handler dependenc
 ### Internal
 
 - Unified the app lifecycle orchestration. The four `start`/`startAsync`/`stop`/`stopAsync` methods on `FlareAppBase` collapsed into one startup program and one shutdown program (each expressing the arc/singleton ordering, Logger deferral, partial-start window, and error aggregation once) interpreted by a sync or async driver. Removes ~250 lines of duplicated start/stop and sync/async policy. Behavior-preserving; nothing changes at runtime.
+- Bundled the HTTP controller registration's group scope. The five flat group fields (`groupMiddleware`, `groupIsolated`, `groupErrorHandlers`, `groupExcludeList`, `groupReplacements`) plus the derived `combinedGroupMw` on the internal `ControllerRegistration` collapsed into one optional `group` context, present only when a controller is registered inside an `HttpGroup`. Grouped-vs-standalone is now correct-by-construction: the fields are set together or absent together. Internal type; behavior-preserving.
 
 ## 0.2.0
 

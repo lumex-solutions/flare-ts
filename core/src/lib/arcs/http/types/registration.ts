@@ -7,17 +7,28 @@ import type { MiddlewareClass } from "../composition/classes/middleware-base.js"
 import type { CorsConfig } from "../composition/types/cors.js";
 import type { FlareHttpFactory } from "./pipeline.js";
 
+/**
+ * The group scope bound onto a controller registration when it belongs to an `HttpGroup`. Present if
+ * the controller is in a group; a standalone (non-group) controller has no `group`. Bundles every
+ * group-derived field so they are set together or absent together.
+ */
+export type GroupContext = {
+  readonly middleware: readonly MiddlewareRegistration[];
+  readonly isolated: boolean;
+  readonly errorHandlers: readonly ErrorHandlerRegistration[];
+  readonly excludeList: readonly MiddlewareClass[];
+  readonly replacements: readonly MiddlewareRegistration[];
+  /** Replacements then group middleware, in run order. Omitted when the group is isolated. */
+  readonly combinedMw?: readonly MiddlewareRegistration[];
+};
+
 export type ControllerRegistration = {
   readonly factory: FlareHttpFactory<ControllerBase>;
   readonly cls: ControllerClass;
   readonly path: string;
   readonly standalone: boolean;
-  groupMiddleware?: readonly MiddlewareRegistration[];
-  groupIsolated: boolean;
-  groupErrorHandlers: readonly ErrorHandlerRegistration[];
-  groupExcludeList: readonly MiddlewareClass[];
-  groupReplacements: readonly MiddlewareRegistration[];
-  combinedGroupMw?: readonly MiddlewareRegistration[];
+  /** Group scope, present only when this controller is registered inside an `HttpGroup`. */
+  group?: GroupContext;
 };
 
 export type MiddlewareRegistration = {

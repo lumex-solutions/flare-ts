@@ -133,15 +133,14 @@ export class HttpGroup extends HttpBase {
     excludeList: readonly MiddlewareClass[] = [],
     replacements: readonly MiddlewareRegistration[] = [],
   ): void {
-    registration.groupMiddleware = middleware;
-    registration.groupIsolated = isolated;
-    registration.groupErrorHandlers = errorHandlers;
-    registration.groupExcludeList = excludeList;
-    registration.groupReplacements = replacements;
-    if (!isolated) {
-      registration.combinedGroupMw = [...replacements, ...middleware];
-      return;
-    }
-    delete registration.combinedGroupMw;
+    const combinedMw = isolated ? undefined : [...replacements, ...middleware];
+    registration.group = {
+      middleware,
+      isolated,
+      errorHandlers,
+      excludeList,
+      replacements,
+      ...(combinedMw ? { combinedMw } : {}),
+    };
   }
 }

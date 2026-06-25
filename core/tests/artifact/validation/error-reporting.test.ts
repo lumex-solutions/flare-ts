@@ -137,10 +137,6 @@ describe("Primary Behavior", () => {
         cls: OnlyController,
         path: "/p",
         standalone: true,
-        groupIsolated: false,
-        groupErrorHandlers: [],
-        groupExcludeList: [],
-        groupReplacements: [],
       });
 
       let captured: unknown;
@@ -227,10 +223,6 @@ describe("Edge Cases", () => {
         cls: OnlyController,
         path: "/p",
         standalone: true,
-        groupIsolated: false,
-        groupErrorHandlers: [],
-        groupExcludeList: [],
-        groupReplacements: [],
       });
 
       // The build itself must NOT throw -- warnings alone never trigger
@@ -440,10 +432,6 @@ describe("Failure Modes", () => {
         cls: OnlyController,
         path: "/p",
         standalone: true,
-        groupIsolated: false,
-        groupErrorHandlers: [],
-        groupExcludeList: [],
-        groupReplacements: [],
       });
 
       let captured: unknown;

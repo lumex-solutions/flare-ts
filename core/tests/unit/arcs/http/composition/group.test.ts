@@ -74,9 +74,9 @@ describe("HttpGroup.exclude(classes)", () => {
     const returned = group.exclude([A]).exclude([B]);
     expect(returned).toBe(group);
 
-    // Exclude list is private; observable via register()'s groupExcludeList on each controller.
+    // Exclude list is private; observable via register()'s group.excludeList on each controller.
     const reg = group.register();
-    expect(reg.controllers[0]!.groupExcludeList).toEqual([A, B]);
+    expect(reg.controllers[0]!.group!.excludeList).toEqual([A, B]);
   });
 });
 
@@ -92,9 +92,9 @@ describe("HttpGroup.replace(from, to)", () => {
     expect(returned).toBe(group);
 
     const reg = group.register();
-    expect(reg.controllers[0]!.groupExcludeList).toEqual([From]);
-    expect(reg.controllers[0]!.groupReplacements).toHaveLength(1);
-    expect(reg.controllers[0]!.groupReplacements[0]!.cls).toBe(To);
+    expect(reg.controllers[0]!.group!.excludeList).toEqual([From]);
+    expect(reg.controllers[0]!.group!.replacements).toHaveLength(1);
+    expect(reg.controllers[0]!.group!.replacements[0]!.cls).toBe(To);
   });
 
   it("replacement factory constructs the to class", () => {
@@ -106,7 +106,7 @@ describe("HttpGroup.replace(from, to)", () => {
     group.replace(From, To);
 
     const reg = group.register();
-    const replacement = reg.controllers[0]!.groupReplacements[0]!;
+    const replacement = reg.controllers[0]!.group!.replacements[0]!;
     const instance = replacement.factory({} as Container, {} as FlareHttpContext);
     expect(instance).toBeInstanceOf(To);
   });
@@ -171,17 +171,17 @@ describe("HttpGroup.register()", () => {
 
     // Every controller carries the group-scope metadata after register().
     for (const c of reg.controllers) {
-      expect(c.groupMiddleware).toBeDefined();
-      expect(c.groupMiddleware).toHaveLength(1);
-      expect(c.groupMiddleware![0]!.cls).toBe(MwA);
-      expect(c.groupIsolated).toBe(false);
-      expect(c.groupErrorHandlers).toEqual([]);
-      expect(c.groupExcludeList).toEqual([]);
-      expect(c.groupReplacements).toEqual([]);
+      expect(c.group!.middleware).toBeDefined();
+      expect(c.group!.middleware).toHaveLength(1);
+      expect(c.group!.middleware[0]!.cls).toBe(MwA);
+      expect(c.group!.isolated).toBe(false);
+      expect(c.group!.errorHandlers).toEqual([]);
+      expect(c.group!.excludeList).toEqual([]);
+      expect(c.group!.replacements).toEqual([]);
     }
   });
 
-  it("Isolated: deletes combinedGroupMw and sets groupIsolated=true on each controller registration", () => {
+  it("Isolated: omits group.combinedMw and sets group.isolated=true on each controller registration", () => {
     group.isolated();
     group.controller("/a", CtrlA);
     group.controller("/b", CtrlB);
@@ -191,13 +191,13 @@ describe("HttpGroup.register()", () => {
 
     expect(reg.isolated).toBe(true);
     for (const c of reg.controllers) {
-      expect(c.groupIsolated).toBe(true);
-      expect("combinedGroupMw" in c).toBe(false);
-      expect(c.combinedGroupMw).toBeUndefined();
+      expect(c.group!.isolated).toBe(true);
+      expect("combinedMw" in c.group!).toBe(false);
+      expect(c.group!.combinedMw).toBeUndefined();
     }
   });
 
-  it("Non-isolated: builds combinedGroupMw as [...replacements, ...middleware]", () => {
+  it("Non-isolated: builds group.combinedMw as [...replacements, ...middleware]", () => {
     const From = makeMiddlewareCls("From");
     const To = makeMiddlewareCls("To");
 
@@ -209,9 +209,9 @@ describe("HttpGroup.register()", () => {
     const reg = group.register();
 
     const ctrl = reg.controllers[0]!;
-    expect(ctrl.groupIsolated).toBe(false);
-    expect(ctrl.combinedGroupMw).toBeDefined();
+    expect(ctrl.group!.isolated).toBe(false);
+    expect(ctrl.group!.combinedMw).toBeDefined();
     // Order: replacements first, then the group's own middleware in registration order.
-    expect(ctrl.combinedGroupMw!.map((m) => m.cls)).toEqual([To, MwA, MwB]);
+    expect(ctrl.group!.combinedMw!.map((m) => m.cls)).toEqual([To, MwA, MwB]);
   });
 });

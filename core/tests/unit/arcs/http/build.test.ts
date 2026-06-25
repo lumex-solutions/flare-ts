@@ -91,13 +91,21 @@ function makeControllerReg(
     cls,
     path: opts.path ?? "",
     standalone: opts.standalone ?? false,
-    groupIsolated: opts.groupIsolated ?? false,
-    groupErrorHandlers: opts.groupErrorHandlers ?? [],
-    groupExcludeList: opts.groupExcludeList ?? [],
-    groupReplacements: opts.groupReplacements ?? [],
   };
-  if (opts.groupMiddleware !== undefined) reg.groupMiddleware = opts.groupMiddleware;
-  if (opts.combinedGroupMw !== undefined) reg.combinedGroupMw = opts.combinedGroupMw;
+  // Build the group context the production binding sets when a controller is in a group.
+  const grouped = opts.groupMiddleware !== undefined || opts.groupIsolated !== undefined
+    || opts.groupErrorHandlers !== undefined || opts.groupExcludeList !== undefined
+    || opts.groupReplacements !== undefined || opts.combinedGroupMw !== undefined;
+  if (grouped) {
+    reg.group = {
+      middleware: opts.groupMiddleware ?? [],
+      isolated: opts.groupIsolated ?? false,
+      errorHandlers: opts.groupErrorHandlers ?? [],
+      excludeList: opts.groupExcludeList ?? [],
+      replacements: opts.groupReplacements ?? [],
+      ...(opts.combinedGroupMw !== undefined ? { combinedMw: opts.combinedGroupMw } : {}),
+    };
+  }
   return reg;
 }
 
@@ -398,7 +406,7 @@ describe("compilePipelines (via compileHttp)", () => {
 
     const cls = makeControllerCls("ReplaceController");
     attachRoutes(cls, [{ method: "GET", path: "/repl", handler: function() {} }]);
-    // HttpGroup sets combinedGroupMw to [replacements, ...groupMiddleware] when the
+    // HttpGroup sets group.combinedMw to [...replacements, ...group.middleware] when the
     // group is non-isolated. Mirror that here so _resolveFactory finds the factory.
     const ctrl = makeControllerReg(cls, {
       groupMiddleware: [localReg],

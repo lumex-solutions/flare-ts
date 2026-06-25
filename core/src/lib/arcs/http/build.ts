@@ -94,8 +94,9 @@ function compilePipelines(
     middlewareFactoryByExecIdx.set(afterFactoryIdxs, beforeFactoryIdxs.length + 1);
     middlewareFactoryByExecIdx.set(finallyFactoryIdxs, beforeFactoryIdxs.length + 1 + afterFactoryIdxs.length);
 
-    const errorHandlers = registration.groupErrorHandlers.length > 0
-      ? [...globalErrorHandlers, ...registration.groupErrorHandlers]
+    const groupErrorHandlers = registration.group?.errorHandlers ?? [];
+    const errorHandlers = groupErrorHandlers.length > 0
+      ? [...globalErrorHandlers, ...groupErrorHandlers]
       : globalErrorHandlers;
 
     const routes = compileRoutes(registration);
@@ -140,11 +141,12 @@ function compileExecStepNames(pipeline: Pipeline, globalMwRegs: MiddlewareRegist
       names[i] = pipeline.registration.cls.name;
       continue;
     }
-    if (pipeline.registration.groupIsolated) {
-      names[i] = pipeline.registration.groupMiddleware?.[factoryIdx]?.cls.name ?? "Unknown";
-    } else if (factoryIdx >= globalMwRegs.length && pipeline.registration.combinedGroupMw) {
+    const group = pipeline.registration.group;
+    if (group?.isolated) {
+      names[i] = group.middleware[factoryIdx]?.cls.name ?? "Unknown";
+    } else if (factoryIdx >= globalMwRegs.length && group?.combinedMw) {
       const groupIdx = factoryIdx - globalMwRegs.length;
-      names[i] = pipeline.registration.combinedGroupMw[groupIdx]?.cls.name ?? "Unknown";
+      names[i] = group.combinedMw[groupIdx]?.cls.name ?? "Unknown";
     } else {
       names[i] = globalMwRegs[factoryIdx]?.cls.name ?? "Unknown";
     }
@@ -190,11 +192,12 @@ function getMiddlewareIdxs(
     providedStateTokens.set(token, "(arc entry)");
   }
 
-  if (controller.groupMiddleware) {
-    if (controller.groupIsolated) {
-      for (let idx = 0; idx < controller.groupMiddleware.length; idx++) {
+  if (controller.group) {
+    const group = controller.group;
+    if (group.isolated) {
+      for (let idx = 0; idx < group.middleware.length; idx++) {
         processMwRegistration(
-          controller.groupMiddleware[idx]!,
+          group.middleware[idx]!,
           idx,
           beforeFactoryIdxs,
           afterFactoryIdxs,
@@ -204,7 +207,7 @@ function getMiddlewareIdxs(
         );
       }
     } else {
-      const excludeSet = new Set(controller.groupExcludeList);
+      const excludeSet = new Set(group.excludeList);
 
       // Validate all excluded classes are actually in the global middleware list.
       for (const excludedCls of excludeSet) {
@@ -231,7 +234,7 @@ function getMiddlewareIdxs(
       }
 
       // Prepend replacements then group-local middleware.
-      const combinedGroupMw = [...controller.groupReplacements, ...controller.groupMiddleware];
+      const combinedGroupMw = [...group.replacements, ...group.middleware];
       for (let idx = 0; idx < combinedGroupMw.length; idx++) {
         processMwRegistration(
           combinedGroupMw[idx]!,

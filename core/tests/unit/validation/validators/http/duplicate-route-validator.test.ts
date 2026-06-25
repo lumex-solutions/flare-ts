@@ -23,10 +23,6 @@ function makeReg(cls: Function, path: string): ControllerRegistration {
     cls: cls as never,
     path,
     standalone: false,
-    groupIsolated: false,
-    groupErrorHandlers: [],
-    groupExcludeList: [],
-    groupReplacements: [],
   };
 }
 

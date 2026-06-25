@@ -8,8 +8,8 @@ import type { IValidator, ValidationError } from "../../types.js";
  *
  * A controller excludes global middleware when:
  * - It is a `standalone` controller (no middleware at all), OR
- * - It is `groupIsolated` (uses only its group's own middleware), OR
- * - The middleware class appears in `groupExcludeList`
+ * - Its group is isolated (uses only the group's own middleware), OR
+ * - The middleware class appears in the group's exclude list
  *
  * If at least one controller would run the middleware, it counts as live.
  * Emits no warning when there are no controllers (app under construction).
@@ -30,9 +30,9 @@ export class DeadMiddlewareValidator implements IValidator<HttpValidationContext
 
       for (const controller of ctx.controllers) {
         if (controller.standalone) continue; // excludes ALL global middleware
-        if (controller.groupIsolated) continue; // uses only group-local middleware
+        if (controller.group?.isolated) continue; // uses only group-local middleware
 
-        const excluded = controller.groupExcludeList as readonly MiddlewareClass[];
+        const excluded = controller.group?.excludeList ?? [];
         if (!excluded.some(e => e === cls)) {
           isLive = true;
           break;

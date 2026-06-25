@@ -70,10 +70,6 @@ function makeControllerReg(cls: ControllerClass): ControllerRegistration {
     cls,
     path: "",
     standalone: false,
-    groupIsolated: false,
-    groupErrorHandlers: [],
-    groupExcludeList: [],
-    groupReplacements: [],
   };
 }
 

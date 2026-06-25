@@ -87,10 +87,6 @@ function ctrlReg(
     cls,
     path: "",
     standalone: true,
-    groupIsolated: false,
-    groupErrorHandlers: [],
-    groupExcludeList: [],
-    groupReplacements: [],
   };
 }
 

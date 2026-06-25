@@ -252,10 +252,6 @@ describe("Edge Cases", () => {
         cls: OnlyController,
         path: "/p",
         standalone: true,
-        groupIsolated: false,
-        groupErrorHandlers: [],
-        groupExcludeList: [],
-        groupReplacements: [],
       });
 
       // Build must NOT throw — warnings alone never fail the build.

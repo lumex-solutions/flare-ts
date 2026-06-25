@@ -442,10 +442,6 @@ describe("Cross-Feature Interactions", () => {
         cls: OnlyController,
         path: "/p",
         standalone: true,
-        groupIsolated: false,
-        groupErrorHandlers: [],
-        groupExcludeList: [],
-        groupReplacements: [],
       });
 
       const app = await host.build().test();
