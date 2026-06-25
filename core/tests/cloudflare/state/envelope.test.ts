@@ -9,7 +9,8 @@ import { FlareDurableObject } from "../../../src/lib/host/runtime/cloudflare/ind
 import {
   applyInboundEnvelope,
   decodeStateEnvelope,
-  encodeStateEnvelope,
+  encodeInboundEnvelope,
+  encodeOutboundEnvelope,
   RESERVED_STATE_HEADER,
   RESERVED_TRACE_HEADER,
   sanitizeForwardHeaders,
@@ -38,7 +39,7 @@ function makeCtx(url = "https://flare.test/"): FlareHttpContext {
 
 const UserId = flareState<string>("UserId");
 const Role = flareState<string>("Role");
-const Nested = flareState<{ a: { b: number[] } }>("Nested");
+const Nested = flareState<{ a: { b: number[]; }; }>("Nested");
 const WithDefault = flareState<string>("WithDefault").withDefault("default-value");
 const OutputOnly = flareState<string>("OutputOnly"); // no default, no derivation
 
@@ -53,13 +54,13 @@ registerStateTokens(TestDO);
 // Round-trip: simple flat object
 // ---------------------------------------------------------------------------
 
-describe("encodeStateEnvelope / decodeStateEnvelope", () => {
+describe("encodeInboundEnvelope / encodeOutboundEnvelope / decodeStateEnvelope", () => {
   it("round-trips {userId, role} exactly through encode -> decode into a fresh ctx", () => {
     const encodeCtx = makeCtx();
     encodeCtx.state.set(UserId, "u1");
     encodeCtx.state.set(Role, "admin");
 
-    const envelope = encodeStateEnvelope(encodeCtx, TestDO);
+    const envelope = encodeInboundEnvelope(encodeCtx, TestDO);
     expect(envelope).toBeDefined();
 
     const decodeCtx = makeCtx();
@@ -77,7 +78,7 @@ describe("encodeStateEnvelope / decodeStateEnvelope", () => {
     const encodeCtx = makeCtx();
     encodeCtx.state.set(Nested, { a: { b: [1, 2, 3] } });
 
-    const envelope = encodeStateEnvelope(encodeCtx, TestDO);
+    const envelope = encodeInboundEnvelope(encodeCtx, TestDO);
     expect(envelope).toBeDefined();
 
     const decodeCtx = makeCtx();
@@ -95,7 +96,7 @@ describe("encodeStateEnvelope / decodeStateEnvelope", () => {
     const encodeCtx = makeCtx();
     encodeCtx.state.set(Nested, { a: { b: [10, 20] } });
 
-    const envelope = encodeStateEnvelope(encodeCtx, TestDO);
+    const envelope = encodeInboundEnvelope(encodeCtx, TestDO);
     const decodeCtx = makeCtx();
     decodeStateEnvelope(envelope!, TestDO, decodeCtx);
 
@@ -106,7 +107,7 @@ describe("encodeStateEnvelope / decodeStateEnvelope", () => {
     expect(val).toEqual({ a: { b: [10, 20] } });
 
     expect(() => {
-      (val as { a: { b: number[] } }).a.b.push(999);
+      (val as { a: { b: number[]; }; }).a.b.push(999);
     }).toThrow();
   });
 
@@ -119,7 +120,7 @@ describe("encodeStateEnvelope / decodeStateEnvelope", () => {
     encodeCtx.state.set(UserId, "u2");
     // OutputOnly has no default/derivation; it was not set -> undefined -> must be omitted
 
-    const envelope = encodeStateEnvelope(encodeCtx, TestDO);
+    const envelope = encodeInboundEnvelope(encodeCtx, TestDO);
     expect(envelope).toBeDefined();
 
     const parsed = JSON.parse(envelope!) as Record<string, unknown>;
@@ -137,7 +138,7 @@ describe("encodeStateEnvelope / decodeStateEnvelope", () => {
     const encodeCtx = makeCtx();
     // Do NOT explicitly set WithDefault; its default resolves to "default-value"
 
-    const envelope = encodeStateEnvelope(encodeCtx, TestDO);
+    const envelope = encodeInboundEnvelope(encodeCtx, TestDO);
     expect(envelope).toBeDefined();
 
     const decodeCtx = makeCtx();
@@ -150,13 +151,13 @@ describe("encodeStateEnvelope / decodeStateEnvelope", () => {
   // Oversized value throws
   // -------------------------------------------------------------------------
 
-  it("oversized value (>12 KB) causes encodeStateEnvelope to throw the named error", () => {
+  it("oversized value (>12 KB) causes encodeInboundEnvelope to throw the named error", () => {
     // Build a string value just over 12 KB
     const big = "x".repeat(13 * 1024);
     const encodeCtx = makeCtx();
     encodeCtx.state.set(UserId, big);
 
-    expect(() => encodeStateEnvelope(encodeCtx, TestDO)).toThrow(
+    expect(() => encodeInboundEnvelope(encodeCtx, TestDO)).toThrow(
       /\[flare\] state envelope for TestDO exceeds 12288 bytes/,
     );
   });
@@ -229,7 +230,7 @@ describe("encodeStateEnvelope / decodeStateEnvelope", () => {
     // Encode from the OtherDO side (ExternalToken has a key now)
     const encodeCtx = makeCtx();
     encodeCtx.state.set(ExternalToken, "external-value");
-    const envelope = encodeStateEnvelope(encodeCtx, OtherDO);
+    const envelope = encodeInboundEnvelope(encodeCtx, OtherDO);
     expect(envelope).toBeDefined();
 
     // Decode into TestDO context: ExternalToken is NOT in TestDO.static state, must be ignored
@@ -284,7 +285,7 @@ describe("sanitizeForwardHeaders", () => {
 // Uses a minimal DO class with exactly one token (no .withDefault, so the only
 // token that appears is the one explicitly set). Then sets a non-static-state
 // token (FrontDoorOnly) AND the contract token (UserId) on a front-door ctx.
-// encodeStateEnvelope must produce an envelope with exactly one key (UserId);
+// encodeInboundEnvelope must produce an envelope with exactly one key (UserId);
 // FrontDoorOnly must be absent. This catches a regression where ctx.state is
 // serialized wholesale instead of filtering to static state tokens only.
 // ---------------------------------------------------------------------------
@@ -305,7 +306,7 @@ describe("C6: encode-side non-crossing (only static state tokens enter the envel
     // Also set FrontDoorOnly - it must NOT appear in the DO-bound envelope.
     encodeCtx.state.set(FrontDoorOnly as Parameters<typeof encodeCtx.state.set>[0], "fd-only-value");
 
-    const envelope = encodeStateEnvelope(encodeCtx, MinimalDO);
+    const envelope = encodeInboundEnvelope(encodeCtx, MinimalDO);
     expect(envelope).toBeDefined();
 
     // Parse the raw JSON and collect all keys present in the envelope.
@@ -329,7 +330,7 @@ describe("C6: encode-side non-crossing (only static state tokens enter the envel
 // ---------------------------------------------------------------------------
 // C7: Oversized envelope at the applyInboundEnvelope seam.
 //
-// applyInboundEnvelope calls encodeStateEnvelope internally. Driving an oversized
+// applyInboundEnvelope calls encodeInboundEnvelope internally. Driving an oversized
 // static state value through the seam must surface the loud [flare] throw at the
 // seam level, not just at the bare codec level (which envelope.test.ts already covers).
 //
@@ -346,7 +347,7 @@ describe("C7: oversized envelope surfaced at applyInboundEnvelope seam", () => {
     // Build a mutable forwarded request (applyInboundEnvelope requires mutable headers).
     const forwarded = new Request("https://do.internal/check", { method: "GET" });
 
-    // applyInboundEnvelope calls encodeStateEnvelope; the size guard must fire here.
+    // applyInboundEnvelope calls encodeInboundEnvelope; the size guard must fire here.
     expect(() => applyInboundEnvelope(encodeCtx, TestDO, forwarded)).toThrow(
       /\[flare\] state envelope for TestDO exceeds 12288 bytes/,
     );
@@ -368,7 +369,7 @@ describe("Fix 2: raw outbound encode omits unset .withDefault tokens; resolved k
     const encodeCtx = makeCtx();
     // Do NOT set WithDefault; it would resolve to "default-value" via #resolve.
 
-    const envelope = encodeStateEnvelope(encodeCtx, TestDO, { raw: true });
+    const envelope = encodeOutboundEnvelope(encodeCtx, TestDO);
     // No token was explicitly set, so the raw envelope is empty -> undefined.
     expect(envelope).toBeUndefined();
   });
@@ -377,7 +378,7 @@ describe("Fix 2: raw outbound encode omits unset .withDefault tokens; resolved k
     const encodeCtx = makeCtx();
     // Do NOT set WithDefault; resolved read fires the default.
 
-    const envelope = encodeStateEnvelope(encodeCtx, TestDO);
+    const envelope = encodeInboundEnvelope(encodeCtx, TestDO);
     expect(envelope).toBeDefined();
 
     const decodeCtx = makeCtx();
@@ -390,7 +391,7 @@ describe("Fix 2: raw outbound encode omits unset .withDefault tokens; resolved k
     encodeCtx.state.set(UserId, "explicit");
     // WithDefault left unset: must not appear in the raw envelope.
 
-    const envelope = encodeStateEnvelope(encodeCtx, TestDO, { raw: true });
+    const envelope = encodeOutboundEnvelope(encodeCtx, TestDO);
     expect(envelope).toBeDefined();
 
     // Exactly one key (UserId); the unset .withDefault token is absent from the raw envelope.

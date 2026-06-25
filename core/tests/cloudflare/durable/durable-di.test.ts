@@ -484,7 +484,7 @@ describe("durableObject({ alarm }) runs the alarm entrypoint", () => {
 });
 
 // ===========================================================================
-// 8. PER-INSTANCE FACADE: inject + config on FlareCfHandler
+// 8. PER-INSTANCE FACADE: inject + config on DurableHandler
 // ===========================================================================
 
 describe("per-instance facade: inject + config", () => {
@@ -757,7 +757,7 @@ describe("HANDLER_ERRORED suppresses outbound state on the DO response (white-bo
     "a DO route that sets state then throws returns a 500 with no x-flare-state header",
     async () => {
       // Declare a state token and a DO class that declares it.
-      const ThrowState = flareState<{ msg: string }>("HandlerErroredThrowState");
+      const ThrowState = flareState<{ msg: string; }>("HandlerErroredThrowState");
 
       class ThrowDo extends FlareDurableObject {
         static override deps = [DurableState];
@@ -796,7 +796,7 @@ describe("HANDLER_ERRORED suppresses outbound state on the DO response (white-bo
       expect(res.headers.get(RESERVED_STATE_HEADER)).toBeNull();
 
       // Confirm the error envelope itself: no state bleeding into the JSON body.
-      const body = await res.json() as { error: string };
+      const body = await res.json() as { error: string; };
       expect(body.error).toBe("Internal Server Error");
     },
   );
@@ -804,7 +804,7 @@ describe("HANDLER_ERRORED suppresses outbound state on the DO response (white-bo
   it(
     "a DO route that sets state and SUCCEEDS does carry x-flare-state (control: non-error path encodes envelope)",
     async () => {
-      const SuccessState = flareState<{ val: number }>("HandlerErroredSuccessState");
+      const SuccessState = flareState<{ val: number; }>("HandlerErroredSuccessState");
 
       class SuccessDo extends FlareDurableObject {
         static override deps = [DurableState];

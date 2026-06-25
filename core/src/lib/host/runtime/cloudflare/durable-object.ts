@@ -8,7 +8,7 @@ import type { ServiceToken } from "../../../services/types/types.js";
 import type { IFlareHost } from "../../flare-host.js";
 import { COMPILE_INSTANCE_CONTAINER } from "../../types/const.js";
 import { arcForDurableObject } from "./app.js";
-import { FlareCfHandler } from "./handler.js";
+import { DurableHandler } from "./handler.js";
 import { Bindings, DurableState } from "./services.js";
 
 /** Map of per-context seed factories handed to `[COMPILE_INSTANCE_CONTAINER]`. */
@@ -35,7 +35,7 @@ export const DO_HOST: unique symbol = Symbol("flare.do.host");
 
 /**
  * Composes one DO instance's per-instance lazy container, seeding `DurableState` and `Bindings` for
- * the given `state` and `env`, and returns a `FlareCfHandler` you can drive in-process for
+ * the given `state` and `env`, and returns a `DurableHandler` you can drive in-process for
  * white-box tests.
  *
  * ```ts
@@ -53,7 +53,7 @@ export const DO_HOST: unique symbol = Symbol("flare.do.host");
  * @param state - A real or fake `DurableObjectState` seeded as `DurableState` in the instance graph.
  * @param env  - The Worker env seeded as `Bindings` in the instance graph.
  * @param cls  - The registered DO class (must have been passed to `host.durableObject()` before `host.build()`).
- * @returns A `FlareCfHandler` scoped to this instance. Call `inst.fetch(req)` to dispatch HTTP or
+ * @returns A `DurableHandler` scoped to this instance. Call `inst.fetch(req)` to dispatch HTTP or
  *   `inst.inject(deps, token)` to resolve services from the per-instance container.
  */
 export function composeDurableInstance(
@@ -61,7 +61,7 @@ export function composeDurableInstance(
   state: DurableObjectState,
   env: Cloudflare.Env,
   cls: FlareDurableObjectClass,
-): FlareCfHandler {
+): DurableHandler {
   const seed: SeedMap = new Map();
   seed.set(DurableState, (c) => new DurableState(c, state));
   seed.set(Bindings, (c) => new Bindings(c, env));
@@ -72,8 +72,8 @@ export function composeDurableInstance(
       `[flare] ${cls.name} has no per-DO arc. Call host.durableObject(${cls.name}) before host.build().`,
     );
   }
-  // arcEntry is null when the DO was registered with zero routes: FlareCfHandler returns 404.
-  return new FlareCfHandler(host, container, arcEntry, { cls });
+  // arcEntry is null when the DO was registered with zero routes: DurableHandler returns 404.
+  return new DurableHandler(host, container, arcEntry, cls);
 }
 
 /**
@@ -87,7 +87,7 @@ export class FlareDurableObject extends DurableObject<Cloudflare.Env> {
   static deps: readonly ServiceToken<FlareService>[] = [];
   static state: readonly StateToken[] = [];
 
-  #handler: FlareCfHandler;
+  #handler: DurableHandler;
 
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env);

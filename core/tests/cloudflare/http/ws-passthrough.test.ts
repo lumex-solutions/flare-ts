@@ -1,5 +1,5 @@
 // In-process hardening test: a 101/WebSocket response from a forwarded DO must pass through
-// FlareCfHandler.#buildResponse UNTOUCHED. With requestIdHeader: true the non-FlareResponse branch
+// the handler's response builder UNTOUCHED. With requestIdHeader: true the non-FlareResponse branch
 // previously reconstructed the Response via `new Response(body, {status, headers})`, which drops the
 // `webSocket` client socket and breaks the upgrade.
 //

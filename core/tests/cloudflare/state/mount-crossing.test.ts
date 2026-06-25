@@ -2,7 +2,7 @@
 //
 // Tests use an in-process fake DO namespace whose stub.fetch records the raw
 // x-flare-state header it received and returns a pre-baked outbound envelope.
-// The fake is NOT coupled to the production codec (encodeStateEnvelope /
+// The fake is NOT coupled to the production codec (encodeInboundEnvelope /
 // decodeStateEnvelope). Inbound assertions decode in the test body only.
 // Outbound assertions verify the front-door after-middleware observes the
 // decoded token value (the real production reseed path under test).
@@ -59,7 +59,7 @@ function cfJson(): JsonObject {
 // ---------------------------------------------------------------------------
 
 // TokenA: set by front-door before-middleware; crosses inbound.
-const TokenA = flareState<{ userId: string }>("MountCrossingTokenA");
+const TokenA = flareState<{ userId: string; }>("MountCrossingTokenA");
 
 // TokenB: set by fake DO outbound; readable by front-door after-middleware.
 const TokenB = flareState<string>("MountCrossingTokenB");
@@ -91,7 +91,7 @@ function makeFakeCtx(): FlareHttpContext {
 //      forwarded request (no codec call inside the fake).
 //   2. Returns a response carrying the pre-baked outbound envelope string
 //      supplied by the caller (computed in the test with keyForToken, not with
-//      encodeStateEnvelope).
+//      encodeInboundEnvelope).
 //
 // Inbound decoding is done in the TEST body so the fake is not coupled to the
 // production codec path. If the codec breaks the fake keeps working, isolating
@@ -123,7 +123,7 @@ function makeEchoNamespace(outboundEnvelope: string): {
           calls.push({ name, inboundStateHeader, inboundTraceHeader });
 
           // Return a pre-baked outbound envelope (computed in the test with
-          // keyForToken, not encodeStateEnvelope) so the production reseed
+          // keyForToken, not encodeInboundEnvelope) so the production reseed
           // path (the code under test) decodes it.
           const headers = new Headers({ "content-type": "application/json" });
           headers.set(RESERVED_STATE_HEADER, outboundEnvelope);

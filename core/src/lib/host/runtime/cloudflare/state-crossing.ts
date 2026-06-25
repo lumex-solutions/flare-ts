@@ -30,7 +30,7 @@ const classToTokens = new Map<FlareDurableObjectClass, readonly StateToken[]>();
 export function registerStateTokens(cls: FlareDurableObjectClass): void {
   if (classToTokens.has(cls)) return;
 
-  const tokens = (cls as { state?: readonly StateToken[] }).state ?? [];
+  const tokens = (cls as { state?: readonly StateToken[]; }).state ?? [];
 
   for (const token of tokens) {
     if (!tokenToKey.has(token)) {
@@ -82,53 +82,20 @@ export const RESERVED_TRACE_HEADER = "x-flare-trace";
 const STATE_ENVELOPE_MAX_BYTES = 12288;
 
 /**
- * Serializes all `staticStateTokens(cls)` that are present (value !== undefined) in `ctx.state`
- * into a JSON envelope string.
- *
- * Two read modes:
- *   - default (`opts.raw` falsy): RESOLVED read via `ctx.state.get` (fires `.withDefault()`/`.from()`).
- *     Used for the INBOUND direction (front door -> DO): the front door is authoritative, so its
- *     defaults and derivations should cross.
- *   - `opts.raw === true`: RAW read via `ctx[PEEK_STATE]` (only what was explicitly set; no default
- *     or derivation fires). Used for the OUTBOUND direction (DO response -> front door): only state
- *     the DO route actually set should cross back, so a DO-context default/derivation never clobbers
- *     the front door's own value.
- *
- * Returns `undefined` when no token has a defined value (envelope would be empty).
- *
- * Throws if the encoded byte length exceeds 12 KB, preventing silent header truncation on
- * Cloudflare's ~16 KB subrequest header budget.
+ * Encodes the INBOUND envelope (front door -> DO) with a RESOLVED read of `ctx.state`, so the front
+ * door's `.withDefault()` / `.from()` values cross. The front door is authoritative inbound.
  */
-export function encodeStateEnvelope(
-  ctx: FlareHttpContext,
-  cls: FlareDurableObjectClass,
-  opts?: { raw?: boolean },
-): string | undefined {
-  const tokens = staticStateTokens(cls);
-  const obj: Record<string, unknown> = {};
-  const raw = opts?.raw === true;
+export function encodeInboundEnvelope(ctx: FlareHttpContext, cls: FlareDurableObjectClass): string | undefined {
+  return encodeEnvelope(ctx, cls, true);
+}
 
-  for (const token of tokens) {
-    const typedToken = token as Parameters<typeof ctx.state.get>[0];
-    const value = raw ? ctx[PEEK_STATE](typedToken) : ctx.state.get(typedToken);
-    if (value === undefined) continue;
-    const key = keyForToken(token);
-    if (key === undefined) continue;
-    obj[key] = value;
-  }
-
-  if (Object.keys(obj).length === 0) return undefined;
-
-  const encoded = JSON.stringify(obj);
-  const byteLength = new TextEncoder().encode(encoded).length;
-
-  if (byteLength > STATE_ENVELOPE_MAX_BYTES) {
-    throw new Error(
-      `[flare] state envelope for ${cls.name} exceeds ${STATE_ENVELOPE_MAX_BYTES} bytes`,
-    );
-  }
-
-  return encoded;
+/**
+ * Encodes the OUTBOUND envelope (DO response -> front door) with a RAW read, so only state the DO route
+ * explicitly set crosses back. A DO-context default/derivation never fires here, so it cannot clobber
+ * the front door's own value when the response is re-seeded.
+ */
+export function encodeOutboundEnvelope(ctx: FlareHttpContext, cls: FlareDurableObjectClass): string | undefined {
+  return encodeEnvelope(ctx, cls, false);
 }
 
 /**
@@ -199,7 +166,7 @@ export function applyInboundEnvelope(
   forwarded: Request,
 ): void {
   sanitizeForwardHeaders(forwarded.headers);
-  const envelope = encodeStateEnvelope(ctx, cls);
+  const envelope = encodeInboundEnvelope(ctx, cls);
   if (envelope !== undefined) {
     forwarded.headers.set(RESERVED_STATE_HEADER, envelope);
   }
@@ -277,4 +244,45 @@ export function reseedOutboundState(
     statusText: res.statusText,
     headers,
   });
+}
+
+/**
+ * Serializes a DO's `staticStateTokens(cls)` that have a defined value into a JSON envelope string.
+ * `resolved` selects the read: a resolved read via `ctx.state.get` (fires `.withDefault()`/`.from()`)
+ * or a raw read via `ctx[PEEK_STATE]` (only what was explicitly set). The two crossing directions wrap
+ * this with the read each requires; see {@link encodeInboundEnvelope} / {@link encodeOutboundEnvelope}.
+ *
+ * Returns `undefined` when no token has a defined value (envelope would be empty). Throws if the
+ * encoded byte length exceeds 12 KB, preventing silent header truncation on Cloudflare's ~16 KB
+ * subrequest header budget.
+ */
+function encodeEnvelope(
+  ctx: FlareHttpContext,
+  cls: FlareDurableObjectClass,
+  resolved: boolean,
+): string | undefined {
+  const tokens = staticStateTokens(cls);
+  const obj: Record<string, unknown> = {};
+
+  for (const token of tokens) {
+    const typedToken = token as Parameters<typeof ctx.state.get>[0];
+    const value = resolved ? ctx.state.get(typedToken) : ctx[PEEK_STATE](typedToken);
+    if (value === undefined) continue;
+    const key = keyForToken(token);
+    if (key === undefined) continue;
+    obj[key] = value;
+  }
+
+  if (Object.keys(obj).length === 0) return undefined;
+
+  const encoded = JSON.stringify(obj);
+  const byteLength = new TextEncoder().encode(encoded).length;
+
+  if (byteLength > STATE_ENVELOPE_MAX_BYTES) {
+    throw new Error(
+      `[flare] state envelope for ${cls.name} exceeds ${STATE_ENVELOPE_MAX_BYTES} bytes`,
+    );
+  }
+
+  return encoded;
 }

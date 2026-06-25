@@ -11,13 +11,10 @@ import type { CloudflareApp } from "../../../src/lib/host/runtime/cloudflare/ind
 import { flareState } from "../../../src/lib/arcs/http/state/flare-state.js";
 import { FlareResponse } from "../../../src/lib/arcs/http/transport/flare-response.js";
 import { FlareHost } from "../../../src/lib/host/flare-host.js";
-import {
-  composeDurableInstance,
-  FlareDurableObject,
-} from "../../../src/lib/host/runtime/cloudflare/index.js";
+import { composeDurableInstance, FlareDurableObject } from "../../../src/lib/host/runtime/cloudflare/index.js";
 import { DurableState } from "../../../src/lib/host/runtime/cloudflare/index.js";
 import {
-  encodeStateEnvelope,
+  encodeInboundEnvelope,
   RESERVED_STATE_HEADER,
   RESERVED_TRACE_HEADER,
 } from "../../../src/lib/host/runtime/cloudflare/state-crossing.js";
@@ -43,7 +40,7 @@ function cfJson(host: JsonObject = {}, log: JsonObject = {}): JsonObject {
 // Token fixtures
 // ---------------------------------------------------------------------------
 
-const TokenA = flareState<{ id: string; role: string }>("TokenA");
+const TokenA = flareState<{ id: string; role: string; }>("TokenA");
 const TokenB = flareState<string>("TokenB");
 
 // ---------------------------------------------------------------------------
@@ -75,7 +72,7 @@ function buildDoHost(logCfg: JsonObject = {}): FlareHost {
   // Route: captures the loggerALS context and returns parentRequestId.
   room.http.get("/log-context", (ctx) => {
     const store = loggerALS.getStore();
-    const parentRequestId = (store?.context as { parentRequestId?: string } | undefined)
+    const parentRequestId = (store?.context as { parentRequestId?: string; } | undefined)
       ?.parentRequestId ?? null;
     const rawTrace = ctx.req.headers.get(RESERVED_TRACE_HEADER);
     return new FlareResponse(200, { parentRequestId, rawTraceVisible: rawTrace !== null });
@@ -107,7 +104,7 @@ describe("DO-side inbound state rehydrate", () => {
     // Encode state as the front-door would.
     const frontCtx = makeFrontDoorCtx();
     frontCtx.state.set(TokenA, { id: "u1", role: "admin" });
-    const envelope = encodeStateEnvelope(frontCtx, RehydrateTestDO);
+    const envelope = encodeInboundEnvelope(frontCtx, RehydrateTestDO);
     expect(envelope).toBeDefined();
 
     const req = new Request("https://do/check", {
@@ -146,7 +143,7 @@ describe("DO-side inbound state rehydrate", () => {
 
     const frontCtx = makeFrontDoorCtx();
     frontCtx.state.set(TokenA, { id: "u2", role: "viewer" });
-    const envelope = encodeStateEnvelope(frontCtx, RehydrateTestDO);
+    const envelope = encodeInboundEnvelope(frontCtx, RehydrateTestDO);
 
     const req = new Request("https://do/check", {
       headers: { [RESERVED_STATE_HEADER]: envelope! },
@@ -241,7 +238,7 @@ describe("DO-side inbound state rehydrate", () => {
     // Build envelope as if the front-door was going to forward.
     const frontCtx = makeFrontDoorCtx();
     frontCtx.state.set(TokenA, { id: "attacker", role: "admin" });
-    const envelope = encodeStateEnvelope(frontCtx, RehydrateTestDO);
+    const envelope = encodeInboundEnvelope(frontCtx, RehydrateTestDO);
 
     const app = (host.build() as CloudflareApp).export();
     const req = new Request("https://flare.test/state-probe", {

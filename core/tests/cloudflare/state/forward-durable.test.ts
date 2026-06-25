@@ -3,9 +3,9 @@
 // Tests use a fake DurableObjectNamespace whose stub.fetch records the raw
 // x-flare-state header from the inbound forwarded request (no codec call inside
 // the fake) and returns a pre-baked outbound envelope string (computed in the
-// test with keyForToken, not with encodeStateEnvelope).
+// test with keyForToken, not with encodeInboundEnvelope).
 //
-// The fake is decoupled from the production codec: if encodeStateEnvelope /
+// The fake is decoupled from the production codec: if encodeInboundEnvelope /
 // decodeStateEnvelope breaks, the fake continues to work, isolating the failure
 // to the correct production code path under test.
 //
@@ -36,7 +36,7 @@ import {
 // ---------------------------------------------------------------------------
 
 // TokenA: set on the front-door ctx; crosses inbound to the fake DO.
-const TokenA = flareState<{ userId: string }>("FwdDurableTokenA");
+const TokenA = flareState<{ userId: string; }>("FwdDurableTokenA");
 
 // TokenB: set by the fake DO outbound; re-seeded back into ctx.
 const TokenB = flareState<string>("FwdDurableTokenB");

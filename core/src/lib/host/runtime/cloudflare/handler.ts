@@ -14,63 +14,52 @@ import {
   FlareHttpContext,
   INSTANCE_SINGLETONS,
 } from "../../../arcs/http/transport/flare-http-context.js";
+import { HANDLER_ERRORED } from "../../../arcs/http/transport/flare-http-context.js";
 import { FlareRequest } from "../../../arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../../arcs/http/transport/flare-response.js";
 import { CFWRequestAdapter } from "../../../arcs/http/transport/runtime/cloudflare.js";
 import { loggerALS } from "../../../logger/types.js";
-import { HANDLER_ERRORED } from "../../../arcs/http/transport/flare-http-context.js";
 import {
   decodeStateEnvelope,
-  encodeStateEnvelope,
+  encodeOutboundEnvelope,
   RESERVED_STATE_HEADER,
   RESERVED_TRACE_HEADER,
 } from "./state-crossing.js";
 
 /**
- * Cloudflare request handler bound to a single singleton graph — one Worker isolate's or one Durable
- * Object instance's.
+ * Cloudflare request handler bound to a single singleton graph: one Worker isolate's or one Durable
+ * Object instance's. Builds a request, dispatches it through the HTTP arc, and builds the response.
  *
- * {@link CloudflareApp}'s terminals compose handlers; a handler is never the `build()` result itself.
+ * The two execution contexts are distinct subclasses, not a runtime flag: {@link WorkerHandler}
+ * (front door) and {@link DurableHandler} (DO instance, which adds state crossing and per-instance
+ * service resolution). The base owns the shared request/dispatch/response flow and calls three hooks
+ * the DO subclass overrides; the Worker subclass uses their no-op defaults, so DO-only behavior can
+ * never run in the front-door context.
  *
  * @internal Exported for {@link CloudflareApp} and white-box tests; not part of the public surface.
  */
-export class FlareCfHandler {
+abstract class FlareCfHandlerBase {
   #emitRequestIdHeader = true;
   #captureRequestTiming = false;
 
   #requestSeq = 0;
   #requestNonce: string | undefined;
 
-  /**
-   * Set only for DO-side handlers; absent for front-door (Worker) handlers.
-   */
-  readonly #durable: { cls: FlareDurableObjectClass } | undefined;
-
   constructor(
-    private readonly host: IFlareHost,
-    private readonly container: Container,
-    private readonly arc: HttpArc<"sync"> | null,
-    durable?: { cls: FlareDurableObjectClass },
+    protected readonly host: IFlareHost,
+    protected readonly container: Container,
+    protected readonly arc: HttpArc<"sync"> | null,
   ) {
     const hostCfg = this.host.config.host as FlareHostConfig;
     this.#emitRequestIdHeader = hostCfg.requestIdHeader === true;
     this.#captureRequestTiming = hostCfg.requestTiming === true;
-    this.#durable = durable;
   }
 
   /** Builds the request, dispatches through the http arc against this graph, and builds the response. */
   async fetch(request: Request): Promise<Response> {
     const startTime = this.#captureRequestTiming ? Date.now() : undefined;
 
-    // DO-context only: strip reserved headers before routes see them.
-    // CF inbound request headers are immutable, so we reconstruct with a mutable copy.
-    let effectiveRequest = request;
-    if (this.#durable) {
-      const mutableHeaders = new Headers(request.headers);
-      mutableHeaders.delete(RESERVED_STATE_HEADER);
-      mutableHeaders.delete(RESERVED_TRACE_HEADER);
-      effectiveRequest = new Request(request, { headers: mutableHeaders });
-    }
+    const effectiveRequest = this.prepareInbound(request);
 
     const url = new URL(effectiveRequest.url);
     const flareReq = new FlareRequest(
@@ -86,18 +75,7 @@ export class FlareCfHandler {
     // used; otherwise the http arc would fall back to the module-level shared singleton map.
     ctx[INSTANCE_SINGLETONS] = this.container.singletonInstances;
 
-    // DO-context only: rehydrate state from the (now-stripped) original headers.
-    // The x-flare-state header read here is trusted only because the blessed forwarding seams
-    // (room.mount via applyInboundEnvelope, and forwardDurable) unconditionally sanitize
-    // client-supplied reserved headers before encoding the framework state. Raw-fetch misuse
-    // (durable(...).fetch(rawClientRequest) bypassing the seams) is documented on durable().
-    let parentRequestId: string | undefined;
-    if (this.#durable) {
-      const stateHeader = request.headers.get(RESERVED_STATE_HEADER);
-      decodeStateEnvelope(stateHeader, this.#durable.cls, ctx);
-      const traceHeader = request.headers.get(RESERVED_TRACE_HEADER);
-      if (traceHeader) parentRequestId = traceHeader;
-    }
+    const parentRequestId = this.readInbound(request, ctx);
 
     try {
       // A null arc means the DO was registered with no routes: always 404.
@@ -124,27 +102,27 @@ export class FlareCfHandler {
   }
 
   /**
-   * Resolves a per-instance singleton for a Durable Object method.
-   *
-   * @param deps The DO class's `static deps` allow-list.
-   * @param token The service to resolve.
+   * Hook: transforms the inbound request before routing. The Worker context passes it through; the DO
+   * context strips reserved framework headers so routes never see them.
    */
-  inject<T extends FlareService>(
-    deps: readonly ServiceToken<FlareService>[],
-    token: ServiceToken<T>,
-  ): Injected<T> {
-    if (!deps.includes(token)) {
-      throw new Error(
-        `[flare] A Durable Object injected "${token.name}" that is not declared in static deps. `
-          + `Add ${token.name} to the class's static deps array.`,
-      );
-    }
-    return this.container.resolveDep(token) as Injected<T>;
+  protected prepareInbound(request: Request): Request {
+    return request;
   }
 
-  /** Resolves a config token from the host config, same value `scope.config(token)` returns. */
-  config<T>(token: ConfigToken<T>): T {
-    return (this.host.config as Record<string, unknown>)[token.key] as T;
+  /**
+   * Hook: reads inbound crossing state from the ORIGINAL request into `ctx` and returns the parent
+   * request id for log correlation. The Worker context has no inbound state and returns `undefined`.
+   */
+  protected readInbound(_request: Request, _ctx: FlareHttpContext): string | undefined {
+    return undefined;
+  }
+
+  /**
+   * Hook: computes the outbound state envelope to attach to the response. The Worker context has no
+   * outbound state and returns `undefined`.
+   */
+  protected encodeOutbound(_ctx: FlareHttpContext): string | undefined {
+    return undefined;
   }
 
   #buildResponse(response: ResponseLike, ctx: FlareHttpContext): Response {
@@ -159,19 +137,9 @@ export class FlareCfHandler {
       return response;
     }
 
-    // DO-context only: encode the outbound state envelope into the response so
-    // the front-door forward seam (reseedOutboundState) can re-seed it into the
-    // front-door ctx.state. Computed once here; applied to whichever response
-    // branch fires below.
-    // raw: true => only state the DO route EXPLICITLY set crosses back. A resolved read here would
-    // fire a static-state token's default/derivation in the DO context and clobber the front door's
-    // own value on re-seed; the outbound direction must carry only what the DO actually wrote.
-    // Skip when HANDLER_ERRORED is set: a handler that threw after mutating ctx.state
-    // must not have those partial mutations cross back to the front door. This mirrors
-    // the #handleError path (which also produces no x-flare-state header).
-    const outboundEnvelope = this.#durable && !(ctx as unknown as Record<symbol, unknown>)[HANDLER_ERRORED]
-      ? encodeStateEnvelope(ctx, this.#durable.cls, { raw: true })
-      : undefined;
+    // Outbound state envelope (DO context only; Worker returns undefined). Applied to whichever
+    // response branch fires below so the front-door forward seam can re-seed it.
+    const outboundEnvelope = this.encodeOutbound(ctx);
 
     const requestId = ctx.req.requestId;
     const setCookies = ctx[DRAIN_SET_COOKIES]();
@@ -237,6 +205,71 @@ export class FlareCfHandler {
 
   #getRequestNonce(): string {
     return (this.#requestNonce ??= crypto.randomUUID().slice(0, 8));
+  }
+}
+
+/** Front-door (Worker isolate) handler: routes requests with no Durable Object state crossing. */
+export class WorkerHandler extends FlareCfHandlerBase {}
+
+/**
+ * Durable Object instance handler: adds state crossing (strip inbound reserved headers, decode inbound
+ * state, encode outbound state) and per-instance service resolution for DO methods.
+ */
+export class DurableHandler extends FlareCfHandlerBase {
+  #cls: FlareDurableObjectClass;
+
+  constructor(host: IFlareHost, container: Container, arc: HttpArc<"sync"> | null, cls: FlareDurableObjectClass) {
+    super(host, container, arc);
+    this.#cls = cls;
+  }
+
+  protected override prepareInbound(request: Request): Request {
+    // Strip reserved headers before routes see them. CF inbound headers are immutable, so reconstruct
+    // with a mutable copy.
+    const mutableHeaders = new Headers(request.headers);
+    mutableHeaders.delete(RESERVED_STATE_HEADER);
+    mutableHeaders.delete(RESERVED_TRACE_HEADER);
+    return new Request(request, { headers: mutableHeaders });
+  }
+
+  protected override readInbound(request: Request, ctx: FlareHttpContext): string | undefined {
+    // Rehydrate state from the ORIGINAL (pre-strip) headers. The x-flare-state header is trusted only
+    // because the blessed forwarding seams (room.mount via applyInboundEnvelope, and forwardDurable)
+    // unconditionally sanitize client-supplied reserved headers before encoding framework state.
+    // Raw-fetch misuse (durable(...).fetch(rawClientRequest) bypassing the seams) is documented on durable().
+    decodeStateEnvelope(request.headers.get(RESERVED_STATE_HEADER), this.#cls, ctx);
+    return request.headers.get(RESERVED_TRACE_HEADER) ?? undefined;
+  }
+
+  protected override encodeOutbound(ctx: FlareHttpContext): string | undefined {
+    // Skip when the handler errored: a handler that threw after mutating ctx.state must not have those
+    // partial mutations cross back to the front door (mirrors #handleError, which emits no envelope).
+    if ((ctx as unknown as Record<symbol, unknown>)[HANDLER_ERRORED]) return undefined;
+    return encodeOutboundEnvelope(ctx, this.#cls);
+  }
+
+  /**
+   * Resolves a per-instance singleton for a Durable Object method.
+   *
+   * @param deps The DO class's `static deps` allow-list.
+   * @param token The service to resolve.
+   */
+  inject<T extends FlareService>(
+    deps: readonly ServiceToken<FlareService>[],
+    token: ServiceToken<T>,
+  ): Injected<T> {
+    if (!deps.includes(token)) {
+      throw new Error(
+        `[flare] A Durable Object injected "${token.name}" that is not declared in static deps. `
+          + `Add ${token.name} to the class's static deps array.`,
+      );
+    }
+    return this.container.resolveDep(token) as Injected<T>;
+  }
+
+  /** Resolves a config token from the host config, same value `scope.config(token)` returns. */
+  config<T>(token: ConfigToken<T>): T {
+    return (this.host.config as Record<string, unknown>)[token.key] as T;
   }
 }
 

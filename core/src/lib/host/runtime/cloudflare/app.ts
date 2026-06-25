@@ -22,7 +22,7 @@ import { FlareValidationError } from "../../../validation/flare-validation-error
 import { FlareAppBase } from "../../flare-app.js";
 import { COMPILE_INSTANCE_CONTAINER, REGISTER_BUILD_HOOK, SET_HOST_STATE } from "../../types/const.js";
 import { DO_HOST } from "./durable-object.js";
-import { buildCfTestRequest, FlareCfHandler } from "./handler.js";
+import { buildCfTestRequest, WorkerHandler } from "./handler.js";
 import { installExplicitMount, mountOverlapErrors, snapshotFrontDoorPatterns } from "./router.js";
 import { Bindings } from "./services.js";
 import { registerStateTokens, staticStateTokens } from "./state-crossing.js";
@@ -166,7 +166,7 @@ export class CloudflareApp extends FlareAppBase {
     this.start();
     this.host[SET_HOST_STATE]("ready");
 
-    let handler: FlareCfHandler | undefined;
+    let handler: WorkerHandler | undefined;
     let initFailure: { error: unknown; } | undefined;
     return {
       fetch: async (request, env) => {
@@ -179,7 +179,7 @@ export class CloudflareApp extends FlareAppBase {
             const seed: SeedMap = new Map();
             seed.set(Bindings, (c) => new Bindings(c, env));
             const container = this.host[COMPILE_INSTANCE_CONTAINER](seed);
-            handler = new FlareCfHandler(this.host, container, this.http as HttpArc<"sync">);
+            handler = new WorkerHandler(this.host, container, this.http as HttpArc<"sync">);
           } catch (error) {
             initFailure = { error };
             throw error;
@@ -406,7 +406,7 @@ export const cf: CloudflareAdapter = {
     // compiles the per-DO arcs.
     host[REGISTER_BUILD_HOOK]((buildCtx) => {
       buildCtx.ownValidation((): ValidationError[] => {
-        // Identify zero-route DOs: their arcs get nulled so FlareCfHandler returns 404 for them, but
+        // Identify zero-route DOs: their arcs get nulled so the DurableHandler returns 404 for them, but
         // they still participate in dep validation (a DO can exist for state only, with no HTTP routes).
         const zeroRoute = new Set<FlareDurableObjectClass>();
         for (const cls of durableObjects) {
@@ -439,7 +439,7 @@ export const cf: CloudflareAdapter = {
         const results = validateCfGraph(graph);
         // On any error, return the results for the host to throw; do not compile a rejected graph.
         if (results.some((e) => e.severity === "error")) return results;
-        // No errors: null-out zero-route arcs (FlareCfHandler 404s for them) and compile the arced ones.
+        // No errors: null-out zero-route arcs (the DurableHandler 404s for them) and compile the arced ones.
         for (const cls of zeroRoute) durableArcs.set(cls, null);
         compileDurableArcs({ ...graph, durables: arcedDurables });
         return results;
