@@ -95,7 +95,7 @@ export type BranchShape<T, K extends keyof T, V extends DiscriminantValues<T, K>
 /**
  * Accepted value types for a single field within a schema descriptor.
  *
- * A field can be backed by either a {@link TypedPrimitive} coercer (e.g.
+ * A field can be backed by either a {@link TypedPrimitive} parser (e.g.
  * `int`, `str`, `uuid`) or a nested {@link SchemaToken} produced by
  * {@link schema}, enabling structural composition.
  *

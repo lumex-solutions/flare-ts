@@ -3,6 +3,7 @@ import type { HttpValidationContext } from "../../contexts.js";
 import type { IValidator, ValidationError } from "../../types.js";
 import { joinRoutePath } from "../../../arcs/http/routing/path.js";
 import { _getRoutes } from "../../../arcs/http/routing/route-store.js";
+import { normaliseRoutePattern } from "../../../routing/path.js";
 
 type RouteEntry = {
   fullPath: string;
@@ -42,7 +43,7 @@ export class DuplicateRouteValidator implements IValidator<HttpValidationContext
       const routes = _getRoutes(controller.cls);
       for (const route of routes) {
         const fullPath = joinRoutePath(controller.path, route.path);
-        const key = normalisePattern(fullPath);
+        const key = normaliseRoutePattern(fullPath);
 
         const existing = byPattern.get(key);
         const entry: RouteEntry = {
@@ -116,22 +117,4 @@ function describe(entries: RouteEntry[]): string {
   return entries
     .map((e) => `"${e.method} ${e.fullPath}" (${e.controllerName}.${e.handlerName})`)
     .join(", ");
-}
-
-/**
- * Normalises a route path into a structural pattern by replacing all
- * parameter names with `:*` and all wildcard names with `**`.
- *
- * e.g. "/users/:id/posts/:postId" becomes "/users/:*\/posts/:*"
- * and  "/files/*rest"             becomes "/files/**"
- */
-function normalisePattern(path: string): string {
-  return path
-    .split("/")
-    .map((seg) => {
-      if (seg.startsWith(":")) return ":*";
-      if (seg.startsWith("*")) return "**";
-      return seg;
-    })
-    .join("/");
 }

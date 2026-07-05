@@ -5,7 +5,7 @@ import type {
   GroupRegistration,
   MiddlewareRegistration,
 } from "../arcs/http/types/registration.js";
-import type { ConfigToken, OpaqueConfigToken } from "../config/flare-config.js";
+import type { ConfigToken, FlareWebSocketsConfig, OpaqueConfigToken } from "../config/flare-config.js";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceRegistration } from "../services/types/registration.js";
 import type { ServiceToken } from "../services/types/types.js";
@@ -48,6 +48,19 @@ export type HttpValidationContext = {
    * Absent is treated as not configured (fail-closed), so a route declaring `signedCookies` errors.
    */
   readonly cookieSecretConfigured?: boolean;
+};
+
+/**
+ * Context passed to WebSocket-layer validators.
+ * Covers WS-internal route uniqueness, HTTP/WS cross-arc path conflicts, and config sanity.
+ */
+export type WsValidationContext = {
+  /** Registered WebSocket route patterns (e.g. `/chat/:room`). */
+  readonly wsPatterns: readonly string[];
+  /** All HTTP controllers, so WS paths can be checked against HTTP routes for cross-arc conflicts. */
+  readonly httpControllers: readonly ControllerRegistration[];
+  /** The resolved `websockets` config section, for caps/timers sanity checks. */
+  readonly config: FlareWebSocketsConfig | undefined;
 };
 
 /**

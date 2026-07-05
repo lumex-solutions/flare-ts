@@ -23,7 +23,7 @@ import type { MiddlewareClass } from "./composition/classes/middleware-base.js";
 import type { ExecFn } from "./types/exec-fn.js";
 import type { FlareHttpFactory, Pipeline } from "./types/pipeline.js";
 import type { MiddlewareRegistration } from "./types/registration.js";
-import { stream } from "./composition/contract/flare-stream.js";
+import { stream } from "./composition/contract/http-contract.js";
 import { dispatchErrorHandlers, prepareRequestBody } from "./exec-helpers.js";
 import { HANDLER_ERRORED } from "./transport/flare-http-context.js";
 

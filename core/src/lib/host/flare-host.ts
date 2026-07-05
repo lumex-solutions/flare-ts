@@ -11,6 +11,7 @@ import type {
   ConfigValidationContext,
   HttpValidationContext,
   ServiceValidationContext,
+  WsValidationContext,
 } from "../validation/contexts.js";
 import type { ValidationError } from "../validation/types.js";
 import type { ExtensionMembers, HostExtension, HostExtensionContext } from "./extensions/extension.js";
@@ -20,7 +21,14 @@ import type { HostRuntimeLifecycle } from "./types/lifecycle.js";
 import type { FlareApp, FlareConfig, HostRuntime, HostState } from "./types/types.js";
 import { COMPILE_HTTP_ARC, HttpArc, INSPECT_HTTP_ARC, REEVALUATE_CONTAINER_STRATEGY } from "../arcs/http/http-arc.js";
 import { CookieSigner } from "../arcs/http/transport/cookie-signer.js";
-import { type ConfigToken, COOKIES_CONFIG, HOST_CONFIG, LOG_CONFIG } from "../config/flare-config.js";
+import { COMPILE_WS_ARC, WS_REGISTRATIONS, WebSocketArc } from "../arcs/ws/ws-arc.js";
+import {
+  type ConfigToken,
+  COOKIES_CONFIG,
+  HOST_CONFIG,
+  LOG_CONFIG,
+  WEBSOCKETS_CONFIG,
+} from "../config/flare-config.js";
 import { _log, Logger, toErrorField } from "../logger/logger.js";
 import { loggerALS } from "../logger/types.js";
 import { Container } from "../services/container.js";
@@ -31,6 +39,8 @@ import { FlareValidationError } from "../validation/flare-validation-error.js";
 import { createConfigValidator } from "../validation/validators/config-composite-validator.js";
 import { createHttpValidator } from "../validation/validators/http-composite-validator.js";
 import { createServiceValidator } from "../validation/validators/service-composite-validator.js";
+import { createWsValidator } from "../validation/validators/ws-composite-validator.js";
+import { WsConfigValidator } from "../validation/validators/ws/config-validator.js";
 import { Logging } from "./composition/logging.js";
 import {
   COMPILE_FOR_TEST,
@@ -118,6 +128,8 @@ export interface FlareBuildContext {
  */
 export interface IFlareHost {
   http: HttpArc<HostRuntimeLifecycle>;
+  /** WebSocket authoring surface: `host.ws.route(path, opts?)` and `host.ws.controller(path, Class)`. */
+  ws: WebSocketArc;
   logging: Logging;
   state: HostState;
   /** Runtime this host's adapter targets (e.g. `"node"`, `"cloudflare"`). */
@@ -163,9 +175,15 @@ export interface IFlareTestHost {
 class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTransportClass, HostRuntimeLifecycle>>
   implements IFlareHost, IFlareTestHost {
   public readonly http: HttpArc<AdapterLifecycle<TAdapter>> = new HttpArc(this);
+  public readonly ws: WebSocketArc = new WebSocketArc(this);
   public readonly logging: Logging<AdapterTransportClass<TAdapter>> = new Logging();
 
-  #defaultConfigSet: ReadonlySet<OpaqueConfigToken> = new Set([HOST_CONFIG, LOG_CONFIG, COOKIES_CONFIG]);
+  #defaultConfigSet: ReadonlySet<OpaqueConfigToken> = new Set([
+    HOST_CONFIG,
+    LOG_CONFIG,
+    COOKIES_CONFIG,
+    WEBSOCKETS_CONFIG,
+  ]);
   #config: FlareConfig = {};
   #configRegistrations: Set<OpaqueConfigToken> = new Set();
   #scopedRegistrations: ServiceRegistration<FlareService>[] = [];
@@ -193,6 +211,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
     this.#configRegistrations.add(HOST_CONFIG);
     this.#configRegistrations.add(LOG_CONFIG);
     this.#configRegistrations.add(COOKIES_CONFIG);
+    this.#configRegistrations.add(WEBSOCKETS_CONFIG);
     // Adapters stamp runtime-specific members onto the host. The host TYPE intersects the adapter's
     // extension, so a member exists only when its adapter provides it.
     const extension = adapter.extendHost?.(this);
@@ -557,7 +576,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
     this.#buildHooks.push(hook);
   }
 
-  /** @internal Snapshot for artifact-tier tests via {@link inspectBuild}. */
+  /** @internal Snapshot for tests via {@link inspectBuild}. */
   [INSPECT_HOST](): HostInspectSnapshot {
     const allControllers = [...this.http.conRegistrations, ...this.http.groups.flatMap((g) => g.controllers)];
     const allMiddleware = [...this.http.mwRegistrations, ...this.http.groups.flatMap((g) => g.middleware)];
@@ -652,6 +671,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
         }
       }
       this.http[COMPILE_HTTP_ARC]();
+      this.ws[COMPILE_WS_ARC]();
       this.logger.trace("Lifecycle event", {
         phase: "build",
         component: "host",
@@ -716,10 +736,23 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
       event: "validation:start",
     });
 
+    const wsRegistrations = this.ws[WS_REGISTRATIONS]();
+    const wsCtx: WsValidationContext = {
+      wsPatterns: wsRegistrations.map((r) => r.pattern),
+      httpControllers: allControllers,
+      config: this.#config.websockets,
+    };
+
     const allResults = [
       ...createServiceValidator().validate(serviceCtx),
       ...createHttpValidator().validate(httpCtx),
       ...createConfigValidator().validate(configCtx),
+      // The route-level WS validators (syntax/conflict) return [] on empty patterns anyway, so when no
+      // routes are registered we skip them and run only the config-section validator: a configured-but-
+      // unrouted `websockets` section still deserves its caps/timers errors.
+      ...(wsRegistrations.length > 0
+        ? createWsValidator().validate(wsCtx)
+        : new WsConfigValidator().validate(wsCtx)),
     ];
 
     this.logger.trace("Lifecycle event", {

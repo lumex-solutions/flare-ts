@@ -5,7 +5,7 @@ import type {
   MiddlewareRegistration,
 } from "../types/registration.js";
 import type { MiddlewareClass } from "./classes/middleware-base.js";
-import { assertRegistrationPath } from "../routing/path.js";
+import { assertRegistrationPath } from "../../../routing/path.js";
 import { HttpBase } from "./base.js";
 
 /**

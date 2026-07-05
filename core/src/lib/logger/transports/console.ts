@@ -113,12 +113,17 @@ export class ConsoleTransport extends LoggerTransport {
     if (context && "method" in context) {
       parts.push(`${A.yellow}${String(context.method)}${A.reset}`);
       parts.push(String(context.url));
+    } else if (context && "connectionId" in context) {
+      // A WebSocket connection context: the upgrade path, with no method (it is always the upgrade GET).
+      parts.push(String(context.url));
     }
 
     parts.push(`${A.white}${message}${A.reset}`);
 
     if (context && "requestId" in context) {
       parts.push(`${A.dim}request_id=${String(context.requestId)}${A.reset}`);
+    } else if (context && "connectionId" in context) {
+      parts.push(`${A.dim}connection_id=${String(context.connectionId)}${A.reset}`);
     }
 
     return parts.join("  ");
@@ -215,12 +220,17 @@ export class CFWConsoleTransport extends CFWLoggerTransport {
     if (context && "method" in context) {
       parts.push(`${A.yellow}${String(context.method)}${A.reset}`);
       parts.push(String(context.url));
+    } else if (context && "connectionId" in context) {
+      // A WebSocket connection context: the upgrade path, with no method (it is always the upgrade GET).
+      parts.push(String(context.url));
     }
 
     parts.push(`${A.white}${message}${A.reset}`);
 
     if (context && "requestId" in context) {
       parts.push(`${A.dim}request_id=${String(context.requestId)}${A.reset}`);
+    } else if (context && "connectionId" in context) {
+      parts.push(`${A.dim}connection_id=${String(context.connectionId)}${A.reset}`);
     }
 
     return parts.join("  ");

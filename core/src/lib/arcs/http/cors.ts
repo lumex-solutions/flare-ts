@@ -1,8 +1,8 @@
-import type { ControllerHandler } from "../routing/types/route.js";
-import type { ResponseLike } from "../transport/types/response.js";
-import type { CompiledCorsPolicy, CorsConfig } from "./types/cors.js";
-import { deriveAllowedMethods } from "../routing/allow-methods.js";
-import { FlareResponse } from "../transport/flare-response.js";
+import type { CompiledCorsPolicy, CorsConfig } from "./composition/types/cors.js";
+import type { ControllerHandler } from "./routing/types/route.js";
+import type { ResponseLike } from "./transport/types/response.js";
+import { deriveAllowedMethods } from "./routing/allow-methods.js";
+import { FlareResponse } from "./transport/flare-response.js";
 
 /**
  * Precomputes a {@link CompiledCorsPolicy} from a {@link CorsConfig} and the

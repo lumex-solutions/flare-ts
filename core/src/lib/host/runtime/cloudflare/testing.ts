@@ -6,12 +6,15 @@
  *
  * @example
  * ```ts
- * import { composeDurableInstance } from "@flare-ts/core/cloudflare";
- * import { makeFakeDurableState, makeFakeStorage, makeEnv } from "@flare-ts/core/cloudflare/testing";
+ * import { composeDurableInstance, makeFakeDurableState, makeFakeStorage, makeEnv } from "@flare-ts/core/cloudflare";
  *
  * const inst = composeDurableInstance(host, makeFakeDurableState({ name: "room-1" }), makeEnv(), MyDO);
  * const res = await inst.fetch(new Request("https://do/route"));
  * ```
+ *
+ * Cast note: each fake implements only the slice the runtime consumes and is widened to the full
+ * Cloudflare nominal type, so tests compose it wherever the real binding goes. A fake reaching an
+ * unimplemented member fails loudly at the call site.
  */
 
 /**

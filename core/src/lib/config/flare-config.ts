@@ -181,6 +181,8 @@ export function flareConfig<T extends Record<string, ConfigDescriptorValue>>(
   return descriptor ? { key, descriptor } : { key };
 }
 
+// TODO: Extract host and logging defaults into constants
+
 /** Pre-defined token for Flare-internal host config (`host.env`, `host.port`). */
 export const HOST_CONFIG: ConfigToken<FlareHostConfig> = flareConfig("host", {
   env: defaultTo("development", str),
@@ -203,6 +205,69 @@ export const HOST_CONFIG: ConfigToken<FlareHostConfig> = flareConfig("host", {
 export const COOKIES_CONFIG = flareConfig("cookies", {
   secret: optional(str),
   previousSecrets: optional(array(str)),
+});
+
+/** Resolved shape of the `websockets` config section: the per-connection size caps and liveness timers. */
+export interface FlareWebSocketsConfig {
+  /** Largest assembled message (all fragments) accepted; a larger one closes 1009. */
+  maxMessageSize: number;
+  /** Largest single frame accepted. */
+  maxFrameSize: number;
+  /** Maximum number of fragments per message. */
+  maxFragments: number;
+  /** Outbound queue ceiling; a peer that stops reading and lets this much pile up is dropped. */
+  maxBufferedBytes: number;
+  /** Interval between keepalive pings (0 disables). */
+  keepAliveIntervalMs: number;
+  /** Close after this long with no inbound activity (0 disables). */
+  idleTimeoutMs: number;
+  /** After initiating close, force the socket shut if the peer does not echo within this long (0 disables). */
+  closeGraceMs: number;
+  /**
+   * How inbound protocol pings are answered (Node transport only; the Cloudflare runtime answers pings
+   * itself). `"each"` (the default) pongs every ping immediately, which is what heartbeat clients that
+   * track pings by payload expect; a genuine ping flood trips the outbound buffer cap and closes.
+   * `"coalesce"` answers once per drained read batch with the most recent ping's payload (an RFC 6455
+   * 5.5.3 MAY), bounding pong amplification instead of closing.
+   */
+  pongPolicy: "each" | "coalesce";
+  /**
+   * App-level keepalive ping payload. When both this and {@link autoResponsePong} are set, a hibernating
+   * Durable Object auto-answers this exact inbound text message with the pong WITHOUT waking (no billable
+   * duration), so a client heartbeat never defeats hibernation. Max 2048 chars each. Cloudflare-only.
+   */
+  autoResponsePing?: string | undefined;
+  /** The pong payload the runtime returns for an {@link autoResponsePing} (see there). */
+  autoResponsePong?: string | undefined;
+}
+
+/**
+ * The built-in `websockets` defaults: the single source both the config token below and any WS arc
+ * compiled WITHOUT a resolved config (a bare unit test) derive from, so the two can never drift.
+ */
+export const WEBSOCKETS_DEFAULTS = {
+  maxMessageSize: 1024 * 1024,
+  maxFrameSize: 1024 * 1024,
+  maxFragments: 256,
+  maxBufferedBytes: 16 * 1024 * 1024,
+  keepAliveIntervalMs: 30_000,
+  idleTimeoutMs: 120_000,
+  closeGraceMs: 5_000,
+  pongPolicy: "each",
+} as const;
+
+/** Pre-defined token for Flare-internal WebSocket config (size caps and liveness timers). */
+export const WEBSOCKETS_CONFIG: ConfigToken<FlareWebSocketsConfig> = flareConfig("websockets", {
+  maxMessageSize: defaultTo(WEBSOCKETS_DEFAULTS.maxMessageSize, int),
+  maxFrameSize: defaultTo(WEBSOCKETS_DEFAULTS.maxFrameSize, int),
+  maxFragments: defaultTo(WEBSOCKETS_DEFAULTS.maxFragments, int),
+  maxBufferedBytes: defaultTo(WEBSOCKETS_DEFAULTS.maxBufferedBytes, int),
+  keepAliveIntervalMs: defaultTo(WEBSOCKETS_DEFAULTS.keepAliveIntervalMs, int),
+  idleTimeoutMs: defaultTo(WEBSOCKETS_DEFAULTS.idleTimeoutMs, int),
+  closeGraceMs: defaultTo(WEBSOCKETS_DEFAULTS.closeGraceMs, int),
+  pongPolicy: defaultTo(WEBSOCKETS_DEFAULTS.pongPolicy, enums(["each", "coalesce"])),
+  autoResponsePing: optional(str),
+  autoResponsePong: optional(str),
 });
 
 const TRANSPORT_SCHEMA = schema({ level: enums(["trace", "debug", "info", "warn", "error", "fatal"]) });

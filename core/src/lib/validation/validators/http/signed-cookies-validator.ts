@@ -1,6 +1,7 @@
-import type { RequestDescriptor } from "../../../arcs/http/composition/contract/flare-contract.js";
+import type { RequestDescriptor } from "../../../arcs/http/composition/contract/http-contract.js";
 import type { HttpValidationContext } from "../../contexts.js";
 import type { IValidator, ValidationError } from "../../types.js";
+import { descriptorsOf } from "../../../contract/contract.js";
 
 /**
  * Fails the build when a route declares `signedCookies: true` but no cookie secret is configured.
@@ -16,7 +17,8 @@ export class SignedCookiesValidator implements IValidator<HttpValidationContext>
 
     const errors: ValidationError[] = [];
     for (const controller of ctx.controllers) {
-      const contract = controller.cls.contract as unknown as Record<string, RequestDescriptor> | undefined;
+      // Same brand gate as the other contract-reading validators: an unbranded object is not a contract.
+      const contract = descriptorsOf<RequestDescriptor>(controller.cls.contract, "http");
       if (!contract) continue;
 
       for (const key of Object.keys(contract)) {

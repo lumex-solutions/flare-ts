@@ -110,6 +110,22 @@ export function splitPath(path: string): string[] {
 }
 
 /**
+ * Scores a route pattern by specificity: the pre-sort key {@link buildFlareRouter} requires (most
+ * specific first). A literal segment counts 2, a `:param` counts 1, and a `*wildcard` counts 0, so a
+ * more literal route always sorts ahead of a more wildcard one. Shared by the HTTP and WebSocket arcs
+ * so the ordering rule has a single implementation.
+ */
+export function scoreRoute(path: string): number {
+  let score = 0;
+  for (const segment of splitPath(path)) {
+    const c = segment.charCodeAt(0);
+    if (c === 42) continue; // "*": wildcard, contributes 0
+    score += c === 58 ? 1 : 2; // ":" param vs literal
+  }
+  return score;
+}
+
+/**
  * Compiles an ordered array of route patterns into a {@link FlareRouter}.
  *
  * Routes must be absolute paths (starting with `/`) and may contain:
@@ -121,7 +137,7 @@ export function splitPath(path: string): string[] {
  * Bit position = array index = the value returned by {@link FlareRouter.match}.
  *
  * @param routes Pre-sorted route patterns. Length must be in `[1, 1024]`.
- * @returns A compiled {@link FlareRouter} ready for path matching.
+ * @returns A compiled router ready for path matching.
  * @throws If no routes are provided or the count exceeds {@link MAX_ROUTES}.
  */
 export function buildFlareRouter(routes: string[], maxDepth: number): FlareRouter {

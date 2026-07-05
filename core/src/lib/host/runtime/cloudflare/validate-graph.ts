@@ -1,7 +1,8 @@
 import type { JsonObject } from "@flare-ts/lib";
 import type { HttpArc } from "../../../arcs/http/http-arc.js";
 import type { ControllerRegistration, MiddlewareRegistration } from "../../../arcs/http/types/registration.js";
-import type { ConfigToken, OpaqueConfigToken } from "../../../config/flare-config.js";
+import type { WebSocketArc } from "../../../arcs/ws/ws-arc.js";
+import type { ConfigToken, FlareWebSocketsConfig, OpaqueConfigToken } from "../../../config/flare-config.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { ServiceRegistration } from "../../../services/types/registration.js";
 import type { ServiceToken } from "../../../services/types/types.js";
@@ -9,16 +10,22 @@ import type {
   ConfigValidationContext,
   HttpValidationContext,
   ServiceValidationContext,
+  WsValidationContext,
 } from "../../../validation/contexts.js";
 import type { ValidationError } from "../../../validation/types.js";
 import type { FlareDurableObjectClass } from "./durable-object.js";
 import { COMPILE_HTTP_ARC } from "../../../arcs/http/http-arc.js";
+import { WebSocketChannels } from "../../../arcs/ws/channels/web-socket-channels.js";
+import { COMPILE_WS_ARC, WS_REGISTRATIONS } from "../../../arcs/ws/ws-arc.js";
 import { createConfigValidator } from "../../../validation/validators/config-composite-validator.js";
 import { createHttpValidator } from "../../../validation/validators/http-composite-validator.js";
 import { CaptiveDependencyValidator } from "../../../validation/validators/service/captive-dep-validator.js";
 import { DependencyValidator } from "../../../validation/validators/service/dependency-validator.js";
 import { LifecycleHookValidator } from "../../../validation/validators/service/lifecycle-hook-validator.js";
 import { ServiceRegistrationValidator } from "../../../validation/validators/service/service-registration-validator.js";
+import { WsConfigValidator } from "../../../validation/validators/ws/config-validator.js";
+import { WsRouteConflictValidator } from "../../../validation/validators/ws/route-conflict-validator.js";
+import { WsRouteSyntaxValidator } from "../../../validation/validators/ws/route-syntax-validator.js";
 import { Bindings, DurableState } from "./services.js";
 import { staticStateTokens } from "./state-crossing.js";
 
@@ -26,8 +33,12 @@ import { staticStateTokens } from "./state-crossing.js";
 export interface CfValidationGraph {
   /** The shared front-door arc (host.http). */
   readonly frontDoor: HttpArc<"sync">;
-  /** Each registered DO class paired with its per-DO arc. */
-  readonly durables: ReadonlyArray<{ readonly cls: FlareDurableObjectClass; readonly arc: HttpArc<"sync">; }>;
+  /** The Worker-hosted WebSocket arc (host.ws). */
+  readonly frontDoorWs: WebSocketArc;
+  /** Each registered DO class paired with its per-DO HTTP arc and its WebSocket arc when the DO handle's `ws` arc was used. */
+  readonly durables: ReadonlyArray<
+    { readonly cls: FlareDurableObjectClass; readonly arc: HttpArc<"sync">; readonly ws: WebSocketArc | undefined; }
+  >;
   /** All registered scoped service registrations. */
   readonly scoped: ServiceRegistration<FlareService>[];
   /** All registered singleton service registrations. */
@@ -65,6 +76,27 @@ export function compileDurableArcs(graph: CfValidationGraph): void {
 }
 
 /**
+ * Compiles the per-DO WebSocket arc for every registered DO.
+ *
+ * Unlike {@link compileDurableArcs} (called only for DOs with HTTP routes, since a zero-route HTTP arc
+ * is nulled to a 404), this runs for ALL DOs: the WS arc is never nulled, and a DO may have only WS
+ * routes (no HTTP), whose arc must still compile or `UPGRADE_WS` would throw at connection time.
+ */
+export function compileDurableWsArcs(
+  durables: ReadonlyArray<{ readonly cls: FlareDurableObjectClass; readonly ws: WebSocketArc | undefined; }>,
+): void {
+  for (const { cls, ws } of durables) {
+    if (!ws) continue; // this DO never used the DO handle's `ws` arc (opt-in): no WS arc to compile.
+    try {
+      ws[COMPILE_WS_ARC]();
+    } catch (err) {
+      const base = err instanceof Error ? err.message : String(err);
+      throw new Error(`[${cls.name}] ${base}`);
+    }
+  }
+}
+
+/**
  * Runs the FULL Cloudflare build-time validation at the correct granularity:
  * - HTTP per arc: the front-door arc (Worker context) and each per-DO arc (DO context).
  * - Service-graph integrity (DependencyValidator, CaptiveDependencyValidator, LifecycleHookValidator)
@@ -81,8 +113,11 @@ export function compileDurableArcs(graph: CfValidationGraph): void {
  * arc because it must see that arc's specific framework tokens.
  */
 export function validateCfGraph(graph: CfValidationGraph): ValidationError[] {
+  // WebSocketChannels is DO-only on Cloudflare: a plain Worker has no broadcast domain, so a front-door route
+  // reaching it fails the same way DurableState does (direct inject via the per-arc token sets below,
+  // transitive deps via reachabilityErrors).
   const workerTokens = new Set<ServiceToken<FlareService>>([Bindings]);
-  const doTokens = new Set<ServiceToken<FlareService>>([Bindings, DurableState]);
+  const doTokens = new Set<ServiceToken<FlareService>>([Bindings, DurableState, WebSocketChannels]);
   const results: ValidationError[] = [];
 
   // HTTP per arc: front door (Worker context) + each per-DO arc (DO context). The cookie-secret fact is
@@ -125,6 +160,10 @@ export function validateCfGraph(graph: CfValidationGraph): ValidationError[] {
   // CF-specific reachability + DO static-dep checks.
   results.push(...reachabilityErrors(graph));
   results.push(...durableDepErrors(graph));
+
+  // WebSocket arcs: route syntax + WS-internal / WS-vs-HTTP conflicts per context (host.ws against the
+  // front door, each per-DO ws arc against its own http arc), then config sanity once (host-global).
+  results.push(...wsValidationErrors(graph));
 
   // Config validation ONCE (config is host-global, not per-arc). The adapter owns ALL CF validation.
   const configCtx: ConfigValidationContext = {
@@ -190,6 +229,7 @@ function durableDepErrors(graph: CfValidationGraph): ValidationError[] {
     ...graph.prebuiltTokens,
     Bindings,
     DurableState,
+    WebSocketChannels,
   ]);
   const errors: ValidationError[] = [];
   for (const { cls } of graph.durables) {
@@ -207,6 +247,53 @@ function durableDepErrors(graph: CfValidationGraph): ValidationError[] {
   return errors;
 }
 
+/**
+ * Runs WebSocket validation at CF granularity: route syntax + conflicts (WS-internal duplicates and
+ * WS-vs-HTTP path collisions) per context -- host.ws against the front-door HTTP controllers, each
+ * per-DO ws arc against that DO's HTTP controllers -- then `websockets` config sanity once, since the
+ * config section is host-global and would otherwise report duplicate errors per context.
+ */
+function wsValidationErrors(graph: CfValidationGraph): ValidationError[] {
+  const wsConfig = (graph.resolvedConfig as { websockets?: FlareWebSocketsConfig; }).websockets;
+  const syntax = new WsRouteSyntaxValidator();
+  const conflict = new WsRouteConflictValidator();
+  const results: ValidationError[] = [];
+
+  const contexts: ReadonlyArray<{ ws: WebSocketArc; http: HttpArc<"sync">; }> = [
+    { ws: graph.frontDoorWs, http: graph.frontDoor },
+    // Only DOs that used the DO handle's `ws` arc (opt-in) have a WS arc to validate.
+    ...graph.durables.flatMap((d) => (d.ws ? [{ ws: d.ws, http: d.arc }] : [])),
+  ];
+  for (const { ws, http } of contexts) {
+    const ctx: WsValidationContext = {
+      wsPatterns: ws[WS_REGISTRATIONS]().map((r) => r.pattern),
+      httpControllers: arcControllers(http),
+      config: wsConfig,
+    };
+    results.push(...syntax.validate(ctx), ...conflict.validate(ctx));
+  }
+
+  // Channels need a broadcast domain, and the front-door Worker has none: workerd pins each connection
+  // to the request that accepted it, so a `channel:` route there could never deliver. Only the declared
+  // option is visible at build time; imperative ws.subscribe in a front-door handler fails at open with
+  // the same guidance (the Worker context's channel backend).
+  for (const reg of graph.frontDoorWs[WS_REGISTRATIONS]()) {
+    if (reg.channel !== undefined) {
+      results.push({
+        severity: "error",
+        code: "WS_CHANNEL_REQUIRES_DURABLE_OBJECT",
+        message:
+          `WebSocket route "${reg.pattern}" declares \`channel:\` on the front-door Worker, where connections cannot deliver to each other.`,
+        hint: `Host the route on a Durable Object: register it via host.durableObject(...).ws and mount the DO.`,
+      });
+    }
+  }
+
+  // Config sanity once (host-global): no patterns/controllers needed.
+  results.push(...new WsConfigValidator().validate({ wsPatterns: [], httpControllers: [], config: wsConfig }));
+  return results;
+}
+
 /** Builds the HTTP validation context for one arc. */
 function httpCtx(arc: HttpArc<"sync">, cookieSecretConfigured: boolean): HttpValidationContext {
   return {
@@ -218,11 +305,29 @@ function httpCtx(arc: HttpArc<"sync">, cookieSecretConfigured: boolean): HttpVal
   };
 }
 
+/** The DO-only framework tokens, each with its front-door reachability error. Same policy, distinct guidance. */
+const DO_ONLY_TOKENS = [
+  {
+    token: DurableState,
+    code: "DURABLE_STATE_IN_WORKER_CONTEXT",
+    why: "DurableState is seeded only in a Durable Object context.",
+    hint: (name: string) => `Inject ${name} only from a per-DO arc / Durable Object, not from a front-door route.`,
+  },
+  {
+    token: WebSocketChannels,
+    code: "WS_CHANNELS_IN_WORKER_CONTEXT",
+    why:
+      "A plain Worker has no WebSocket broadcast domain (workerd pins each connection to the request that accepted it); WebSocketChannels is seeded per Durable Object instance.",
+    hint: (name: string) =>
+      `Publish from a Durable Object context instead: inject ${name} from a per-DO route (host.durableObject(...).http) or use ws.publish inside a WS handler.`,
+  },
+] as const;
+
 /**
- * Service-graph reachability: a service whose dependency closure includes DurableState is an error iff
- * it is reachable from a front-door ENTRY (its controller inject deps OR its global/group middleware
- * inject deps): it would run in the Worker context, where DurableState is not seeded. DO-only-reachable
- * DurableState-dependent services are allowed.
+ * Service-graph reachability: a service whose dependency closure includes a DO-only framework token is
+ * an error iff it is reachable from a front-door ENTRY (its controller inject deps OR its global/group
+ * middleware inject deps): it would run in the Worker context, where that token's capability is not
+ * seeded. DO-only-reachable dependents are allowed.
  */
 function reachabilityErrors(graph: CfValidationGraph): ValidationError[] {
   const byToken = serviceIndex(graph);
@@ -232,16 +337,17 @@ function reachabilityErrors(graph: CfValidationGraph): ValidationError[] {
   ];
   const errors: ValidationError[] = [];
   for (const reg of [...graph.scoped, ...graph.singletons]) {
-    const reachesState = closureReaches([reg.token], DurableState, byToken);
-    if (!reachesState) continue;
-    if (closureReaches(frontDoorRoots, reg.token, byToken)) {
-      errors.push({
-        severity: "error",
-        code: "DURABLE_STATE_IN_WORKER_CONTEXT",
-        message: `Service ${reg.token.name} depends on DurableState but is reachable from a front-door route. `
-          + `DurableState is seeded only in a Durable Object context.`,
-        hint: `Inject ${reg.token.name} only from a per-DO arc / Durable Object, not from a front-door route.`,
-      });
+    for (const restricted of DO_ONLY_TOKENS) {
+      if (!closureReaches([reg.token], restricted.token, byToken)) continue;
+      if (closureReaches(frontDoorRoots, reg.token, byToken)) {
+        errors.push({
+          severity: "error",
+          code: restricted.code,
+          message:
+            `Service ${reg.token.name} depends on ${restricted.token.name} but is reachable from a front-door route. ${restricted.why}`,
+          hint: restricted.hint(reg.token.name),
+        });
+      }
     }
   }
   return errors;

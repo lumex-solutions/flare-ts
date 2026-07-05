@@ -1,7 +1,7 @@
 import type { TypedPrimitive } from "./index.js";
 
 /**
- * Creates a primitive that splits a comma-separated string and coerces each item
+ * Creates a primitive that splits a comma-separated string and parses each item
  * using the provided `primitive`. An empty or missing input produces an empty array.
  *
  * @example

@@ -1,7 +1,6 @@
-import type { FlareService } from "../../../services/composition/flare-service.js";
-import type { ServiceToken } from "../../../services/types/types.js";
-import type { RequestContext } from "../transport/types/request-context.js";
-import type { FlareHandlerScope, ScopeConfig } from "./types/handlers.js";
+import type { FlareService } from "./composition/flare-service.js";
+import type { InjectedMap } from "./types/inject.js";
+import type { ServiceToken } from "./types/types.js";
 
 /** Keys the framework owns on the handler scope; an `inject` map may not use them. */
 export const RESERVED_SCOPE_KEYS: ReadonlySet<string> = new Set(["config", "input"]);
@@ -21,13 +20,16 @@ export function assertInjectKeys(inject: Readonly<Record<string, unknown>>): voi
 
 /**
  * Defines lazy, memoized, enumerable getters on `scope` for each declared dependency, resolving
- * via `resolve(token)` on first access; returns the same object, typed as the scope.
+ * via `resolve(token)` on first access; returns the same object, now also typed with the deps.
+ *
+ * Generic over the base scope so each arc passes its own shape (HTTP's `config`/`input`, WS's
+ * connection scope) and gets it back intersected with the resolved dep map - no per-arc casts.
  */
-export function attachScopeDeps<D extends Record<string, ServiceToken<FlareService>>>(
-  scope: { config: ScopeConfig; input?: RequestContext; },
+export function attachScopeDeps<Base extends object, D extends Record<string, ServiceToken<FlareService>>>(
+  scope: Base,
   inject: D,
   resolve: (token: ServiceToken<FlareService>) => unknown,
-): FlareHandlerScope<D> {
+): Base & InjectedMap<D> {
   const cache: Record<string, unknown> = {};
   for (const [key, token] of Object.entries(inject)) {
     Object.defineProperty(scope, key, {
@@ -36,5 +38,6 @@ export function attachScopeDeps<D extends Record<string, ServiceToken<FlareServi
       configurable: true,
     });
   }
-  return scope as FlareHandlerScope<D>;
+  // defineProperty is invisible to the type system; the object now carries the injected getters.
+  return scope as Base & InjectedMap<D>;
 }

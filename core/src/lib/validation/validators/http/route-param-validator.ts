@@ -1,9 +1,9 @@
-import type { RequestDescriptor } from "../../../arcs/http/composition/contract/flare-contract.js";
+import type { RequestDescriptor } from "../../../arcs/http/composition/contract/http-contract.js";
 import type { HttpValidationContext } from "../../contexts.js";
 import type { IValidator, ValidationError } from "../../types.js";
-import { CONTRACT_BRAND } from "../../../arcs/http/composition/contract/flare-contract.js";
 import { joinRoutePath } from "../../../arcs/http/routing/path.js";
 import { _getRoutes } from "../../../arcs/http/routing/route-store.js";
+import { descriptorsOf } from "../../../contract/contract.js";
 
 /**
  * Validates route and query parameter names for every registered handler:
@@ -51,19 +51,17 @@ export class RouteParamValidator implements IValidator<HttpValidationContext> {
         }
 
         // Check route param / query param name collision via the contract.
-        if (contract && (contract as Record<symbol, unknown>)[CONTRACT_BRAND]) {
-          const descriptor = (contract as Record<string, RequestDescriptor>)[route.handler.name];
-          if (descriptor?.query) {
-            for (const queryKey of Object.keys(descriptor.query)) {
-              if (seenNames.has(queryKey)) {
-                errors.push({
-                  severity: "error",
-                  code: "ROUTE_QUERY_PARAM_COLLISION",
-                  message:
-                    `Handler "${route.handler.name}" in ${controller.cls.name}: query parameter "${queryKey}" collides with a route parameter of the same name.`,
-                  hint: `Route parameters and query parameters must have distinct names to avoid ambiguous resolution.`,
-                });
-              }
+        const descriptor = descriptorsOf<RequestDescriptor>(contract, "http")?.[route.handler.name];
+        if (descriptor?.query) {
+          for (const queryKey of Object.keys(descriptor.query)) {
+            if (seenNames.has(queryKey)) {
+              errors.push({
+                severity: "error",
+                code: "ROUTE_QUERY_PARAM_COLLISION",
+                message:
+                  `Handler "${route.handler.name}" in ${controller.cls.name}: query parameter "${queryKey}" collides with a route parameter of the same name.`,
+                hint: `Route parameters and query parameters must have distinct names to avoid ambiguous resolution.`,
+              });
             }
           }
         }

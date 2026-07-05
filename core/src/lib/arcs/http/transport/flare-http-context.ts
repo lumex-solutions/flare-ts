@@ -1,16 +1,16 @@
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { ServiceToken } from "../../../services/types/types.js";
-import type { RequestDescriptor } from "../composition/contract/flare-contract.js";
-import type { FlareReadonly } from "../state/types/readonly.js";
-import type { StateToken, TypedStateToken } from "../state/types/state-token.js";
+import type { FlareReadonly } from "../../../state/types/readonly.js";
+import type { StateToken, TypedStateToken } from "../../../state/types/state-token.js";
+import type { RequestDescriptor } from "../composition/contract/http-contract.js";
 import type { CookieSigner } from "./cookie-signer.js";
 import type { FlareRequest } from "./flare-request.js";
 import type { SseEvent, SseWriter } from "./sse.js";
 import type { RequestContext, TypedRequestContext } from "./types/request-context.js";
 import type { ResponseSerializers, Serializer } from "./types/response.js";
 import { loggerALS } from "../../../logger/types.js";
-import { getTokenDefault, getTokenDerivation, getTokenLogMapper } from "../state/flare-state.js";
-import { StateMap } from "../state/state-map.js";
+import { getTokenDefault, getTokenDerivation, getTokenLogMapper } from "../../../state/flare-state.js";
+import { StateMap } from "../../../state/state-map.js";
 import { FlareResponse } from "./flare-response.js";
 import { encodeSseComment, encodeSseEvent, SseStream } from "./sse.js";
 
@@ -224,6 +224,9 @@ export class FlareHttpContext {
         "[flare] ctx.extract() was called with a descriptor that does not match the current handler. Are you passing the wrong method from your contract?",
       );
     }
+    // The typed-recovery point of the contract pairing: the identity check above proved `descriptor`
+    // IS the descriptor this request's inputs were parsed against, so the loose RequestContext values
+    // are exactly the shapes T declares - a fact the erased storage cannot state.
     return (this.#requestCtx ?? {}) as unknown as TypedRequestContext<T>;
   }
 

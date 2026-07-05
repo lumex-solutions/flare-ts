@@ -1,10 +1,11 @@
-import type { FlareHandlerScope, InjectMap } from "../../../arcs/http/composition/types/handlers.js";
+import type { FlareHandlerScope } from "../../../arcs/http/composition/types/handlers.js";
 import type { HttpArc } from "../../../arcs/http/http-arc.js";
-import type { StateToken } from "../../../arcs/http/state/types/state-token.js";
 import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
 import type { ResponseLike } from "../../../arcs/http/transport/types/response.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
+import type { InjectMap } from "../../../services/types/inject.js";
 import type { ServiceToken } from "../../../services/types/types.js";
+import type { StateToken } from "../../../state/types/state-token.js";
 import type { ValidationError } from "../../../validation/types.js";
 import type { FlareDurableObjectClass } from "./durable-object.js";
 import { joinRoutePath } from "../../../arcs/http/routing/path.js";

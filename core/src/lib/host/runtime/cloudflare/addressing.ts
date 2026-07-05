@@ -31,7 +31,7 @@
  * body, and all non-reserved headers cross intact). Treat `durable(...).fetch(...)` as a
  * state-free raw tunnel.
  *
- * To carry DO state across the boundary, use the blessed seams (`room.mount` and
+ * To carry DO state across the boundary, use the blessed seams (`DurableHandle.mount` and
  * `forwardDurable`), which sanitize the reserved headers and then encode the framework-owned
  * state tokens from `ctx` onto the forwarded request:
  *
@@ -43,6 +43,11 @@
  */
 
 import { sanitizeForwardHeaders } from "./state-crossing.js";
+
+/** Options for `durable(...)` placement. Extends the base get-options with `jurisdiction`. */
+export type DurableAddressingOpts =
+  & DurableObjectNamespaceGetDurableObjectOptions
+  & { readonly jurisdiction?: DurableObjectJurisdiction; };
 
 /**
  * Wraps a native `DurableObjectStub` in a `Proxy` whose `.fetch()` strips the framework-reserved
@@ -73,11 +78,6 @@ export function wrapStub<T extends Rpc.DurableObjectBranded | undefined>(
     },
   }) as DurableObjectStub<T>;
 }
-
-/** Options for `durable(...)` placement. Extends the base get-options with `jurisdiction`. */
-export type DurableAddressingOpts =
-  & DurableObjectNamespaceGetDurableObjectOptions
-  & { readonly jurisdiction?: DurableObjectJurisdiction; };
 
 /**
  * Resolves a named Durable Object stub from a typed namespace.

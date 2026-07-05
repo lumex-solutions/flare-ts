@@ -1,5 +1,5 @@
 import type { MiddlewareClass } from "../../../arcs/http/composition/classes/middleware-base.js";
-import type { StateToken } from "../../../arcs/http/state/types/state-token.js";
+import type { StateToken } from "../../../state/types/state-token.js";
 import type { HttpValidationContext } from "../../contexts.js";
 import type { IValidator, ValidationError } from "../../types.js";
 

@@ -2,28 +2,30 @@ import type { ArrayTypedPrimitive, JsonValue } from "@flare-ts/lib/schema";
 import type { Primitive, TypedPrimitive } from "@flare-ts/lib/schema";
 import type { IFlareHost } from "../../host/flare-host.js";
 import type { HostRuntimeLifecycle, LifecycleCallback } from "../../host/types/lifecycle.js";
+import type { FlareRouter } from "../../routing/flare-router.js";
+import type { StateToken } from "../../state/types/state-token.js";
 import type { HttpArcInspectSnapshot, RouterInspectSnapshot } from "../../testing/types/inspect-build.js";
 import type { MiddlewareBase } from "./composition/classes/middleware-base.js";
 import type { HttpGroupFn } from "./composition/group.js";
-import type { FlareRouter } from "./routing/flare-router.js";
 import type { RouteSegment } from "./routing/types/route.js";
-import type { StateToken } from "./state/types/state-token.js";
 import type { CookieSigner } from "./transport/cookie-signer.js";
 import type { FlareHttpContext } from "./transport/flare-http-context.js";
+import type { QueryValue } from "./transport/types/request-context.js";
 import type { HandlerResult, ResponseLike } from "./transport/types/response.js";
 import type { ExecFn } from "./types/exec-fn.js";
 import type { Pipeline } from "./types/pipeline.js";
 import type { CompiledQueryPrimitive } from "./types/pipeline.js";
 import type { GroupRegistration } from "./types/registration.js";
 import { toErrorField } from "../../logger/logger.js";
+import { isValidInboundPath } from "../../routing/path.js";
 import { Container } from "../../services/container.js";
 import { compileHttp } from "./build.js";
 import { HttpBase } from "./composition/base.js";
-import { stream } from "./composition/contract/flare-stream.js";
-import { applyActualCorsHeaders, buildCorsPreflightResponse, checkOriginAllowed } from "./composition/cors.js";
+import { stream } from "./composition/contract/http-contract.js";
 import { HttpGroup } from "./composition/group.js";
+import { applyActualCorsHeaders, buildCorsPreflightResponse, checkOriginAllowed } from "./cors.js";
 import { deriveAllowedMethods } from "./routing/allow-methods.js";
-import { INVALID_REQUEST_PATH_BODY, isValidInboundPath } from "./routing/request-path.js";
+import { INVALID_REQUEST_PATH_BODY } from "./routing/path.js";
 import { METHOD_IDX_MAP } from "./routing/types/methods.js";
 import { COOKIE_SIGNER, INSTANCE_SINGLETONS, SET_REQ_CTX } from "./transport/flare-http-context.js";
 import { type FlareRequest, SET_MAX_BODY_BYTES, SET_ROUTE_PARAMS } from "./transport/flare-request.js";
@@ -60,23 +62,12 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
   /** Cached at compile time; stamped onto each ctx only when a cookie secret is configured. */
   #cookieSigner: CookieSigner | undefined;
 
+  readonly groups: GroupRegistration[] = [];
   readonly #onStartCallbacks: Array<LifecycleCallback<TLifecycle>> = [];
   readonly #onStopCallbacks: Array<LifecycleCallback<TLifecycle>> = [];
 
-  /**
-   * Registers a callback to be invoked when the application starts.
-   * Callbacks are called in registration order during {@link FlareApp.start}.
-   */
-  onStart(fn: LifecycleCallback<TLifecycle>): void {
-    this.#onStartCallbacks.push(fn);
-  }
-
-  /**
-   * Registers a callback to be invoked when the application stops.
-   * Callbacks are called in registration order during graceful shutdown.
-   */
-  onStop(fn: LifecycleCallback<TLifecycle>): void {
-    this.#onStopCallbacks.push(fn);
+  constructor(readonly host: IFlareHost) {
+    super();
   }
 
   [START_HTTP_ARC](): void {
@@ -108,12 +99,6 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
       await fn();
     }
   }
-
-  constructor(readonly host: IFlareHost) {
-    super();
-  }
-
-  readonly groups: GroupRegistration[] = [];
 
   // Invoked by FlareHost.build() to compile the http arc into pipelines / router / middleware.
   //
@@ -164,7 +149,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
     }
   }
 
-  /** @internal Snapshot for artifact-tier tests via {@link inspectBuild}. */
+  /** @internal Snapshot for tests via {@link inspectBuild}. */
   [INSPECT_HTTP_ARC](): HttpArcInspectSnapshot {
     const router = this.#router;
     if (!router) {
@@ -209,6 +194,22 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
       router: matchRouter,
       usesSharedContainer: this.#sharedContainer !== undefined,
     };
+  }
+
+  /**
+   * Registers a callback to be invoked when the application starts.
+   * Callbacks are called in registration order during {@link FlareApp.start}.
+   */
+  public onStart(fn: LifecycleCallback<TLifecycle>): void {
+    this.#onStartCallbacks.push(fn);
+  }
+
+  /**
+   * Registers a callback to be invoked when the application stops.
+   * Callbacks are called in registration order during graceful shutdown.
+   */
+  public onStop(fn: LifecycleCallback<TLifecycle>): void {
+    this.#onStopCallbacks.push(fn);
   }
 
   /**
@@ -317,7 +318,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
 
     const requestDescriptor = pipeline.flareRoute.requestDescriptors[methodIdx];
     let routeParams: Record<string, number | string> | undefined;
-    let queryParams: Record<string, number | string | boolean | Date | Array<unknown>> | undefined;
+    let queryParams: Record<string, QueryValue> | undefined;
     let bodyData: JsonValue | AsyncIterable<Uint8Array> | null | undefined;
 
     if (requestDescriptor) {
@@ -574,7 +575,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
   #extractQueryParams(
     url: string,
     compiled: CompiledQueryPrimitive[],
-  ): Record<string, number | string | boolean | Date | Array<unknown>> {
+  ): Record<string, QueryValue> {
     const qi = url.indexOf("?");
     if (qi === -1) {
       if (compiled.some((c) => c.primitive._required)) {
@@ -590,7 +591,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
       return {};
     }
 
-    const queryParams: Record<string, number | string | boolean | Date | Array<unknown>> = {};
+    const queryParams: Record<string, QueryValue> = {};
 
     for (let i = 0; i < compiled.length; i++) {
       const { key, primitive } = compiled[i]!;
@@ -619,7 +620,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
   #parseQuery(
     value: string | string[],
     primitive: Primitive,
-  ): number | string | boolean | Date | number[] | string[] | boolean[] | Date[] {
+  ): QueryValue {
     const type = primitive._type!;
     switch (type) {
       case "string":

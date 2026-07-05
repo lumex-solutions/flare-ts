@@ -1,9 +1,24 @@
 import type { JsonValue } from "@flare-ts/lib";
 import type { Container } from "../services/container.js";
 import type { CFWLoggerTransport, LoggerTransport } from "./transport.js";
+import type { LogContext } from "./types.js";
 import { LOG_CONFIG } from "../config/flare-config.js";
 import { FlareService } from "../services/composition/flare-service.js";
 import { LOG_LEVELS, type LogError, loggerALS, type LogLevel, type LogMeta, type LogRecord } from "./types.js";
+
+/** Runs a call under a logger context (or passes through when none): what {@link loggerRunner} builds. */
+export type LogRunner = <R>(fn: () => R) => R;
+
+/**
+ * Builds a {@link LogRunner} for `context`: when a context was built, every call it wraps runs under
+ * {@link loggerALS} so records emitted inside carry that context; without one it passes through. Used
+ * by long-lived scopes (e.g. a WebSocket connection's handlers) that wrap many calls under one context.
+ */
+export function loggerRunner(context: LogContext | undefined): LogRunner {
+  return context
+    ? <R>(fn: () => R): R => loggerALS.run({ context }, fn)
+    : <R>(fn: () => R): R => fn();
+}
 
 /**
  * Structured logger that emits records to one or more registered transports.

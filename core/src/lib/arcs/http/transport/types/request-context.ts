@@ -1,7 +1,7 @@
 import type { SchemaToken } from "@flare-ts/lib/schema";
 import type { JsonValue, SafeParseResult } from "@flare-ts/lib/schema";
 import type { TypedPrimitive } from "@flare-ts/lib/schema";
-import type { RequestDescriptor } from "../../composition/contract/flare-contract.js";
+import type { RequestDescriptor } from "../../composition/contract/http-contract.js";
 
 /**
  * @internal
@@ -13,10 +13,13 @@ import type { RequestDescriptor } from "../../composition/contract/flare-contrac
  * Values are stored loosely here. Strong types are recovered at the call site
  * by {@link TypedRequestContext} against the contract descriptor.
  */
+/** One parsed query value: exactly what the query parsers produce (the scalars and their array forms). */
+export type QueryValue = number | string | boolean | Date | number[] | string[] | boolean[] | Date[];
+
 export type RequestContext = {
   body?: Extract<SafeParseResult<JsonValue>, { success: true; }>["data"] | AsyncIterable<Uint8Array>;
   route?: Record<string, number | string>;
-  query?: Record<string, number | string | boolean | Date | Array<unknown>>;
+  query?: Record<string, QueryValue>;
 };
 
 /**
@@ -38,7 +41,7 @@ export type TypedBody<T extends RequestDescriptor> = T["body"] extends SchemaTok
  * Extracts the typed route-segment map from a {@link RequestDescriptor}.
  *
  * Maps each key in `T["route"]` from its `TypedPrimitive<N>` descriptor to
- * the coerced value type `N`. Resolves to `never` when no route descriptor is
+ * the parsed value type `N`. Resolves to `never` when no route descriptor is
  * present, making the field inaccessible at the type level.
  */
 export type TypedRoute<T extends RequestDescriptor> = T["route"] extends Record<string, TypedPrimitive<infer _>>
@@ -51,7 +54,7 @@ export type TypedRoute<T extends RequestDescriptor> = T["route"] extends Record<
  * Extracts the typed query-parameter map from a {@link RequestDescriptor}.
  *
  * Maps each key in `T["query"]` from its `TypedPrimitive<N>` descriptor to
- * the coerced value type `N`. Resolves to `never` when no query descriptor is
+ * the parsed value type `N`. Resolves to `never` when no query descriptor is
  * present, making the field inaccessible at the type level.
  */
 export type TypedQuery<T extends RequestDescriptor> = T["query"] extends Record<string, TypedPrimitive<infer _>>

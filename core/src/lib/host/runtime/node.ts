@@ -4,22 +4,28 @@ import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { Readable } from "node:stream";
 import type { ResponseLike } from "../../arcs/http/transport/types/response.js";
+import type { IFlareWebSocket } from "../../arcs/ws/transport/socket.js";
 import type { FlareHostConfig, FlareLogConfig } from "../../config/flare-config.js";
 import type { LogContext } from "../../logger/types.js";
 import type { LoggerTransportClass } from "../../logger/types.js";
 import type { FlareTestRequestInput } from "../../testing/types/flare-test-req.js";
-import type { HostRuntimeAdapter } from "../types/adapter.js";
 import type { SingletonExtension } from "../extensions/singleton.js";
-import { singletonExtension } from "../extensions/singleton.js";
+import type { HostRuntimeAdapter } from "../types/adapter.js";
 import { DRAIN_SET_COOKIES, FlareHttpContext } from "../../arcs/http/transport/flare-http-context.js";
 import { FlareRequest } from "../../arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../arcs/http/transport/flare-response.js";
 import { nodeRequestAdapter } from "../../arcs/http/transport/runtime/node.js";
+import { WebSocketChannels } from "../../arcs/ws/channels/web-socket-channels.js";
+import { handleNodeWsUpgrade } from "../../arcs/ws/transport/runtime/node/upgrade.js";
+import { WS_CHANNEL_REGISTRY, WS_REGISTRATIONS } from "../../arcs/ws/ws-arc.js";
 import { Logger } from "../../logger/logger.js";
 import { ConsoleTransport } from "../../logger/transports/console.js";
 import { loggerALS } from "../../logger/types.js";
+import { singletonExtension } from "../extensions/singleton.js";
 import { FlareAppBase } from "../flare-app.js";
-import { SET_HOST_STATE } from "../types/const.js";
+import { PROVIDE_SERVICE, SET_HOST_STATE } from "../types/const.js";
+
+// TODO: Move into a /node folder, extract types, multiple files for main pieces, etc
 
 /** @internal Internal options for {@link FlareAppNode.#shutdown}. */
 type NodeShutdownOptions = {
@@ -97,6 +103,8 @@ function buildNodeTestRequest(input: FlareTestRequestInput): FlareRequest {
     input.method,
     input.url,
     input.requestId ?? `test-${crypto.randomUUID().slice(0, 8)}`,
+    // A test-built fake standing in for the runtime-native request; it carries only the slices the
+    // node adapter reads (headers, async-iterable body).
     native as unknown as IncomingMessage,
   );
 }
@@ -126,6 +134,16 @@ export const node: HostRuntimeAdapter<FlareAppNode, LoggerTransportClass, "async
   extendHost(host) {
     return singletonExtension(host);
   },
+  setup(host) {
+    // The Node process is one broadcast domain: bind the injectable publish capability (WebSocketChannels)
+    // to the same registry every Node WS connection joins (the arc's default domain), so an HTTP
+    // handler or timer publishes into exactly the domain the connections live in.
+    host[PROVIDE_SERVICE]("singleton", {
+      token: WebSocketChannels,
+      cls: WebSocketChannels,
+      factory: (container) => new WebSocketChannels(container, host.ws[WS_CHANNEL_REGISTRY]()),
+    });
+  },
 };
 
 /**
@@ -145,6 +163,16 @@ export class FlareAppNode extends FlareAppBase {
 
   #waitForActiveRequestsResolve: (() => void) | undefined;
   #exitAfterShutdown = false;
+
+  /** Live WebSocket connections, closed gracefully on shutdown so `server.close()` can drain. */
+  readonly #wsConnections = new Set<IFlareWebSocket>();
+
+  // Process-level handlers installed by #bindProcessHandlers, kept so #shutdown can remove them
+  // (a run()/stop() cycle must not leak listeners or leave a stopped app wired to process events).
+  #onSigterm: (() => void) | undefined;
+  #onSigint: (() => void) | undefined;
+  #onUncaught: ((err: Error, origin: string) => void) | undefined;
+  #onUnhandled: ((reason: unknown) => void) | undefined;
 
   #requestSeq = 0;
   readonly #requestNonce = crypto.randomUUID().slice(0, 8);
@@ -181,6 +209,7 @@ export class FlareAppNode extends FlareAppBase {
     server.headersTimeout = hostCfg.headersTimeout ?? 60_000;
     server.requestTimeout = hostCfg.requestTimeout ?? 300_000;
 
+    this.#wireWebSocketUpgrade(server);
     this.#server = server;
 
     if (logCfg.enableContext) {
@@ -245,6 +274,27 @@ export class FlareAppNode extends FlareAppBase {
 
         this.#shutdown({ exitCode: 1, exitProcess: true });
       });
+  }
+
+  /**
+   * Attaches the WebSocket `upgrade` handler when any `host.ws` route is registered. With no routes,
+   * the listener is omitted and Node's default (destroy the socket) handles stray upgrades. New
+   * upgrades are refused once shutdown has begun.
+   */
+  #wireWebSocketUpgrade(server: Server): void {
+    if (this.host.ws[WS_REGISTRATIONS]().length === 0) return;
+    server.on("upgrade", (req, socket, head) => {
+      if (this.#isShuttingDown) {
+        socket.destroy();
+        return;
+      }
+      const conn = handleNodeWsUpgrade(this.host, req, socket, head);
+      if (conn) {
+        // Track live connections so graceful shutdown can close them; deregister when the socket dies.
+        this.#wsConnections.add(conn);
+        socket.on("close", () => this.#wsConnections.delete(conn));
+      }
+    });
   }
 
   #handleIncomingRequest(req: IncomingMessage, res: ServerResponse): void {
@@ -412,35 +462,57 @@ export class FlareAppNode extends FlareAppBase {
   }
 
   #bindProcessHandlers(): void {
-    process.once("SIGTERM", () => {
+    this.#onSigterm = () => {
       this.host.logger.info("Received SIGTERM, shutting down gracefully.");
       this.#shutdown({ exitCode: 0, exitProcess: true });
-    });
+    };
+    process.once("SIGTERM", this.#onSigterm);
 
-    process.once("SIGINT", () => {
+    this.#onSigint = () => {
       this.host.logger.info("Received SIGINT, shutting down gracefully.");
       this.#shutdown({ exitCode: 0, exitProcess: true });
-    });
+    };
+    process.once("SIGINT", this.#onSigint);
 
     // Use `on` (not `once`) so a second uncaught exception during shutdown
     // still reaches the logger. #shutdown is idempotent via #shutdownPromise.
-    process.on("uncaughtException", (err, origin) => {
+    this.#onUncaught = (err, origin) => {
       this.host.logger.fatal(err, "Uncaught exception", {
         origin,
       });
 
       this.#shutdown({ exitCode: 1, exitProcess: true });
-    });
+    };
+    process.on("uncaughtException", this.#onUncaught);
 
     // Treat unhandled rejections as fatal: log diagnostics, drain in-flight
     // requests via #shutdown, then exit 1. Matches Node's own
     // --unhandled-rejections=strict default and surfaces broken third-party
     // promises rather than letting them silently rot.
-    process.on("unhandledRejection", (reason) => {
+    this.#onUnhandled = (reason) => {
       this.host.logger.fatal(reason, "Unhandled promise rejection");
 
       this.#shutdown({ exitCode: 1, exitProcess: true });
-    });
+    };
+    process.on("unhandledRejection", this.#onUnhandled);
+  }
+
+  /**
+   * Removes the process-level handlers {@link #bindProcessHandlers} installed. Without this, every
+   * run()/stop() cycle (an embedded host, a test suite of real servers) leaks four listeners that keep
+   * the stopped app reachable - and a STOPPED app's uncaughtException handler could still fire
+   * #shutdown/process.exit long after its owner discarded it.
+   */
+  #unbindProcessHandlers(): void {
+    if (this.#onSigterm) process.off("SIGTERM", this.#onSigterm);
+    if (this.#onSigint) process.off("SIGINT", this.#onSigint);
+    if (this.#onUncaught) process.off("uncaughtException", this.#onUncaught);
+    if (this.#onUnhandled) process.off("unhandledRejection", this.#onUnhandled);
+    this.#onSigterm =
+      this.#onSigint =
+      this.#onUncaught =
+      this.#onUnhandled =
+        undefined;
   }
 
   #shutdown(options: NodeShutdownOptions): Promise<void> {
@@ -452,6 +524,16 @@ export class FlareAppNode extends FlareAppBase {
     this.#shutdownPromise = (async () => {
       this.#isShuttingDown = true;
       this.host[SET_HOST_STATE]("draining");
+
+      // Close live WebSocket connections with 1001 (going away) so their sockets finish and
+      // server.close() can complete; the per-connection close grace and the force-exit timer bound it.
+      for (const conn of this.#wsConnections) {
+        try {
+          conn.close(1001, "Server shutting down");
+        } catch {
+          /* a connection already tearing down is fine to skip */
+        }
+      }
       this.host.logger.trace("Lifecycle event", {
         phase: "shutdown",
         component: "runtime",
@@ -515,6 +597,7 @@ export class FlareAppNode extends FlareAppBase {
         this.host.logger.error(err, "Error during shutdown");
       }
 
+      this.#unbindProcessHandlers();
       this.host[SET_HOST_STATE]("stopped");
       this.host.logger.trace("Lifecycle event", {
         phase: "shutdown",

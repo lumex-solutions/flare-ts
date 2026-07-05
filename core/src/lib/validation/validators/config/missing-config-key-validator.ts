@@ -1,4 +1,4 @@
-import type { TypedPrimitive } from "@flare-ts/lib/schema";
+import type { DescriptorValue, TypedPrimitive } from "@flare-ts/lib/schema";
 import type { ConfigValidationContext } from "../../contexts.js";
 import type { IValidator, ValidationError } from "../../types.js";
 
@@ -59,9 +59,14 @@ export class MissingConfigKeyValidator implements IValidator<ConfigValidationCon
   }
 }
 
-/** Returns false when the descriptor marks the field optional (optional() or defaultTo() primitive, or schema().optional()). */
-function isConfigFieldRequired(descriptor: unknown): boolean {
+/**
+ * Returns false when the descriptor marks the field optional (optional() or defaultTo() primitive, or
+ * schema().optional()). An unrecognized or absent descriptor value counts as required, so a malformed
+ * declaration fails loudly rather than silently passing validation.
+ */
+function isConfigFieldRequired(descriptor: DescriptorValue<unknown> | undefined): boolean {
   if (typeof descriptor === "object" && descriptor !== null && SCHEMA_BRAND in descriptor) {
+    // The schema brand/required markers are symbol-keyed internals not carried on the public token type.
     return (descriptor as Record<symbol, boolean>)[SCHEMA_REQUIRED] !== false;
   }
   if (typeof descriptor === "function") {

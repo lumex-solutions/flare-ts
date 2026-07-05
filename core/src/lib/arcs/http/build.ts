@@ -1,10 +1,10 @@
 import { compileSerializer } from "@flare-ts/lib/schema";
+import type { FlareRouter } from "../../routing/flare-router.js";
+import type { StateToken } from "../../state/types/state-token.js";
 import type { MiddlewareBase } from "./composition/classes/middleware-base.js";
-import type { RequestDescriptor } from "./composition/contract/flare-contract.js";
+import type { RequestDescriptor } from "./composition/contract/http-contract.js";
 import type { CorsConfig } from "./composition/types/cors.js";
-import type { FlareRouter } from "./routing/flare-router.js";
 import type { ControllerHandler, Route, RouteSegment } from "./routing/types/route.js";
-import type { StateToken } from "./state/types/state-token.js";
 import type { ResponseSerializers, Serializer } from "./transport/types/response.js";
 import type { ExecFn } from "./types/exec-fn.js";
 import type { CompiledQueryPrimitive, FlareHttpFactory, Pipeline } from "./types/pipeline.js";
@@ -14,11 +14,11 @@ import type {
   GroupRegistration,
   MiddlewareRegistration,
 } from "./types/registration.js";
-import { CONTRACT_BRAND } from "./composition/contract/flare-contract.js";
-import { compileCorsPolicy } from "./composition/cors.js";
+import { descriptorsOf } from "../../contract/contract.js";
+import { buildFlareRouter, scoreRoute, splitPath } from "../../routing/flare-router.js";
+import { compileCorsPolicy } from "./cors.js";
 import { compileExecFn } from "./exec-codegen.js";
 import { CHAR_CODE_COLON, CHAR_CODE_SLASH, CHAR_CODE_STAR } from "./http-arc.js";
-import { buildFlareRouter, splitPath } from "./routing/flare-router.js";
 import { joinRoutePath } from "./routing/path.js";
 import { _getRoutes } from "./routing/route-store.js";
 import { METHOD_IDX_MAP, SUPPORTED_METHODS } from "./routing/types/methods.js";
@@ -400,11 +400,10 @@ function compileRoutes(controller: ControllerRegistration): Route[] {
 
     handlers[methodIdx] = route.handler;
 
-    let requestDescriptor: RequestDescriptor | undefined = undefined;
-    const contract = controller.cls.contract;
-    if (contract && contract[CONTRACT_BRAND]) {
-      requestDescriptor = (contract as Record<string, RequestDescriptor>)[route.handler.name];
-    }
+    const requestDescriptor: RequestDescriptor | undefined = descriptorsOf<RequestDescriptor>(
+      controller.cls.contract,
+      "http",
+    )?.[route.handler.name];
 
     Object.entries(requestDescriptor?.route || {}).forEach(([key, value]) => {
       if (value._type === "float") {
@@ -478,23 +477,4 @@ function compileResponseSerializers(
   }
 
   return hasAny ? serializers : undefined;
-}
-
-function scoreRoute(path: string): number {
-  let score = 0;
-  const segments = path.split("/").filter(Boolean);
-
-  for (const segment of segments) {
-    if (segment.startsWith("*")) {
-      continue;
-    }
-
-    if (segment.startsWith(":")) {
-      score += 1;
-    } else {
-      score += 2;
-    }
-  }
-
-  return score;
 }

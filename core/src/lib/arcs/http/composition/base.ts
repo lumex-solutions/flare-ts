@@ -1,5 +1,8 @@
+import type { ConfigToken } from "../../../config/flare-config.js";
 import type { FlareError } from "../../../errors/flare-error.js";
 import type { HttpErrorContext } from "../../../logger/types.js";
+import type { InjectMap } from "../../../services/types/inject.js";
+import type { FlareBaseScope } from "../../../services/types/scope.js";
 import type { FlareHttpContext } from "../transport/flare-http-context.js";
 import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../transport/types/response.js";
 import type {
@@ -10,7 +13,7 @@ import type {
 import type { ControllerClass } from "./classes/controller-base.js";
 import type { ErrorHandlerClass } from "./classes/error-handler-base.js";
 import type { MiddlewareClass } from "./classes/middleware-base.js";
-import type { RequestDescriptor } from "./contract/flare-contract.js";
+import type { RequestDescriptor } from "./contract/http-contract.js";
 import type { HttpGroup } from "./group.js";
 import type { CorsConfig } from "./types/cors.js";
 import type {
@@ -21,24 +24,25 @@ import type {
   FinallyMiddlewareHandler,
   FlareErrorHandler,
   FlareHandlerScope,
-  InjectMap,
   InjectOf,
   MiddlewareOptions,
   RouteHandler,
   RouteOptions,
 } from "./types/handlers.js";
+import { assertRegistrationPath } from "../../../routing/path.js";
+import { assertInjectKeys, attachScopeDeps } from "../../../services/scope.js";
 import { Method, registerRoute } from "../routing/decorators.js";
-import { assertRegistrationPath } from "../routing/path.js";
 import { REQUEST_INPUT } from "../transport/flare-http-context.js";
 import { ControllerBase } from "./classes/controller-base.js";
 import { ErrorHandlerBase } from "./classes/error-handler-base.js";
 import { MiddlewareBase } from "./classes/middleware-base.js";
-import { flareContract } from "./contract/flare-contract.js";
-import { assertInjectKeys, attachScopeDeps } from "./scope.js";
+import { httpContract } from "./contract/http-contract.js";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
-// TODO(review): replace any - HandlerFn covers heterogeneous handler signatures (route/before/after/finally/error).
-type HandlerFn = (...args: any[]) => unknown;
+// The storage-erased bound over the heterogeneous handler signatures (route/before/after/finally/
+// error): every function type satisfies `(...args: never[]) => unknown`, and unlike `any[]` it cannot
+// be CALLED with unchecked arguments - call sites must first narrow to the concrete signature.
+type HandlerFn = (...args: never[]) => unknown;
 type Resolved<TOptions, THandler extends HandlerFn> = { options: TOptions; handler: THandler; };
 type SyntheticEntry = { cls: ControllerClass; registration: ControllerRegistration; methods: Set<HttpMethod>; };
 
@@ -93,7 +97,7 @@ export abstract class HttpBase {
   public before(handler: BeforeMiddlewareHandler): void;
   public before<const D extends InjectMap>(
     options: MiddlewareOptions<D>,
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<D>) => MiddlewareOverride | Promise<MiddlewareOverride>,
+    handler: (ctx: FlareHttpContext, scope: FlareBaseScope<D>) => MiddlewareOverride | Promise<MiddlewareOverride>,
   ): void;
 
   public before(
@@ -114,7 +118,7 @@ export abstract class HttpBase {
     handler: (
       ctx: FlareHttpContext,
       result: HandlerResult,
-      scope: FlareHandlerScope<D>,
+      scope: FlareBaseScope<D>,
     ) => MiddlewareOverride | Promise<MiddlewareOverride>,
   ): void;
 
@@ -136,7 +140,7 @@ export abstract class HttpBase {
     handler: (
       ctx: FlareHttpContext,
       result: HandlerResult,
-      scope: FlareHandlerScope<D>,
+      scope: FlareBaseScope<D>,
     ) => MiddlewareOverride | Promise<MiddlewareOverride>,
   ): void;
 
@@ -273,7 +277,7 @@ export abstract class HttpBase {
     handler: (
       err: FlareError | Error,
       context: HttpErrorContext,
-      scope: FlareHandlerScope<D>,
+      scope: FlareBaseScope<D>,
     ) => ResponseLike | void | Promise<ResponseLike | void>,
   ): void;
 
@@ -310,7 +314,7 @@ export abstract class HttpBase {
           err,
           context,
           attachScopeDeps(
-            { config: (token) => this.config(token) },
+            { config: <T>(token: ConfigToken<T>): T => this.config(token) },
             ownInject,
             (token) => this.inject(token),
           ),
@@ -355,13 +359,18 @@ export abstract class HttpBase {
           // Inline handlers have no static config declaration site, so route
           // config resolution directly through the container instead of
           // this.config(), whose guardrail would always throw here.
+          // The cast restates the pairing the erased storage cannot: this scope's `input` was parsed
+          // from the SAME contract the handler's typed signature was checked against at registration.
           return fn(
             this.ctx,
             attachScopeDeps(
-              { config: (token) => this.container.resolveCfg(token), input: this.ctx[REQUEST_INPUT]() },
+              {
+                config: <T>(token: ConfigToken<T>): T => this.container.resolveCfg(token),
+                input: this.ctx[REQUEST_INPUT](),
+              },
               ownInject,
               (token) => this.inject(token),
-            ),
+            ) as FlareHandlerScope,
           );
         },
         writable: true,
@@ -387,7 +396,7 @@ export abstract class HttpBase {
     const deps = [...new Set(Object.values(options.inject ?? {}))];
     const state = [...(options.state ?? [])];
     const descriptor = routeDescriptor(options);
-    const contract = descriptor ? flareContract({ handle: descriptor }) : undefined;
+    const contract = descriptor ? httpContract({ handle: descriptor }) : undefined;
     const name = options.name ?? `Synthetic${method} ${fullPath}`;
     const fn = handler;
     const ownInject = (options.inject ?? {}) as InjectMap;
@@ -402,13 +411,18 @@ export abstract class HttpBase {
         // Inline handlers have no static config declaration site, so route
         // config resolution directly through the container instead of
         // this.config(), whose guardrail would always throw here.
+        // The cast restates the pairing the erased storage cannot: this scope's `input` was parsed
+        // from the SAME contract the handler's typed signature was checked against at registration.
         return fn(
           this.ctx,
           attachScopeDeps(
-            { config: (token) => this.container.resolveCfg(token), input: this.ctx[REQUEST_INPUT]() },
+            {
+              config: <T>(token: ConfigToken<T>): T => this.container.resolveCfg(token),
+              input: this.ctx[REQUEST_INPUT](),
+            },
             ownInject,
             (token) => this.inject(token),
-          ),
+          ) as FlareHandlerScope,
         );
       }
     };
@@ -459,7 +473,7 @@ export abstract class HttpBase {
           return (handler as BeforeMiddlewareHandler)(
             this.ctx,
             attachScopeDeps(
-              { config: (token) => this.config(token) },
+              { config: <T>(token: ConfigToken<T>): T => this.config(token) },
               ownInject,
               (token) => this.inject(token),
             ),
@@ -481,7 +495,7 @@ export abstract class HttpBase {
             this.ctx,
             result,
             attachScopeDeps(
-              { config: (token) => this.config(token) },
+              { config: <T>(token: ConfigToken<T>): T => this.config(token) },
               ownInject,
               (token) => this.inject(token),
             ),
@@ -502,7 +516,7 @@ export abstract class HttpBase {
           this.ctx,
           result,
           attachScopeDeps(
-            { config: (token) => this.config(token) },
+            { config: <T>(token: ConfigToken<T>): T => this.config(token) },
             ownInject,
             (token) => this.inject(token),
           ),

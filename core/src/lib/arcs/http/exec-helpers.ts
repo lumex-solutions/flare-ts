@@ -15,7 +15,7 @@ import type { ErrorHandlerRegistration } from "./types/registration.js";
 import { FlareError } from "../../errors/flare-error.js";
 import { FlareErrorCategories } from "../../errors/types/types.js";
 import { Logger, toErrorField } from "../../logger/logger.js";
-import { stream } from "./composition/contract/flare-stream.js";
+import { stream } from "./composition/contract/http-contract.js";
 import { METHOD_IDX_MAP } from "./routing/types/methods.js";
 import { SET_PARSED_BODY } from "./transport/flare-http-context.js";
 import { ContentTooLarge } from "./transport/flare-request.js";

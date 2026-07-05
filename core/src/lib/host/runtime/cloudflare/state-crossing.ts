@@ -1,5 +1,6 @@
-import type { StateToken } from "../../../arcs/http/state/types/state-token.js";
+import type { JsonValue } from "@flare-ts/lib/schema";
 import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
+import type { StateToken } from "../../../state/types/state-token.js";
 import type { FlareDurableObjectClass } from "./durable-object.js";
 import { PEEK_STATE } from "../../../arcs/http/transport/flare-http-context.js";
 
@@ -115,7 +116,8 @@ export function decodeStateEnvelope(
 ): void {
   if (!header) return;
 
-  let parsed: unknown;
+  // JSON.parse returns `any`, but its output domain is exactly JsonValue - name it.
+  let parsed: JsonValue;
   try {
     parsed = JSON.parse(header);
   } catch {
@@ -127,10 +129,12 @@ export function decodeStateEnvelope(
 
   const allowedTokens = staticStateTokens(cls);
 
-  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+  for (const [key, value] of Object.entries(parsed)) {
     const token = tokenForKey(key);
     if (token === undefined) continue;
     if (!allowedTokens.includes(token)) continue;
+    // The per-token value type is erased across the token list (no existentials); the envelope was
+    // written from the same tokens' typed values on the sending side.
     ctx.state.set(
       token as Parameters<typeof ctx.state.set>[0],
       value as never,
@@ -192,7 +196,7 @@ export function applyInboundEnvelope(
  * @param cls The DO class, used to look up its declared `static state` tokens.
  * @param req The request to forward to the DO.
  *
- * Use this when the automatic mount-forward path (`room.mount`) is not in play (e.g. a
+ * Use this when the automatic mount-forward path (`DurableHandle.mount`) is not in play (e.g. a
  * custom forwarding route or an RPC-adjacent dispatch).
  */
 export async function forwardDurable(

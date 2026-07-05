@@ -1,4 +1,3 @@
-import type { JsonObject } from "@flare-ts/lib";
 import type { RequestAdapter } from "../arcs/http/transport/types/adapter.js";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceToken } from "../services/types/types.js";
@@ -123,5 +122,5 @@ export function mockContext(opts: MockContextOpts = {}): FlareHttpContext {
 export function mockContainer(
   services: ReadonlyMap<ServiceToken<FlareService>, FlareService>,
 ): MockContainer {
-  return new Container(new FlareRegistrationMap(), services, {} as JsonObject);
+  return new Container(new FlareRegistrationMap(), services, {});
 }

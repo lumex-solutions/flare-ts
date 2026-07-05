@@ -46,7 +46,7 @@ export type PrimitiveJsonSchema =
   };
 
 /**
- * Opaque reference to a primitive coercer.
+ * Opaque reference to a primitive parser.
  *
  * Carries the runtime metadata (`_type`, `_required`, `jsonSchema`) but no
  * value-type information. Used wherever a collection of primitives is held
@@ -60,22 +60,22 @@ export type Primitive = {
 };
 
 /**
- * Carries the output type alongside the primitive coercer.
+ * Carries the output type alongside the primitive parser.
  *
  * Callable as `(v: string) => T`. Used as a leaf value inside schema
  * descriptors and wherever the output type is needed.
  *
- * @template T The output type produced after coercion and validation.
+ * @template T The output type produced after parsing and validation.
  */
 export type TypedPrimitive<T> = Primitive & {
   (v: string): T;
 };
 
 /**
- * Array-accepting primitive coercer that splits a comma-separated string or
+ * Array-accepting primitive parser that splits a comma-separated string or
  * maps over an existing string array.
  *
- * @template T The element type produced after coercing each item.
+ * @template T The element type produced after parsing each item.
  */
 export type ArrayTypedPrimitive<T> = Primitive & {
   (v: string | string[]): T[];

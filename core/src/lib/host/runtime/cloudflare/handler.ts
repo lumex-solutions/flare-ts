@@ -1,5 +1,7 @@
 import type { HttpArc } from "../../../arcs/http/http-arc.js";
 import type { ResponseLike } from "../../../arcs/http/transport/types/response.js";
+import type { IWsChannelDomain } from "../../../arcs/ws/channels/domain.js";
+import type { WebSocketArc } from "../../../arcs/ws/ws-arc.js";
 import type { ConfigToken, FlareHostConfig } from "../../../config/flare-config.js";
 import type { LogContext } from "../../../logger/types.js";
 import type { Injected } from "../../../services/composition/flare-base.js";
@@ -18,6 +20,8 @@ import { HANDLER_ERRORED } from "../../../arcs/http/transport/flare-http-context
 import { FlareRequest } from "../../../arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../../arcs/http/transport/flare-response.js";
 import { CFWRequestAdapter } from "../../../arcs/http/transport/runtime/cloudflare.js";
+import { HibernationChannelIndex } from "../../../arcs/ws/transport/runtime/cloudflare/hibernation-channel-index.js";
+import { handleCfWsUpgrade } from "../../../arcs/ws/transport/runtime/cloudflare/upgrade.js";
 import { loggerALS } from "../../../logger/types.js";
 import {
   decodeStateEnvelope,
@@ -25,6 +29,31 @@ import {
   RESERVED_STATE_HEADER,
   RESERVED_TRACE_HEADER,
 } from "./state-crossing.js";
+
+/**
+ * Channel backend for the plain-Worker context, where channels are unsupported: workerd pins each
+ * WebSocket to the request that accepted it, so no connection can deliver to another. Subscribing
+ * fails the connection immediately (at open, for the `channel:` option) with the actionable fix
+ * instead of letting membership build up toward an undeliverable publish. Also the runtime backstop
+ * behind the Worker context's seeded `WebSocketChannels` (build validation catches declared deps first).
+ */
+export const WORKER_CHANNELS_UNSUPPORTED: IWsChannelDomain = {
+  subscribe(channel: string): void {
+    throw new Error(
+      `[flare] ws.subscribe("${channel}") is not supported on a plain Cloudflare Worker: workerd pins `
+        + `each connection to the request that accepted it, so connections cannot deliver to each other. `
+        + `Host this route on a Durable Object (host.durableObject(...).ws) to share a broadcast domain.`,
+    );
+  },
+  unsubscribe(): void {},
+  publish(channel: string): void {
+    throw new Error(
+      `[flare] ws.publish("${channel}") is not supported on a plain Cloudflare Worker: workerd pins `
+        + `each connection to the request that accepted it, so connections cannot deliver to each other. `
+        + `Host this route on a Durable Object (host.durableObject(...).ws) to share a broadcast domain.`,
+    );
+  },
+};
 
 /**
  * Cloudflare request handler bound to a single singleton graph: one Worker isolate's or one Durable
@@ -49,14 +78,50 @@ abstract class FlareCfHandlerBase {
     protected readonly host: IFlareHost,
     protected readonly container: Container,
     protected readonly arc: HttpArc<"sync"> | null,
+    /** This context's WebSocket arc: `host.ws` in the Worker, the per-DO arc in a Durable Object. */
+    protected readonly wsArc: WebSocketArc | null = null,
   ) {
     const hostCfg = this.host.config.host as FlareHostConfig;
     this.#emitRequestIdHeader = hostCfg.requestIdHeader === true;
     this.#captureRequestTiming = hostCfg.requestTiming === true;
   }
 
-  /** Builds the request, dispatches through the http arc against this graph, and builds the response. */
+  /** @internal The per-instance singletons (Bindings, plus DurableState in a DO) this graph resolves against. */
+  get singletons(): ReadonlyMap<ServiceToken<FlareService>, FlareService> {
+    return this.container.singletonInstances;
+  }
+
+  /**
+   * Hook: resolves the channel backend that resident WS connections in this context join. The Worker
+   * context returns {@link WORKER_CHANNELS_UNSUPPORTED} (a plain Worker has no broadcast domain); a
+   * Durable Object returns its per-instance unified backend so resident and hibernating connections
+   * share ONE broadcast domain.
+   */
+  protected wsChannelBackend(): IWsChannelDomain | undefined {
+    return WORKER_CHANNELS_UNSUPPORTED;
+  }
+
+  /** Routes a matched WebSocket upgrade directly, or else builds the request, dispatches through the http arc against this graph, and builds the response. */
   async fetch(request: Request): Promise<Response> {
+    // WebSocket upgrade: when this context has WS routes, try to host the connection here. A matched
+    // route returns 101 directly (the connection lives in this isolate / DO). An unmatched upgrade falls
+    // through to HTTP routing, e.g. a front-door mount that forwards the upgrade to a DO owning the route.
+    // A throw at match/accept time is logged and turned into a 500, matching the HTTP error path rather
+    // than escaping the fetch as an unlogged rejection.
+    if (this.wsArc && isWebSocketUpgrade(request)) {
+      try {
+        const upgraded = handleCfWsUpgrade(
+          this.wsArc,
+          request,
+          this.container.singletonInstances,
+          this.wsChannelBackend(),
+        );
+        if (upgraded) return upgraded;
+      } catch (error) {
+        return this.#handleError(error, `${this.#getRequestNonce()}-ws`);
+      }
+    }
+
     const startTime = this.#captureRequestTiming ? Date.now() : undefined;
 
     const effectiveRequest = this.prepareInbound(request);
@@ -217,10 +282,33 @@ export class WorkerHandler extends FlareCfHandlerBase {}
  */
 export class DurableHandler extends FlareCfHandlerBase {
   #cls: FlareDurableObjectClass;
+  #state: DurableObjectState | undefined;
 
-  constructor(host: IFlareHost, container: Container, arc: HttpArc<"sync"> | null, cls: FlareDurableObjectClass) {
-    super(host, container, arc);
+  constructor(
+    host: IFlareHost,
+    container: Container,
+    arc: HttpArc<"sync"> | null,
+    cls: FlareDurableObjectClass,
+    wsArc: WebSocketArc | null = null,
+    state?: DurableObjectState,
+  ) {
+    super(host, container, arc, wsArc);
     this.#cls = cls;
+    this.#state = state;
+  }
+
+  /**
+   * Returns the per-instance unified backend so resident WS connections join the SAME channel domain as
+   * this instance's hibernating ones, but only when `state` actually exposes the native hibernation
+   * surface. A white-box test composed over `makeFakeDurableState` has no `getWebSockets`, so unifying
+   * would throw on first resident upgrade; falling back to the arc's own registry keeps resident WS
+   * connections working the same way they do whenever `state` doesn't expose native hibernation.
+   */
+  protected override wsChannelBackend(): IWsChannelDomain | undefined {
+    if (!this.#state || typeof (this.#state as { getWebSockets?: unknown; }).getWebSockets !== "function") {
+      return undefined;
+    }
+    return HibernationChannelIndex.for(this.#state as DurableObjectState);
   }
 
   protected override prepareInbound(request: Request): Request {
@@ -234,7 +322,7 @@ export class DurableHandler extends FlareCfHandlerBase {
 
   protected override readInbound(request: Request, ctx: FlareHttpContext): string | undefined {
     // Rehydrate state from the ORIGINAL (pre-strip) headers. The x-flare-state header is trusted only
-    // because the blessed forwarding seams (room.mount via applyInboundEnvelope, and forwardDurable)
+    // because the blessed forwarding seams (DurableHandle.mount via applyInboundEnvelope, and forwardDurable)
     // unconditionally sanitize client-supplied reserved headers before encoding framework state.
     // Raw-fetch misuse (durable(...).fetch(rawClientRequest) bypassing the seams) is documented on durable().
     decodeStateEnvelope(request.headers.get(RESERVED_STATE_HEADER), this.#cls, ctx);
@@ -288,4 +376,9 @@ export function buildCfTestRequest(input: FlareTestRequestInput): FlareRequest {
     input.requestId ?? `test-${crypto.randomUUID().slice(0, 8)}`,
     request,
   );
+}
+
+/** True for an RFC 6455 upgrade: a GET carrying `Upgrade: websocket` (case-insensitive). */
+export function isWebSocketUpgrade(request: Request): boolean {
+  return request.method === "GET" && (request.headers.get("Upgrade") ?? "").toLowerCase() === "websocket";
 }

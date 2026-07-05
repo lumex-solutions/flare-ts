@@ -30,7 +30,7 @@ export const LOG_LEVELS: Record<LogLevel, number> = {
 };
 
 /** Discriminated union of all built-in log context shapes. */
-export type LogContext = HostLogContext | HttpLogContext;
+export type LogContext = HostLogContext | HttpLogContext | WebSocketLogContext;
 
 /** Context attached to records emitted from host lifecycle code. */
 export type HostLogContext<T extends LogMeta = LogMeta> = T & {
@@ -45,6 +45,20 @@ export type HttpLogContext<T extends LogMeta = LogMeta> = T & {
   url: string;
   /** Correlation id: the front-door requestId that forwarded to this DO handler. DO context only. */
   parentRequestId?: string;
+};
+
+/**
+ * Context attached to records emitted from inside a WebSocket connection's handlers. One context spans
+ * the connection's whole life, keyed by the connection id (not an HTTP requestId). Per-message context
+ * (e.g. a routed message name) is deliberately deferred to the message-vocabulary work, which defines
+ * what a message's identity even is.
+ */
+export type WebSocketLogContext<T extends LogMeta = LogMeta> = T & {
+  source: "flare:ws";
+  /** The connection id (minted at upgrade), correlating every log from this connection. */
+  connectionId: string;
+  /** The upgrade path. */
+  url: string;
 };
 
 /** Extension of {@link HttpLogContext} carrying stage and target metadata for error records. */

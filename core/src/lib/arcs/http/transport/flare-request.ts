@@ -1,3 +1,4 @@
+import type { JsonValue } from "@flare-ts/lib/schema";
 import type { RequestAdapter } from "./types/adapter.js";
 import { errorSchema, flareErrorCodes } from "../../../errors/flare-error-codes.js";
 import { FlareError } from "../../../errors/flare-error.js";
@@ -125,7 +126,7 @@ export class FlareRequest {
     return this.buffer().then((buf) => (buf === null ? null : decoder.decode(buf)));
   }
 
-  json(): Promise<unknown> {
+  json(): Promise<JsonValue> {
     try {
       if (this.#rawBody !== null) return Promise.resolve(JSON.parse(decoder.decode(this.#rawBody)));
       return this.buffer().then((buf) => (buf === null ? null : JSON.parse(decoder.decode(buf))));

@@ -1,34 +1,16 @@
-import type { ConfigToken } from "../../../../config/flare-config.js";
 import type { FlareError } from "../../../../errors/flare-error.js";
 import type { HttpErrorContext } from "../../../../logger/types.js";
-import type { Injected } from "../../../../services/composition/flare-base.js";
 import type { FlareService } from "../../../../services/composition/flare-service.js";
+import type { InjectMap } from "../../../../services/types/inject.js";
+import type { FlareBaseScope } from "../../../../services/types/scope.js";
 import type { ServiceToken } from "../../../../services/types/types.js";
-import type { StateToken } from "../../state/types/state-token.js";
+import type { StateToken } from "../../../../state/types/state-token.js";
 import type { FlareHttpContext } from "../../transport/flare-http-context.js";
 import type { TypedRequestContext } from "../../transport/types/request-context.js";
 import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../../transport/types/response.js";
-import type { RequestDescriptor, RequestToken } from "../contract/flare-contract.js";
+import type { RequestDescriptor, RequestToken } from "../contract/http-contract.js";
 
-/**
- * Resolved-instance map derived from a declared `inject` token map.
- *
- * The reserved `config` key (carried as an optional `never` on {@link InjectMap}) is excluded so it
- * never collides with the scope's `config` accessor.
- */
-export type InjectedMap<D extends Record<string, ServiceToken<FlareService>>> = {
-  [K in keyof D as K extends "config" | "input" ? never : K]: D[K] extends ServiceToken<infer T> ? Injected<T>
-    : never;
-};
-
-/**
- * `inject` declaration map. `config` and `input` are reserved (they are the scope's config accessor
- * and parsed-request accessor).
- */
-export type InjectMap = Record<string, ServiceToken<FlareService>> & { config?: never; input?: never; };
-
-/** The scope's reserved `config` accessor: resolves a {@link ConfigToken} to its value. */
-export type ScopeConfig = <T>(token: ConfigToken<T>) => T;
+export type { FlareBaseScope, ScopeConfig } from "../../../../services/types/scope.js";
 
 /**
  * Per-request DI and config surface. Declared deps appear by name; `config` resolves config tokens;
@@ -38,8 +20,7 @@ export type FlareHandlerScope<
   D extends Record<string, ServiceToken<FlareService>> = {},
   C extends RequestDescriptor = {},
 > =
-  & { config: ScopeConfig; }
-  & InjectedMap<D>
+  & FlareBaseScope<D>
   & { input: TypedRequestContext<C>; };
 
 /** The {@link RequestDescriptor} field names usable as loose inline route-option keys. */
@@ -55,7 +36,7 @@ export type RouteOptionsBase<D extends InjectMap = InjectMap> = {
 
 /**
  * Inline form: the request descriptor's fields (`body`/`route`/`query`/...) are spelled directly in
- * the route options. `contract` is forbidden here — use one form or the other, never both.
+ * the route options. `contract` is forbidden here - use one form or the other, never both.
  */
 export type LooseRouteOptions<D extends InjectMap = InjectMap> =
   & RouteOptionsBase<D>
@@ -63,7 +44,7 @@ export type LooseRouteOptions<D extends InjectMap = InjectMap> =
   & { contract?: never; };
 
 /**
- * Branded form: the request descriptor is supplied as a {@link RequestToken} from a `flareContract`
+ * Branded form: the request descriptor is supplied as a {@link RequestToken} from a `httpContract`
  * entry. The loose descriptor keys are forbidden here.
  */
 export type ContractRouteOptions<D extends InjectMap = InjectMap> =
@@ -102,29 +83,34 @@ export type ErrorHandlerOptions<D extends InjectMap = InjectMap> = {
 /** Inline or functional route handler signature. */
 export type RouteHandler = (ctx: FlareHttpContext, scope: FlareHandlerScope) => HandlerResult | Promise<HandlerResult>;
 
-/** `before` middleware hook signature. */
+/**
+ * `before` middleware hook signature.
+ *
+ * Middleware and error handlers run outside any route contract, so their scope is the DI + config
+ * base with no `input`; read raw request data from `ctx`.
+ */
 export type BeforeMiddlewareHandler = (
   ctx: FlareHttpContext,
-  scope: FlareHandlerScope,
+  scope: FlareBaseScope,
 ) => MiddlewareOverride | Promise<MiddlewareOverride>;
 
-/** `after` middleware hook signature. */
+/** `after` middleware hook signature. Scope note: see {@link BeforeMiddlewareHandler}. */
 export type AfterMiddlewareHandler = (
   ctx: FlareHttpContext,
   result: HandlerResult,
-  scope: FlareHandlerScope,
+  scope: FlareBaseScope,
 ) => MiddlewareOverride | Promise<MiddlewareOverride>;
 
-/** `finally` middleware hook signature. */
+/** `finally` middleware hook signature. Scope note: see {@link BeforeMiddlewareHandler}. */
 export type FinallyMiddlewareHandler = (
   ctx: FlareHttpContext,
   result: HandlerResult,
-  scope: FlareHandlerScope,
+  scope: FlareBaseScope,
 ) => MiddlewareOverride | Promise<MiddlewareOverride>;
 
-/** Inline error-handler function signature. */
+/** Inline error-handler function signature. Scope note: see {@link BeforeMiddlewareHandler}. */
 export type FlareErrorHandler = (
   err: FlareError | Error,
   context: HttpErrorContext,
-  scope: FlareHandlerScope,
+  scope: FlareBaseScope,
 ) => ResponseLike | void | Promise<ResponseLike | void>;

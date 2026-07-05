@@ -2,7 +2,7 @@ import type { JsonValue } from "@flare-ts/lib/schema";
 import type { FlareService } from "../../../../services/composition/flare-service.js";
 import type { Container } from "../../../../services/container.js";
 import type { ServiceToken } from "../../../../services/types/types.js";
-import type { StateToken } from "../../state/types/state-token.js";
+import type { StateToken } from "../../../../state/types/state-token.js";
 import type { FlareHttpContext } from "../../transport/flare-http-context.js";
 import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../../transport/types/response.js";
 import type { AfterMiddlewareHandler, BeforeMiddlewareHandler, FinallyMiddlewareHandler } from "../types/handlers.js";

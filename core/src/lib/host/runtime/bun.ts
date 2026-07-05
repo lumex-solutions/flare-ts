@@ -1,8 +1,8 @@
 // eslint-disable-next-line no-restricted-imports
 import { readFileSync } from "node:fs";
-import type { HostRuntimeAdapter } from "../types/adapter";
 import type { LoggerTransportClass } from "../../logger/types";
 import type { SingletonExtension } from "../extensions/singleton";
+import type { HostRuntimeAdapter } from "../types/adapter";
 import { Logger } from "../../logger/logger";
 import { ConsoleTransport } from "../../logger/transports/console";
 import { singletonExtension } from "../extensions/singleton";

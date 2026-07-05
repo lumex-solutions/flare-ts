@@ -1,12 +1,13 @@
 import type { JsonObject } from "@flare-ts/lib";
-import type { FlareHandlerScope, InjectMap } from "../../../arcs/http/composition/types/handlers.js";
-import type { StateToken } from "../../../arcs/http/state/types/state-token.js";
+import type { FlareHandlerScope } from "../../../arcs/http/composition/types/handlers.js";
 import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
 import type { CFWLoggerTransport } from "../../../logger/transport.js";
 import type { CFWLoggerTransportClass } from "../../../logger/types.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { Container } from "../../../services/container.js";
+import type { InjectMap } from "../../../services/types/inject.js";
 import type { ServiceToken } from "../../../services/types/types.js";
+import type { StateToken } from "../../../state/types/state-token.js";
 import type { FlareTestRequestInput } from "../../../testing/types/flare-test-req.js";
 import type { ValidationError } from "../../../validation/types.js";
 import type { IFlareHost } from "../../flare-host.js";
@@ -15,18 +16,20 @@ import type { FlareDurableObjectClass } from "./durable-object.js";
 import type { InstanceResult, MountRecord } from "./router.js";
 import type { CfValidationGraph } from "./validate-graph.js";
 import { HttpArc } from "../../../arcs/http/http-arc.js";
-import { getTokenDefault, getTokenDerivation } from "../../../arcs/http/state/flare-state.js";
+import { WebSocketChannels } from "../../../arcs/ws/channels/web-socket-channels.js";
+import { WebSocketArc, WS_REGISTRATIONS } from "../../../arcs/ws/ws-arc.js";
 import { CFWLogger } from "../../../logger/logger.js";
 import { CFWConsoleTransport } from "../../../logger/transports/console.js";
+import { getTokenDefault, getTokenDerivation } from "../../../state/flare-state.js";
 import { FlareValidationError } from "../../../validation/flare-validation-error.js";
 import { FlareAppBase } from "../../flare-app.js";
 import { COMPILE_INSTANCE_CONTAINER, REGISTER_BUILD_HOOK, SET_HOST_STATE } from "../../types/const.js";
 import { DO_HOST } from "./durable-object.js";
-import { buildCfTestRequest, WorkerHandler } from "./handler.js";
+import { buildCfTestRequest, WORKER_CHANNELS_UNSUPPORTED, WorkerHandler } from "./handler.js";
 import { installExplicitMount, mountOverlapErrors, snapshotFrontDoorPatterns } from "./router.js";
 import { Bindings } from "./services.js";
 import { registerStateTokens, staticStateTokens } from "./state-crossing.js";
-import { compileDurableArcs, validateCfGraph } from "./validate-graph.js";
+import { compileDurableArcs, compileDurableWsArcs, validateCfGraph } from "./validate-graph.js";
 
 /** Map of per-context seed factories handed to `[COMPILE_INSTANCE_CONTAINER]`. */
 type SeedMap = Map<ServiceToken<FlareService>, (container: Container) => FlareService>;
@@ -44,6 +47,14 @@ export type WorkerExportedHandle = {
 const durableArcs = new WeakMap<FlareDurableObjectClass, HttpArc<"sync"> | null>();
 
 /**
+ * Class-to-arc map for the per-DO WebSocket arc (the {@link DurableHandle}'s `ws` arc), the WS analog of {@link durableArcs}. The
+ * DO instance resolves it at construction (see {@link wsArcForDurableObject}) and the DurableHandler
+ * intercepts matching upgrades. Populated lazily: a DO gets an entry only once its code accesses
+ * the DO handle's `ws` arc; a DO that never does has no entry and resolves to `undefined`.
+ */
+const durableWsArcs = new WeakMap<FlareDurableObjectClass, WebSocketArc>();
+
+/**
  * Env binding name recorded per DO class via `opts.binding`. Defaults to the class name when not set.
  * Used by the mount router to resolve the correct namespace from the Worker env.
  */
@@ -56,6 +67,13 @@ const durableBindings = new WeakMap<FlareDurableObjectClass, string>();
  */
 export type DurableHandle = {
   http: HttpArc<"sync">;
+  /**
+   * The per-DO WebSocket arc, the WS analog of {@link http}. Register connections with
+   * `handle.ws.route(path, builder)` / `handle.ws.controller(path, Class)` on the handle returned by
+   * `host.durableObject(...)`; the transport is tied to this Durable Object, so a connection injects
+   * this DO's `DurableState`. Upgrades reach the DO through the same {@link mount} the HTTP arc uses.
+   */
+  ws: WebSocketArc;
   /**
    * Explicitly mount this Durable Object at a URL subtree on the front-door arc.
    *
@@ -112,12 +130,12 @@ export type CloudflareHostExtension = {
   durableObject<C extends FlareDurableObjectClass>(
     cls: C,
     opts?: { binding?: string; },
-    builder?: (room: DurableHandle) => void,
+    builder?: (handle: DurableHandle) => void,
   ): DurableHandle;
   /** Builder-only form: `durableObject(cls, builder)` with no options. */
   durableObject<C extends FlareDurableObjectClass>(
     cls: C,
-    builder: (room: DurableHandle) => void,
+    builder: (handle: DurableHandle) => void,
   ): DurableHandle;
 };
 
@@ -154,6 +172,23 @@ export function arcForDurableObject(cls: FlareDurableObjectClass): HttpArc<"sync
 }
 
 /**
+ * @internal Looks up the per-DO WebSocket arc for a registered DO class, the WS analog of
+ * {@link arcForDurableObject}. Walks the prototype chain for the same subclass-construction reason, but
+ * returns `undefined` both for an unregistered class and for a registered DO whose code never accessed
+ * the DO handle's `ws` arc (the map entry is opt-in, not populated at registration).
+ */
+export function wsArcForDurableObject(cls: FlareDurableObjectClass): WebSocketArc | undefined {
+  let cur: unknown = cls;
+  while (typeof cur === "function") {
+    if (durableWsArcs.has(cur as FlareDurableObjectClass)) {
+      return durableWsArcs.get(cur as FlareDurableObjectClass);
+    }
+    cur = Object.getPrototypeOf(cur);
+  }
+  return undefined;
+}
+
+/**
  * Compiled Cloudflare application returned by `host.build()`, exposing the export terminal.
  *
  * - {@link export}: the Worker fetch handler (the module default export).
@@ -178,8 +213,13 @@ export class CloudflareApp extends FlareAppBase {
           try {
             const seed: SeedMap = new Map();
             seed.set(Bindings, (c) => new Bindings(c, env));
+            // Runtime backstop only: a plain Worker has no broadcast domain, so this instance throws
+            // the actionable guidance on publish. Declared WebSocketChannels deps already fail host.build().
+            seed.set(WebSocketChannels, (c) => new WebSocketChannels(c, WORKER_CHANNELS_UNSUPPORTED));
             const container = this.host[COMPILE_INSTANCE_CONTAINER](seed);
-            handler = new WorkerHandler(this.host, container, this.http as HttpArc<"sync">);
+            // host.ws is the Worker-hosted WebSocket arc (plain-Worker connections, e.g. a proxy/echo
+            // endpoint); the handler intercepts matching upgrades before HTTP routing.
+            handler = new WorkerHandler(this.host, container, this.http as HttpArc<"sync">, this.host.ws);
           } catch (error) {
             initFailure = { error };
             throw error;
@@ -362,7 +402,8 @@ export const cf: CloudflareAdapter = {
           code: "MOUNT_REQUIRES_RESOLVE",
           message: `Durable Object mount "${m.mountPath}" ends in a literal segment, `
             + `so ${m.cls.name}.resolve(...) must be registered to derive the instance.`,
-          hint: `Call room.resolve((ctx) => instanceName) (or the inject overload) before host.build().`,
+          hint:
+            `Call .resolve((ctx) => instanceName) (or the inject overload) on the host.durableObject(...) handle before host.build().`,
         }));
       if (resolveErrors.length > 0) throw new FlareValidationError(resolveErrors);
 
@@ -382,7 +423,11 @@ export const cf: CloudflareAdapter = {
       });
 
       const { patterns: devPatterns, groupPrefixes } = snapshotFrontDoorPatterns(host.http as HttpArc<"sync">);
-      const conflictErrors = mountOverlapErrors(finalMounts, devPatterns, groupPrefixes);
+      // host.ws routes count as front-door routes here: the Worker intercepts a matching upgrade BEFORE
+      // the mount forward, so a WS route inside a mounted subtree would silently steal connections the
+      // DO owns. Same exclusivity invariant, same build error.
+      const wsPatterns = host.ws[WS_REGISTRATIONS]().map((r) => r.pattern);
+      const conflictErrors = mountOverlapErrors(finalMounts, [...devPatterns, ...wsPatterns], groupPrefixes);
       if (conflictErrors.length > 0) throw new FlareValidationError(conflictErrors);
 
       // Front-door provide (MOUNT_STATE_NOT_PROVIDED): per mount record, each `static state` token
@@ -419,15 +464,18 @@ export const cf: CloudflareAdapter = {
         // arc validation. Zero-route DOs have no arc to validate and are null-marked after validation.
         const arcedDurables = durableObjects
           .filter((cls) => !zeroRoute.has(cls))
-          .map((cls) => ({ cls, arc: durableArcs.get(cls)! }));
+          .map((cls) => ({ cls, arc: durableArcs.get(cls)!, ws: durableWsArcs.get(cls) }));
         // Zero-route DOs still need dep validation. Represent them with a stub entry (empty arc) so
-        // durableDepErrors sees their static deps. We reuse their existing (empty) arc temporarily.
+        // durableDepErrors sees their static deps. We reuse their existing (empty) arc temporarily. `ws`
+        // is undefined for a DO that never used the DO handle's `ws` arc (opt-in).
         const allDurables = durableObjects.map((cls) => ({
           cls,
           arc: durableArcs.get(cls)! as HttpArc<"sync">,
+          ws: durableWsArcs.get(cls),
         }));
         const graph: CfValidationGraph = {
           frontDoor: host.http as HttpArc<"sync">,
+          frontDoorWs: host.ws,
           durables: allDurables,
           scoped: [...buildCtx.scopedRegistrations],
           singletons: [...buildCtx.singletonRegistrations],
@@ -442,6 +490,8 @@ export const cf: CloudflareAdapter = {
         // No errors: null-out zero-route arcs (the DurableHandler 404s for them) and compile the arced ones.
         for (const cls of zeroRoute) durableArcs.set(cls, null);
         compileDurableArcs({ ...graph, durables: arcedDurables });
+        // WS arcs compile for EVERY DO (never nulled; a DO may be WS-only with no HTTP routes).
+        compileDurableWsArcs(allDurables);
         return results;
       });
     });
@@ -449,8 +499,8 @@ export const cf: CloudflareAdapter = {
     return {
       durableObject: (<C extends FlareDurableObjectClass>(
         cls: C,
-        optsOrBuilder?: { binding?: string; } | ((room: DurableHandle) => void),
-        maybeBuilder?: (room: DurableHandle) => void,
+        optsOrBuilder?: { binding?: string; } | ((handle: DurableHandle) => void),
+        maybeBuilder?: (handle: DurableHandle) => void,
       ) => {
         // Two-arg builder form: `durableObject(cls, builder)`. Detect a function in the 2nd slot and
         // treat it as the builder, defaulting opts.
@@ -461,6 +511,9 @@ export const cf: CloudflareAdapter = {
         registerStateTokens(cls);
         const arc = new HttpArc<"sync">(host);
         durableArcs.set(cls, arc);
+        // WS is opt-in: the per-DO WebSocket arc is created lazily on first the DO handle's `ws` arc access, so a DO
+        // that never registers a WebSocket route gets no WS arc, no WS validation, and no WS wiring.
+        let wsArc: WebSocketArc | undefined;
         const bindingName = opts?.binding ?? cls.name;
         durableBindings.set(cls, bindingName);
 
@@ -495,6 +548,14 @@ export const cf: CloudflareAdapter = {
 
         const handle: DurableHandle = {
           http: arc,
+          // Lazily create + register the per-DO WS arc on first access (opt-in).
+          get ws(): WebSocketArc {
+            if (!wsArc) {
+              wsArc = new WebSocketArc(host);
+              durableWsArcs.set(cls, wsArc);
+            }
+            return wsArc;
+          },
           mount: (path: string): void => {
             // Throws synchronously on a bad path shape.
             const trailing = validateMountPath(cls, path);

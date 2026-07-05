@@ -1,5 +1,6 @@
-// @flare-ts/lib/schema: primitives, schema, and all related types
+/** `@flare-ts/lib/schema`: the schema surface - primitives, `schema`/`model`, and JSON Schema serialization. */
 
+// Primitives
 export {
   array,
   bool,
@@ -18,13 +19,14 @@ export {
 
 export type { ArrayTypedPrimitive, Primitive, PrimitiveJsonSchema, TypedPrimitive } from "./primitives/index.js";
 
+// Schema & model
 export { model } from "./model.js";
 export { schema } from "./schema.js";
 
 export type { ModelTokenBuilder } from "./model.js";
 export type { BranchShape, DescriptorValue, DiscriminantValues, OpaqueSchemaToken, SchemaToken } from "./schema.js";
-
 export type { FieldError, JsonObject, JsonValue, SafeParseResult, SchemaError } from "./schema.js";
 
+// JSON Schema / serialization
 export { compileSerializer, toJsonSchema } from "./json/serializer.js";
 export type { Serializer } from "./json/serializer.js";

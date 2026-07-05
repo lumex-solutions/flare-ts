@@ -48,4 +48,10 @@ export interface HostRuntimeAdapter<
    * stamped member exists only on hosts whose adapter provides it.
    */
   extendHost?(host: IFlareHost): TExt;
+  /**
+   * Runs at the very start of `host.build()`, before config/validation/compilation, so the adapter can
+   * contribute framework services and build hooks (e.g. register context-bound capabilities, defer
+   * singleton compilation).
+   */
+  setup?(host: IFlareHost): void;
 }

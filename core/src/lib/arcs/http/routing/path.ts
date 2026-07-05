@@ -4,6 +4,9 @@
  * Handles the two degenerate cases that come up in practice: an empty route path
  * (controller-only route) and a "/" base path (avoids the double-slash that naive
  * concatenation would produce).
+ *
+ * Generic path helpers (`assertRegistrationPath`, `normaliseRoutePattern`, `isValidInboundPath`) live
+ * in `lib/routing/path.ts`, shared across arcs; this composition step is HTTP-specific.
  */
 export function joinRoutePath(basePath: string, routePath: string): string {
   if (routePath === "") return basePath;
@@ -12,19 +15,10 @@ export function joinRoutePath(basePath: string, routePath: string): string {
 }
 
 /**
- * Validates a route or group prefix at registration time.
- *
- * Same shape rules as inbound request paths (see {@link isValidInboundPath} in
- * `request-path.ts`), but throws with a developer-facing message.
+ * HTTP response body for inbound pathnames that violate Flare path rules. The validity check itself
+ * ({@link isValidInboundPath}) is generic and lives in `lib/routing/path.ts`.
  */
-export function assertRegistrationPath(path: string, label = "Path"): void {
-  if (!path.startsWith("/")) {
-    throw new Error(`${label} must start with "/": ${path}`);
-  }
-  if (path.length > 1 && path.endsWith("/")) {
-    throw new Error(`${label} must not end with "/": ${path}`);
-  }
-  if (path.includes("//")) {
-    throw new Error(`${label} must not contain empty segments (double slash): ${path}`);
-  }
-}
+export const INVALID_REQUEST_PATH_BODY = {
+  error:
+    'Invalid request path. Paths must start with "/", must not contain empty segments ("//"), and must not end with a trailing slash except for "/".',
+} as const;

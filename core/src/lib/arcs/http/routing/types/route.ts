@@ -1,5 +1,5 @@
 import type { ControllerBase, ControllerClass } from "../../composition/classes/controller-base.js";
-import type { RequestDescriptor } from "../../composition/contract/flare-contract.js";
+import type { RequestDescriptor } from "../../composition/contract/http-contract.js";
 import type { HandlerResult } from "../../transport/types/response.js";
 
 export type ControllerHandler = (this: ControllerBase, ...args: string[]) => HandlerResult | Promise<HandlerResult>;

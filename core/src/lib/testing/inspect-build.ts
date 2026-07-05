@@ -19,7 +19,6 @@ export type {
  * Read-only snapshot of a {@link FlareHost} and optional built {@link IFlareApp}.
  *
  * Callable before or after `build()`. Pre-compile sections return empty or partial data.
- * Intended for artifact-tier tests only — not part of the public application API.
  */
 export function inspectBuild(input: { host: IFlareHost & IFlareTestHost; app?: IFlareApp; }): FlareBuildSnapshot {
   const hostSnap = input.host[INSPECT_HOST]();
