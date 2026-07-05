@@ -81,13 +81,5 @@
   },
   "dependencies": {
     "@flare-ts/lib": "workspace:*"
-  },
-  "peerDependencies": {
-    "@cloudflare/workers-types": "*"
-  },
-  "peerDependenciesMeta": {
-    "@cloudflare/workers-types": {
-      "optional": true
-    }
   }
 }

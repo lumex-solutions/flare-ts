@@ -37,9 +37,10 @@ host extensions are coming soon.
   - `host.build()` validates the combined Worker + DO graph.
   - **White-box testing.** The `@flare-ts/core/cloudflare` entry ships
     `composeDurableInstance`, which drives a DO's per-instance container in-process
-    (`inst.fetch(req)`, `inst.inject(deps, token)`) with no miniflare, plus `makeEnv`,
-    `makeFakeDurableState`, and `makeFakeStorage` (KV-only; SQL-backed DOs still need
-    the real `cloudflare:test` tier).
+    (`inst.fetch(req)`, `inst.inject(deps, token)`) with no DO binding, plus `makeEnv`,
+    `makeFakeDurableState`, and `makeFakeStorage`. The DO class constructor is
+    bypassed: constructor logic, `alarm`, RPC methods, and SQL-backed storage (the
+    fake storage is KV-only) still need the real `cloudflare:test` tier.
 - **WebSockets.** One authoring surface for WebSocket endpoints that runs unchanged on
   Node, in a Worker, and on a Durable Object.
   - **Routing.** `host.ws.route(path)` returns a registrar that attaches
@@ -189,9 +190,6 @@ host extensions are coming soon.
   `Promise<unknown>`: the parse result is JSON by construction, so handlers can narrow
   it without a cast. Type-level only.
 
-- **`@cloudflare/workers-types` is now an optional peer dependency.** Projects using
-  the `@flare-ts/core/cloudflare` entry should have it installed (Workers projects
-  already do); Node-only projects need nothing.
 
 ### Removed
 
