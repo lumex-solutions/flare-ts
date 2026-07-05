@@ -11,7 +11,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  node:
+  # Lint, four tsc projects, and format. The type-level test suites (*-types.test.ts) only bite
+  # under tsc, so this job is what enforces that tier. Build verifies the emitted packages.
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,9 +25,11 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test:node
+      - run: pnpm check
+      - run: pnpm build
 
-  cloudflare:
+  # The full matrix: every runtime, with the portable suites executed on each pool.
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,4 +41,4 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test:cloudflare
+      - run: pnpm test

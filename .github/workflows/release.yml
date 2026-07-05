@@ -19,13 +19,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Fail fast when the tag does not match the package versions - before install/build/test,
+      # so a forgotten version bump fails fast. core and lib share a version (fixed changeset group),
+      # so both must equal the tag.
+      - name: Verify tag matches package versions
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          CORE_VERSION=$(node -p "require('./core/package.json').version")
+          LIB_VERSION=$(node -p "require('./lib/package.json').version")
+          echo "tag=$TAG_VERSION core=$CORE_VERSION lib=$LIB_VERSION"
+          if [ "$CORE_VERSION" != "$TAG_VERSION" ] || [ "$LIB_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag v$TAG_VERSION does not match package versions (core=$CORE_VERSION, lib=$LIB_VERSION). Run 'pnpm changeset:version', commit, and re-tag."
+            exit 1
+          fi
+
       - uses: pnpm/action-setup@v4
         with:
           version: 10.32.1
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
@@ -39,7 +53,10 @@ jobs:
       - name: Build packages
         run: pnpm run build
 
-      - name: Run tests
+      - name: Check (lint, typecheck incl. type-level tests, format)
+        run: pnpm check
+
+      - name: Run tests (full matrix)
         run: pnpm test
 
       # Derive the npm dist-tag from the package version (the real source of
