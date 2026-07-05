@@ -1,15 +1,7 @@
-// Behavior tests for the schema/compiled-serializer feature.
-//
-// `compileSerializer(token)` walks a schema descriptor and code-generates a
-// JSON serializer specialised for that exact shape. These tests exercise the
-// observable contract of the compiled function — what JSON it emits for each
-// field-type branch, how it handles optionality, what it rejects at compile
-// time, and how it integrates with `model()` (eager compilation under the
-// well-known symbol) and top-level array schemas.
-//
-// One `describe` per H2 section of the spec, one `it` per `- [ ]` bullet.
-// Imports come from `../../../src` to match `lib/tests/integration/schema/primitives-cross.test.ts`.
-
+/**
+ * Integration tests for `compileSerializer`: JSON output per field type, optionality, compile-time rejection,
+ * and integration with `model()` and top-level array schemas.
+ */
 import { describe, expect, it } from "vitest";
 import type { JsonValue, Serializer } from "../../../src/schema/index.js";
 import {
@@ -90,7 +82,7 @@ describe("Edge Cases", () => {
     expect(parsed.body).toBe(tricky);
 
     // The escaped substring inside the emitted JSON must match JSON.stringify's
-    // escaping verbatim — the serializer routes dirty text through it.
+    // escaping verbatim; the serializer routes dirty text through it.
     expect(out).toContain(JSON.stringify(tricky));
   });
 
@@ -101,7 +93,7 @@ describe("Edge Cases", () => {
     // For clean strings the compiled output equals JSON.stringify byte-for-byte.
     expect(serialize({ name: "Alice" })).toBe('{"name":"Alice"}');
 
-    // For a string containing a quote, the serializer concatenates raw — it does
+    // For a string containing a quote, the serializer concatenates raw; it does
     // NOT escape, and the resulting output is NOT valid JSON. This is the
     // documented contract: `string` is for trusted, escape-safe input only.
     const rawWithQuote = serialize({ name: 'a"b' });
@@ -116,7 +108,7 @@ describe("Edge Cases", () => {
   });
 
   it("a `date` field is serialised per its `_format` (ISO -> full ISO string, YMD/DMY/MDY -> date-only prefix, TIMESTAMP -> numeric ms epoch)", () => {
-    // Real Date instance — JsonValue doesn't include Date so cast through unknown.
+    // Real Date instance: JsonValue does not include Date so cast through unknown.
     const ms = Date.UTC(2024, 2, 22, 14, 30, 0, 0);
     const sample = new Date(ms);
     const asJson = sample as unknown as JsonValue;
@@ -163,7 +155,7 @@ describe("Edge Cases", () => {
       nickname: "Ally",
     });
 
-    // When undefined, the field is omitted entirely — not emitted as `null`.
+    // When undefined, the field is omitted entirely, not emitted as `null`.
     const outUndef = serialize({ id: idVal, nickname: undefined } as unknown as JsonValue);
     expect(outUndef).toBe(`{"id":"${idVal}"}`);
     expect(JSON.parse(outUndef)).toEqual({ id: idVal });
@@ -182,7 +174,7 @@ describe("Edge Cases", () => {
     const out = serialize({ ids: [1, 2, 3] });
 
     // Emits compact `[1,2,3]` (no spaces, no per-element quoting) and parses back to the
-    // same array — proves the int helper coerces with `+v` rather than routing each
+    // same array, proving the int helper coerces with `+v` rather than routing each
     // element through JSON.stringify (which would also work but is slower).
     expect(out).toBe('{"ids":[1,2,3]}');
     expect(JSON.parse(out)).toEqual({ ids: [1, 2, 3] });
@@ -218,7 +210,7 @@ describe("Edge Cases", () => {
   });
 
   it("an object-array field uses the helper with the brace-embed optimisation when the item's first field is required", () => {
-    // Item's first field is REQUIRED — triggers the `'{...' merge optimisation
+    // Item's first field is REQUIRED, triggering the `'{...' merge optimisation
     // inside emitFields, so the helper's body uses the `(itemCode) + '}'` form.
     const Item = schema({ id: int, name: optional(str) });
     const Payload = schema({ items: schema([Item]) });
@@ -242,7 +234,7 @@ describe("Edge Cases", () => {
       ],
     });
 
-    // The emitted array is brace-on-key style — each item literal starts with
+    // The emitted array is brace-on-key style: each item literal starts with
     // `{"id":` because the brace was embedded into the first (required) field's
     // key literal. Verify the substring is present and that we never emit the
     // separate `{"` + `"id":` form for these items.
@@ -254,8 +246,8 @@ describe("Edge Cases", () => {
 
 describe("Failure Modes", () => {
   it('a descriptor with a key like "foo-bar" (invalid JS identifier) raises "flareSchema: invalid field key ..." at compile time', () => {
-    // Build the descriptor with a hyphenated key — valid JSON but not a valid
-    // JS identifier — so the VALID_IDENTIFIER guard in emitFields rejects it.
+    // Build the descriptor with a hyphenated key: valid JSON but not a valid
+    // JS identifier, so the VALID_IDENTIFIER guard in emitFields rejects it.
     const BadSchema = schema({ "foo-bar": str } as Record<string, typeof str>);
 
     expect(() => compileSerializer(BadSchema)).toThrow(

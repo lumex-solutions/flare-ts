@@ -1,3 +1,7 @@
+/**
+ * Production-style Cloudflare adapter factories for tests, mirroring `cf` setup without test-mode shims.
+ */
+
 import type { JsonObject } from "@flare-ts/lib";
 import type { CloudflareAdapter } from "../../../src/lib/host/runtime/cloudflare/index.js";
 import type { CFWLoggerTransportClass } from "../../../src/lib/logger/types.js";
@@ -35,7 +39,7 @@ export function cfTestAdapter(
   };
 }
 
-/** CF adapter with no test mode: for production-path tests that call the terminal (`.export()`). */
+/** Builds a CF adapter without test mode for production-path tests that call the terminal (`.export()`). */
 export function cfProdAdapter(
   flareJson: JsonObject,
   env: Record<string, string | undefined> = {},
@@ -56,7 +60,7 @@ export function cfProdAdapter(
   };
 }
 
-/** Logger-focused CF test adapter with empty default transports unless overridden. */
+/** Builds a logger-focused CF test adapter with empty default transports unless overridden. */
 export function cfLoggerTestAdapter(
   flareJson: JsonObject,
   opts: {

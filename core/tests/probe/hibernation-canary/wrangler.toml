@@ -1,0 +1,21 @@
+# Hibernation billing canary (see worker.ts for the protocol).
+name = "flare-hibernation-canary"
+main = "worker.ts"
+compatibility_date = "2026-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[durable_objects.bindings]]
+name = "CANARY_ROOM"
+class_name = "CanaryRoom"
+
+# Convention-router binding: namespaceFor(env, CanaryRoom) resolves env[cls.name].
+[[durable_objects.bindings]]
+name = "CanaryRoom"
+class_name = "CanaryRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CanaryRoom"]
+
+[observability]
+enabled = true

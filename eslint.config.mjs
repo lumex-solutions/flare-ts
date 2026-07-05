@@ -181,6 +181,9 @@ export default [
       // The Cloudflare adapter is a directory (`runtime/cloudflare/**`), not a single
       // `*cloudflare*` file — its modules are cloudflare runtime files, not shared ones.
       "**/runtime/**/cloudflare/**",
+      // Likewise the Node WebSocket codec is a directory (`runtime/node/**`) whose filenames
+      // (codec, handshake, ...) do not contain "node" — its modules are node runtime files.
+      "**/runtime/**/node/**",
     ],
     rules: {
       "no-restricted-imports": [
@@ -195,7 +198,7 @@ export default [
     },
   },
   {
-    files: ["**/runtime/**/*node*"],
+    files: ["**/runtime/**/*node*", "**/runtime/**/node/**"],
     rules: {
       "no-restricted-imports": [
         "error",

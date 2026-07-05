@@ -6,14 +6,12 @@ import { defineConfig } from "vitest/config";
 const root = fileURLToPath(new URL(".", import.meta.url));
 
 /**
- * Vitest configuration for `@flare-ts/core` — Cloudflare workerd pool.
- *
- * All tests that import Cloudflare runtime adapter code or `cloudflare:workers`
- * run here — never in the Node pool and never with stubs.
- *
- * Includes `tests/cloudflare/**`. See docs/testing.md.
- *
- * Archived suite: none (see docs/testing.md).
+ * The `cloudflare` project: everything that runs on the workerd pool
+ * (@cloudflare/vitest-pool-workers with core/wrangler.toml). Per
+ * standards/testing/structure.md a runtime project is its runtime root PLUS the portable
+ * file-set (core tests/portable + all of lib) executed on that runtime; the portable host
+ * factory resolves the cloudflare test adapter from `define`. Tests importing Cloudflare
+ * adapter code or `cloudflare:workers` run here, never on node and never with stubs.
  */
 export default defineConfig({
   plugins: [
@@ -26,15 +24,19 @@ export default defineConfig({
       },
     }),
   ],
+  define: {
+    __FLARE_TEST_ADAPTER__: JSON.stringify("cloudflare"),
+  },
   test: {
-    name: "core:cloudflare",
-    include: [
-      "tests/cloudflare/**/*.test.ts",
-      "tests/**/*cloudflare*.test.ts",
-      "tests/**/cfw-*.test.ts",
-    ],
+    name: "cloudflare",
+    include: ["tests/portable/**/*.test.ts", "tests/cloudflare/**/*.test.ts", "../lib/tests/**/*.test.ts"],
     exclude: [],
     passWithNoTests: true,
+    // Real-binding tests pay workerd/miniflare spin-up per file; with the whole cloudflare
+    // project (runtime root + portable + lib) sharing one pool, an individual test can exceed
+    // vitest's 5s default purely on CPU contention (sub-second alone). Headroom keeps the suite
+    // deterministic without masking real hangs.
+    testTimeout: 30_000,
   },
   resolve: {
     alias: [

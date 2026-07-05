@@ -1,7 +1,9 @@
 {
   // Cloudflare-pool test files. Mirrors vitest.config.cloudflare.ts (workerd). Adds
   // @cloudflare/workers-types so runtime globals (DurableObjectState, ExecutionContext,
-  // Cloudflare.Env, the `cloudflare:workers` module) resolve here.
+  // Cloudflare.Env, the `cloudflare:workers` module) resolve here. Also types the
+  // *.cloudflare.test.ts files that live outside this tree but run in the workerd pool
+  // (filename-routed), since the WS platform sockets they drive are workers-typed.
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "types": ["node", "vitest/globals", "@cloudflare/workers-types"]

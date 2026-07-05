@@ -1,9 +1,9 @@
+/**
+ * Ambient types for workerd-pool Cloudflare tests. The `cloudflare:test` module surface comes from
+ * the pool's published types; this file declares only the project-specific wrangler bindings the
+ * tests use.
+ */
 /// <reference types="@cloudflare/vitest-pool-workers/types" />
-
-// Ambient types for the workerd-pool tests. The `cloudflare:test` module surface (env,
-// runInDurableObject, runDurableObjectAlarm, reset, abortAllDurableObjects, ...) comes from the pool's
-// published `./types`, referenced above. We only declare the wrangler bindings the tests use — those
-// are project-specific, so the pool cannot supply them.
 
 declare namespace Cloudflare {
   interface Env {
@@ -11,7 +11,7 @@ declare namespace Cloudflare {
     TEST_ROOM: DurableObjectNamespace;
     // Convention-router binding: namespaceFor(env, TestRoom) looks up env[cls.name] = env.TestRoom.
     TestRoom: DurableObjectNamespace;
-    // State boundary-crossing e2e test bindings (Task 8).
+    // State boundary-crossing e2e test bindings.
     ROOM_DO: DurableObjectNamespace;
     // Convention-router binding for RoomDO.
     RoomDO: DurableObjectNamespace;

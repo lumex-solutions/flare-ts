@@ -1,3 +1,6 @@
+/**
+ * Verifies COMPILED_SERIALIZER uses the stable Symbol.for key for cross-package rebinding.
+ */
 import { describe, expect, it } from "vitest";
 import { COMPILED_SERIALIZER } from "../../../src/schema/symbol.js";
 

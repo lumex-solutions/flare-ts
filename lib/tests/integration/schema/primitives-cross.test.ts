@@ -1,15 +1,6 @@
-// Behavior tests for the schema/primitives feature.
-//
-// Unit tests already exercise each primitive in isolation (see
-// `lib/tests/unit/primitives/`). This file complements them by exercising
-// the primitives as they are *actually used* by consumers: composed into a
-// `schema(...)` token, passed through `safeParse`, and routed into the
-// compiled serializer / JSON Schema exporter.
-//
-// One `describe` block per H2 section of the spec, one `it` per `- [ ]`
-// bullet. Imports come from `../../../src` to match the other tests in this
-// package (no build artefacts required).
-
+/**
+ * Integration tests for primitives composed into schema tokens via safeParse, compileSerializer, and toJsonSchema.
+ */
 import { describe, expect, it } from "vitest";
 import type { JsonValue } from "../../../src/schema/index.js";
 import {
@@ -85,15 +76,15 @@ describe("Primary Behavior", () => {
   });
 
   it("chainable constraints on `int`, `float`, `str`, `text` produce the right `jsonSchema` shape after one or more chain calls", () => {
-    // int.min(0).max(100) -> integer with both bounds.
+    // int.min(0).max(100) yields integer jsonSchema with both bounds.
     const bounded = int.min(0).max(100);
     expect(bounded.jsonSchema).toEqual({ type: "integer", minimum: 0, maximum: 100 });
 
-    // float.min(0).max(1) -> number with both bounds.
+    // float.min(0).max(1) yields number jsonSchema with both bounds.
     const ratio = float.min(0).max(1);
     expect(ratio.jsonSchema).toEqual({ type: "number", minimum: 0, maximum: 1 });
 
-    // str.min(3).max(50).pattern(...) -> string with minLength, maxLength, pattern.
+    // str.min(3).max(50).pattern(...) yields string jsonSchema with minLength, maxLength, and pattern.
     const username = str.min(3).max(50).pattern(/^[a-z]+$/);
     expect(username.jsonSchema).toEqual({
       type: "string",
@@ -102,7 +93,7 @@ describe("Primary Behavior", () => {
       pattern: "^[a-z]+$",
     });
 
-    // text.min(1).max(280) -> string with both length bounds.
+    // text.min(1).max(280) yields string jsonSchema with both length bounds.
     const tweet = text.min(1).max(280);
     expect(tweet.jsonSchema).toEqual({ type: "string", minLength: 1, maxLength: 280 });
   });
@@ -144,7 +135,7 @@ describe("Edge Cases", () => {
     expect(role("user")).toBe("user");
     expect(role("guest")).toBe("guest");
 
-    // Non-members are rejected with the spec's message.
+    // Non-members are rejected with the exact error message.
     expect(() => role("root")).toThrow('Expected one of [admin, user, guest], got "root"');
 
     // jsonSchema preserves the literal union as a string enum.
@@ -261,7 +252,7 @@ describe("Cross-Feature Interactions", () => {
     expect(JSON.parse(enumSer({ v: "x" }))).toEqual({ v: "x" });
     expect(JSON.parse(enumSer({ v: "y" }))).toEqual({ v: "y" });
 
-    // Date — every supported format. The serializer's switch in
+    // Date: every supported format. The serializer's switch in
     // serializeDate keys off the `_format` carried on the primitive and
     // requires `value instanceof Date`, so we feed real Date instances
     // (typed through `unknown` because `JsonValue` does not include Date).
@@ -286,7 +277,7 @@ describe("Cross-Feature Interactions", () => {
     const tsSerializer = compileSerializer(schema({ v: date.format("TIMESTAMP") }));
     expect(JSON.parse(tsSerializer({ v: sampleAsJson }))).toEqual({ v: sampleMs });
 
-    // array(<each>) — string, integer, number, boolean, and date (special-cased helper).
+    // array(<each>): string, integer, number, boolean, and date (special-cased helper).
     const arrStr = compileSerializer(schema({ v: array(str) }));
     expect(JSON.parse(arrStr({ v: ["a", "b", "c"] }))).toEqual({ v: ["a", "b", "c"] });
     expect(JSON.parse(arrStr({ v: [] }))).toEqual({ v: [] });
@@ -306,7 +297,7 @@ describe("Cross-Feature Interactions", () => {
     });
   });
 
-  it("(with `schema/json-schema-export`) each primitive's `jsonSchema` flows through to the exported document unchanged", () => {
+  it("(with `schema/json/to-json-schema`) each primitive's `jsonSchema` flows through to the exported document unchanged", () => {
     const role = enums(["admin", "user", "guest"] as const);
     const isoDate = date;
     const ymdDate = date.format("YMD");

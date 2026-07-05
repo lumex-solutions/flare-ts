@@ -1,0 +1,11 @@
+{
+  "websockets": {
+    "maxMessageSize": 67108864,
+    "maxFrameSize": 67108864,
+    "maxFragments": 4194304,
+    "maxBufferedBytes": 268435456,
+    "keepAliveIntervalMs": 0,
+    "idleTimeoutMs": 0,
+    "closeGraceMs": 5000
+  }
+}

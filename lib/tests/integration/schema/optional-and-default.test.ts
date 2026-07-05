@@ -1,13 +1,6 @@
-// Behavior tests for the schema/optional-and-default feature.
-//
-// `optional()` and `defaultTo()` wrap a primitive to control behavior when
-// the field value is missing or empty. These tests exercise the combinators
-// as they are *actually used* by consumers: composed into a `schema(...)`
-// descriptor, routed through `safeParse`, and (for the cross-feature case)
-// through `compileSerializer`.
-//
-// One `describe` block per H2 section of the spec, one `it` per `- [ ]` bullet.
-
+/**
+ * Integration tests for `optional()` and `defaultTo()` composed into schema descriptors via safeParse and compileSerializer.
+ */
 import { describe, expect, it } from "vitest";
 import { compileSerializer, defaultTo, int, optional, schema, str } from "../../../src/schema/index.js";
 
@@ -76,7 +69,7 @@ describe("Edge Cases", () => {
     const maybeBoundedInt = optional(int.min(10));
     const Payload = schema({ count: maybeBoundedInt });
 
-    // Inner coercion is applied: "42" -> 42 as a JS number.
+    // Inner coercion applies: "42" coerces to 42 as a JS number.
     const good = Payload.safeParse({ count: "42" });
     expect(good.success).toBe(true);
     if (!good.success) return;

@@ -1,34 +1,11 @@
+/**
+ * Integration tests for each `schema()` descriptor shape exercised through safeParse.
+ */
 import { describe, expect, it } from "vitest";
-import { SCHEMA_BRAND, SCHEMA_DESCRIPTOR, SCHEMA_REQUIRED } from "../../../src/schema/internal/token/symbols.js";
-import { int } from "../../../src/schema/primitives/int.js";
-import { str } from "../../../src/schema/primitives/str.js";
-import { uuid } from "../../../src/schema/primitives/uuid.js";
-import { schema } from "../../../src/schema/schema.js";
+import { int, schema, str, uuid } from "../../../src/schema/index.js";
 
-describe("schema() - descriptor overload", () => {
-  it("returns SchemaToken with SCHEMA_BRAND, SCHEMA_REQUIRED=true, SCHEMA_DESCRIPTOR set to descriptor", () => {
-    const descriptor = { id: uuid, name: str };
-    const token = schema(descriptor);
-
-    const tokenRecord = token as unknown as Record<symbol, unknown>;
-    expect(tokenRecord[SCHEMA_BRAND]).toBe(true);
-    expect(tokenRecord[SCHEMA_REQUIRED]).toBe(true);
-    expect(tokenRecord[SCHEMA_DESCRIPTOR]).toBe(descriptor);
-  });
-
-  it("optional() returns a token with SCHEMA_REQUIRED=false without mutating original", () => {
-    const original = schema({ id: uuid });
-    const opt = original.optional();
-
-    const originalRecord = original as unknown as Record<symbol, unknown>;
-    const optRecord = opt as unknown as Record<symbol, unknown>;
-
-    expect(optRecord[SCHEMA_REQUIRED]).toBe(false);
-    // Original is untouched.
-    expect(originalRecord[SCHEMA_REQUIRED]).toBe(true);
-  });
-
-  it("safeParse delegates to flatSafeParse", () => {
+describe("flat descriptor schema token", () => {
+  it("safeParse on a flat descriptor surfaces missing-field errors at the field path", () => {
     const UserSchema = schema({ id: uuid, name: str });
 
     const ok = UserSchema.safeParse({
@@ -53,30 +30,8 @@ describe("schema() - descriptor overload", () => {
   });
 });
 
-describe("schema() - top-level array [ItemSchema] overload", () => {
-  it("tuple [itemSchema] produces an array schema token", () => {
-    const Item = schema({ id: int });
-    const Items = schema([Item]);
-
-    const tokenRecord = Items as unknown as Record<symbol, unknown>;
-    expect(tokenRecord[SCHEMA_BRAND]).toBe(true);
-    expect(tokenRecord[SCHEMA_REQUIRED]).toBe(true);
-    // Descriptor for the array form is the tuple itself.
-    expect(Array.isArray(tokenRecord[SCHEMA_DESCRIPTOR])).toBe(true);
-  });
-
-  it('tuple with length != 1 throws "Top-level array schemas must be declared with exactly one item schema."', () => {
-    const Item = schema({ id: int });
-
-    expect(() => schema([] as never)).toThrow(
-      "Top-level array schemas must be declared with exactly one item schema.",
-    );
-    expect(() => schema([Item, Item] as never)).toThrow(
-      "Top-level array schemas must be declared with exactly one item schema.",
-    );
-  });
-
-  it("safeParse delegates to arraySafeParse", () => {
+describe("top-level array schema token", () => {
+  it("safeParse on a top-level array prefixes nested errors with [index]", () => {
     const Item = schema({ id: int });
     const Items = schema([Item]);
 
@@ -95,17 +50,8 @@ describe("schema() - top-level array [ItemSchema] overload", () => {
   });
 });
 
-describe("schema() - top-level record [{ $record }] overload", () => {
-  it("[{ $record: valueSchema }] produces a record schema token", () => {
-    const Value = schema({ level: str });
-    const Record_ = schema([{ $record: Value }]);
-
-    const tokenRecord = Record_ as unknown as Record<symbol, unknown>;
-    expect(tokenRecord[SCHEMA_BRAND]).toBe(true);
-    expect(tokenRecord[SCHEMA_REQUIRED]).toBe(true);
-  });
-
-  it("safeParse delegates to recordSafeParse", () => {
+describe("top-level record schema token", () => {
+  it("safeParse on a record schema rejects unsafe keys with the expected message", () => {
     const Value = schema({ level: str });
     const Cfg = schema([{ $record: Value }]);
 
@@ -129,23 +75,12 @@ describe("schema() - top-level record [{ $record }] overload", () => {
   });
 });
 
-describe("schema() - discriminated union overload", () => {
+describe("discriminated union schema token", () => {
   type Cat = { kind: "cat"; lives: number; };
   type Dog = { kind: "dog"; breed: string; };
   type Pet = Cat | Dog;
 
-  it("string discriminant + branches map produces a discriminated schema token", () => {
-    const PetSchema = schema<Pet, "union">("kind", {
-      cat: { lives: int },
-      dog: { breed: str },
-    });
-
-    const tokenRecord = PetSchema as unknown as Record<symbol, unknown>;
-    expect(tokenRecord[SCHEMA_BRAND]).toBe(true);
-    expect(tokenRecord[SCHEMA_REQUIRED]).toBe(true);
-  });
-
-  it("safeParse delegates to discriminatedSafeParse with the right args", () => {
+  it("safeParse on a discriminated union rejects unknown discriminants", () => {
     const PetSchema = schema<Pet, "union">("kind", {
       cat: { lives: int },
       dog: { breed: str },
@@ -165,19 +100,5 @@ describe("schema() - discriminated union overload", () => {
       expect(bad.error.fields[0]!.message).toBe("Invalid discriminant value");
       expect(bad.error.fields[0]!.path).toBe("kind");
     }
-  });
-
-  it("SCHEMA_DESCRIPTOR stores { discriminant, branches } shape", () => {
-    const branches = {
-      cat: { lives: int },
-      dog: { breed: str },
-    };
-    const PetSchema = schema<Pet, "union">("kind", branches);
-
-    const tokenRecord = PetSchema as unknown as Record<symbol, unknown>;
-    const desc = tokenRecord[SCHEMA_DESCRIPTOR] as { discriminant: string; branches: typeof branches; };
-
-    expect(desc.discriminant).toBe("kind");
-    expect(desc.branches).toBe(branches);
   });
 });

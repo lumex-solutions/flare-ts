@@ -1,20 +1,31 @@
-import { describe, expect, it } from "vitest";
-import type { JsonValue, OpaqueSchemaToken, SchemaToken } from "../../../src/schema/schema.js";
-import { compileSerializer } from "../../../src/schema/json/serializer.js";
-import { array } from "../../../src/schema/primitives/array.js";
-import { bool } from "../../../src/schema/primitives/bool.js";
-import { date } from "../../../src/schema/primitives/date.js";
-import { enums } from "../../../src/schema/primitives/enum.js";
-import { float } from "../../../src/schema/primitives/float.js";
-import { optional } from "../../../src/schema/primitives/index.js";
-import { int } from "../../../src/schema/primitives/int.js";
-import { str } from "../../../src/schema/primitives/str.js";
-import { text } from "../../../src/schema/primitives/text.js";
-import { uuid } from "../../../src/schema/primitives/uuid.js";
-import { schema } from "../../../src/schema/schema.js";
+/**
+ * Behavior tests for the json/serializer-roundtrip feature.
+ *
+ * `compileSerializer` produces a callable that serializes typed values to JSON
+ * strings. This file exercises round-trip fidelity across primitive types,
+ * nested schemas, optional fields, and format-specific branches through the
+ * public schema API.
+ */
 
-describe("compileSerializer(token)", () => {
-  it("Happy path: flat object schema with all primitive types serializes to a valid JSON string matching JSON.stringify semantics", () => {
+import { describe, expect, it } from "vitest";
+import type { JsonValue, OpaqueSchemaToken, SchemaToken } from "../../../src/schema/index.js";
+import {
+  array,
+  bool,
+  compileSerializer,
+  date,
+  enums,
+  float,
+  int,
+  optional,
+  schema,
+  str,
+  text,
+  uuid,
+} from "../../../src/schema/index.js";
+
+describe("compiled serializer round-trip", () => {
+  it("flat object schema with all primitive types serializes to a valid JSON string matching JSON.stringify semantics", () => {
     const Doc = schema({ id: uuid, name: str, age: int, score: float, active: bool });
 
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
@@ -29,7 +40,7 @@ describe("compileSerializer(token)", () => {
     expect(JSON.parse(out)).toEqual(value);
   });
 
-  it("Happy path: nested schema produces inline object serialization", () => {
+  it("nested schema produces inline object serialization", () => {
     const Address = schema({ city: str, zip: str });
     const User = schema({
       id: uuid,
@@ -45,7 +56,7 @@ describe("compileSerializer(token)", () => {
     expect(JSON.parse(out)).toEqual(value);
   });
 
-  it("Happy path: top-level array schema produces [...] output", () => {
+  it("top-level array schema produces [...] output", () => {
     const Item = schema({ id: int, name: str });
     const List = schema([Item]);
 
@@ -57,7 +68,7 @@ describe("compileSerializer(token)", () => {
     expect(JSON.parse(out)).toEqual(value);
   });
 
-  it("Happy path: nested schema([ItemSchema]) produces array-of-objects helper output", () => {
+  it("nested schema([ItemSchema]) produces array-of-objects helper output", () => {
     const Item = schema({ id: int, name: str });
     const Box = schema({
       items: schema([Item]) as unknown as SchemaToken<{ id: number; name: string; }[]>,
@@ -69,7 +80,7 @@ describe("compileSerializer(token)", () => {
     expect(JSON.parse(out)).toEqual(value);
   });
 
-  it("Edge case: optional fields are omitted when value is null or undefined", () => {
+  it("optional fields are omitted when value is null or undefined", () => {
     const Doc = schema({
       id: uuid,
       nickname: optional(str),
@@ -86,7 +97,7 @@ describe("compileSerializer(token)", () => {
     expect(JSON.parse(out2)).toEqual({ id: "550e8400-e29b-41d4-a716-446655440000" });
   });
 
-  it("Edge case: optional fields serialize when a value is present", () => {
+  it("optional fields serialize when a value is present", () => {
     const id = "550e8400-e29b-41d4-a716-446655440000";
     const Doc = schema({
       id: uuid,
@@ -103,7 +114,7 @@ describe("compileSerializer(token)", () => {
     expect(JSON.parse(withQuotes)).toEqual({ id, bio: 'said "hi"' });
   });
 
-  it("Edge case: required string field with special chars is left unescaped (string is the safe type)", () => {
+  it("required string field with special chars is left unescaped (string is the safe type)", () => {
     // The `string` primitive takes the inline-quote fast path: the value is
     // embedded between quotes without escaping. Special chars therefore land
     // in the output as-is. Verify that a benign string round-trips, and that
@@ -121,7 +132,7 @@ describe("compileSerializer(token)", () => {
     expect(withQuote).toBe('{"name":"a"b"}');
   });
 
-  it("Edge case: text field with control chars / quotes is escaped via JSON.stringify path", () => {
+  it("text field with control chars / quotes is escaped via JSON.stringify path", () => {
     const Doc = schema({ body: text });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
@@ -134,7 +145,7 @@ describe("compileSerializer(token)", () => {
     expect(JSON.parse(dirty)).toEqual({ body: 'line1\n"q"\\x' });
   });
 
-  it("Edge case: date field with ISO format serializes to full toISOString()", () => {
+  it("date field with ISO format serializes to full toISOString()", () => {
     const Doc = schema({ d: date });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
@@ -143,7 +154,7 @@ describe("compileSerializer(token)", () => {
     expect(out).toBe(`{"d":"${when.toISOString()}"}`);
   });
 
-  it("Edge case: date field with YMD, DMY, MDY formats serializes to ISO date prefix (first 10 chars)", () => {
+  it("date field with YMD, DMY, MDY formats serializes to ISO date prefix (first 10 chars)", () => {
     const ymd = compileSerializer(schema({ d: date.format("YMD") }) as OpaqueSchemaToken);
     const dmy = compileSerializer(schema({ d: date.format("DMY") }) as OpaqueSchemaToken);
     const mdy = compileSerializer(schema({ d: date.format("MDY") }) as OpaqueSchemaToken);
@@ -156,7 +167,7 @@ describe("compileSerializer(token)", () => {
     expect(mdy({ d: when } as unknown as JsonValue)).toBe(`{"d":"${expectedPrefix}"}`);
   });
 
-  it("Edge case: date field with TIMESTAMP format serializes to numeric ms epoch string (unquoted)", () => {
+  it("date field with TIMESTAMP format serializes to numeric ms epoch string (unquoted)", () => {
     const Doc = schema({ d: date.format("TIMESTAMP") });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
@@ -165,7 +176,7 @@ describe("compileSerializer(token)", () => {
     expect(out).toBe(`{"d":${when.getTime()}}`);
   });
 
-  it("Edge case: invalid Date / NaN Date serializes to the literal null", () => {
+  it("invalid Date / NaN Date serializes to the literal null", () => {
     const Doc = schema({ d: date });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
@@ -174,7 +185,7 @@ describe("compileSerializer(token)", () => {
     expect(out).toBe('{"d":null}');
   });
 
-  it("Edge case: enum field uses the lookup table (returns pre-quoted literal)", () => {
+  it("enum field uses the lookup table (returns pre-quoted literal)", () => {
     const role = enums(["admin", "user", "guest"] as const);
     const Doc = schema({ role });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
@@ -183,7 +194,7 @@ describe("compileSerializer(token)", () => {
     expect(serialize({ role: "guest" } as unknown as JsonValue)).toBe('{"role":"guest"}');
   });
 
-  it("Edge case: primitive array(int) takes the integer helper branch", () => {
+  it("primitive array(int) takes the integer helper branch", () => {
     const Doc = schema({ xs: array(int) });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
@@ -191,7 +202,7 @@ describe("compileSerializer(token)", () => {
     expect(out).toBe('{"xs":[1,2,3]}');
   });
 
-  it("Edge case: primitive array(str) takes the join-based string helper branch", () => {
+  it("primitive array(str) takes the join-based string helper branch", () => {
     const Doc = schema({ xs: array(str) });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
@@ -199,7 +210,7 @@ describe("compileSerializer(token)", () => {
     expect(out).toBe('{"xs":["a","b","c"]}');
   });
 
-  it("Edge case: primitive array(bool) takes the boolean helper branch", () => {
+  it("primitive array(bool) takes the boolean helper branch", () => {
     const Doc = schema({ xs: array(bool) });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
@@ -207,7 +218,7 @@ describe("compileSerializer(token)", () => {
     expect(out).toBe('{"xs":[true,false,true]}');
   });
 
-  it("Edge case: primitive array(float) coerces numeric elements", () => {
+  it("primitive array(float) coerces numeric elements", () => {
     const Doc = schema({ xs: array(float) });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
@@ -215,7 +226,7 @@ describe("compileSerializer(token)", () => {
     expect(out).toBe('{"xs":[1.5,2.25]}');
   });
 
-  it("Edge case: primitive array(date) takes the date helper branch and honors _item format", () => {
+  it("primitive array(date) takes the date helper branch and honors _item format", () => {
     const Doc = schema({ xs: array(date.format("YMD")) });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
@@ -227,7 +238,7 @@ describe("compileSerializer(token)", () => {
     );
   });
 
-  it("Edge case: empty primitive-string-array returns []", () => {
+  it("empty primitive-string-array returns []", () => {
     const Doc = schema({ xs: array(str) });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
@@ -235,7 +246,7 @@ describe("compileSerializer(token)", () => {
     expect(out).toBe('{"xs":[]}');
   });
 
-  it("Edge case: int / float field coerces with +v", () => {
+  it("int / float field coerces with +v", () => {
     const Doc = schema({ i: int, f: float });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
@@ -245,7 +256,7 @@ describe("compileSerializer(token)", () => {
     expect(out).toBe('{"i":42,"f":3.5}');
   });
 
-  it("Edge case: bool field outputs true / false literal", () => {
+  it("bool field outputs true / false literal", () => {
     const Doc = schema({ a: bool, b: bool });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
@@ -254,14 +265,14 @@ describe("compileSerializer(token)", () => {
   });
 
   it("Error condition: invalid identifier key throws flareSchema: invalid field key", () => {
-    // `str` is a value (StringPrimitive), not a function — use `typeof str`.
+    // `str` is a value (StringPrimitive), not a function; use `typeof str`.
     const bad: Record<string, typeof str> = { "foo-bar": str };
     expect(() => compileSerializer(schema(bad as never) as OpaqueSchemaToken)).toThrow(
       'flareSchema: invalid field key "foo-bar" - must be a valid JS identifier',
     );
   });
 
-  it("Behavior: when first descriptor field is required, the opening { is embedded into the first key literal (perf shortcut)", () => {
+  it("when first descriptor field is required, the opening { is embedded into the first key literal (perf shortcut)", () => {
     // The brace-embed optimisation fires on nested schemas whose first field
     // is required. Its observable contract is "the nested object opens with
     // exactly one '{' (not '{{') and closes with exactly one '}'".
@@ -287,7 +298,7 @@ describe("compileSerializer(token)", () => {
     });
   });
 
-  it("Behavior: _item on the array primitive is honored when emitting date arrays", () => {
+  it("array primitive honors each field's date format when serializing date arrays", () => {
     // Two array(date) fields with different formats must produce different
     // outputs, proving the helper uses each field's own `_item._format`.
     const Doc = schema({
@@ -302,16 +313,16 @@ describe("compileSerializer(token)", () => {
   });
 });
 
-describe("serializeText (internal, exercised via compileSerializer + text)", () => {
-  it("Happy path: clean string is wrapped in quotes without scanning further", () => {
+describe("text field serialization", () => {
+  it("clean string is wrapped in quotes without scanning further", () => {
     const Doc = schema({ body: text });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
-    // No control char, no quote, no backslash -> fast path: just '"' + str + '"'.
+    // No control char, quote, or backslash uses the fast path: '"' + str + '"'.
     expect(serialize({ body: "plain text" } as unknown as JsonValue)).toBe('{"body":"plain text"}');
   });
 
-  it("Edge case: string containing control char / quote / backslash is routed to JSON.stringify", () => {
+  it("string containing control char / quote / backslash is routed to JSON.stringify", () => {
     const Doc = schema({ body: text });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
@@ -330,8 +341,8 @@ describe("serializeText (internal, exercised via compileSerializer + text)", () 
   });
 });
 
-describe("serializeDate (internal, exercised via compileSerializer + date)", () => {
-  it("Happy path: ISO default returns full toISOString()", () => {
+describe("date field serialization", () => {
+  it("ISO default returns full toISOString()", () => {
     const Doc = schema({ d: date });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
@@ -339,7 +350,7 @@ describe("serializeDate (internal, exercised via compileSerializer + date)", () 
     expect(serialize({ d: when } as unknown as JsonValue)).toBe(`{"d":"${when.toISOString()}"}`);
   });
 
-  it("Edge case: YMD / DMY / MDY return ISO date prefix (first 10 chars)", () => {
+  it("YMD / DMY / MDY return ISO date prefix (first 10 chars)", () => {
     const when = new Date(Date.UTC(2024, 2, 22, 10, 30, 0));
     const prefix = when.toISOString().slice(0, 10);
 
@@ -350,7 +361,7 @@ describe("serializeDate (internal, exercised via compileSerializer + date)", () 
     }
   });
 
-  it("Edge case: TIMESTAMP returns ms epoch as a numeric string (unquoted)", () => {
+  it("TIMESTAMP returns ms epoch as a numeric string (unquoted)", () => {
     const Doc = schema({ d: date.format("TIMESTAMP") });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 
@@ -361,7 +372,7 @@ describe("serializeDate (internal, exercised via compileSerializer + date)", () 
     expect(JSON.parse(out)).toEqual({ d: when.getTime() });
   });
 
-  it("Edge case: invalid Date returns the literal null (string)", () => {
+  it("invalid Date returns the literal null (string)", () => {
     const Doc = schema({ d: date });
     const serialize = compileSerializer(Doc as OpaqueSchemaToken);
 

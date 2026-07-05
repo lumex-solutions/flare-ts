@@ -1,0 +1,12 @@
+{
+  "outdir": "/ws/reports",
+  "servers": [
+    {
+      "agent": "flare-ts-node",
+      "url": "ws://echo:9001"
+    }
+  ],
+  "cases": ["*"],
+  "exclude-cases": ["12.*", "13.*"],
+  "exclude-agent-cases": {}
+}

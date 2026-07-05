@@ -1,5 +1,7 @@
+/**
+ * Integration tests for each `model()` call form exercised through safeParse and the compiled serializer.
+ */
 import { describe, expect, it } from "vitest";
-import { SCHEMA_BRAND, SCHEMA_DESCRIPTOR, SCHEMA_REQUIRED } from "../../../src/schema/internal/token/symbols.js";
 import { model } from "../../../src/schema/model.js";
 import { int } from "../../../src/schema/primitives/int.js";
 import { str } from "../../../src/schema/primitives/str.js";
@@ -7,41 +9,8 @@ import { uuid } from "../../../src/schema/primitives/uuid.js";
 import { schema } from "../../../src/schema/schema.js";
 import { COMPILED_SERIALIZER } from "../../../src/schema/symbol.js";
 
-describe("model() - descriptor overload", () => {
-  it("returns a token with SCHEMA_BRAND, SCHEMA_DESCRIPTOR, COMPILED_SERIALIZER static symbols", () => {
-    const descriptor = { id: uuid, name: str };
-    const token = model<{ id: string; name: string; }>(descriptor);
-
-    const tokenRecord = token as unknown as Record<symbol, unknown>;
-    expect(tokenRecord[SCHEMA_BRAND]).toBe(true);
-    expect(tokenRecord[SCHEMA_DESCRIPTOR]).toBe(descriptor);
-    // COMPILED_SERIALIZER is a lazy getter; accessing it must yield a callable.
-    expect(typeof tokenRecord[COMPILED_SERIALIZER]).toBe("function");
-  });
-
-  it("returned token is callable as a class via `class X extends model({...}) {}`", () => {
-    const Base = model<{ id: string; name: string; }>({ id: uuid, name: str });
-
-    // Extending the returned token must not throw at evaluation time.
-    class UserModel extends Base {}
-
-    // The static schema symbols flow through to the subclass.
-    const subRecord = UserModel as unknown as Record<symbol, unknown>;
-    expect(subRecord[SCHEMA_BRAND]).toBe(true);
-    expect(subRecord[SCHEMA_DESCRIPTOR]).toBeDefined();
-  });
-
-  it("empty descriptor model({}) returns a usable token", () => {
-    const Empty = model<Record<string, never>>({});
-
-    const tokenRecord = Empty as unknown as Record<symbol, unknown>;
-    expect(tokenRecord[SCHEMA_BRAND]).toBe(true);
-
-    const result = Empty.safeParse({});
-    expect(result.success).toBe(true);
-  });
-
-  it("safeParse on returned token delegates to underlying schema token", () => {
+describe("model token from descriptor", () => {
+  it("safeParse on a model from a descriptor parses like the equivalent schema token", () => {
     const UserModel = model<{ id: string; name: string; }>({ id: uuid, name: str });
 
     const ok = UserModel.safeParse({
@@ -60,19 +29,9 @@ describe("model() - descriptor overload", () => {
       expect(fail.error.fields[0]!.path).toBe("id");
     }
   });
-
-  it("optional() on returned token produces an optional schema token", () => {
-    const UserModel = model<{ id: string; }>({ id: uuid });
-
-    const opt = UserModel.optional();
-    const optRecord = opt as unknown as Record<symbol, unknown>;
-
-    expect(optRecord[SCHEMA_BRAND]).toBe(true);
-    expect(optRecord[SCHEMA_REQUIRED]).toBe(false);
-  });
 });
 
-describe("model() - existing schema token overload", () => {
+describe("model token from existing schema", () => {
   it("promoting a top-level array schema token reuses the token and parses/serializes arrays", () => {
     const World = schema({ id: uuid, name: str });
     const WorldsSchema = schema([World]);
@@ -89,41 +48,9 @@ describe("model() - existing schema token overload", () => {
     const modelRecord = WorldsModel as unknown as Record<symbol, unknown>;
     expect(typeof modelRecord[COMPILED_SERIALIZER]).toBe("function");
   });
-
-  it("passing an existing schema(...) token reuses its descriptor without re-wrapping", () => {
-    const descriptor = { id: uuid, name: str };
-    const UserSchema = schema(descriptor);
-    const UserModel = model(UserSchema);
-
-    const schemaRecord = UserSchema as unknown as Record<symbol, unknown>;
-    const modelRecord = UserModel as unknown as Record<symbol, unknown>;
-
-    // The same descriptor object is shared between the source schema token
-    // and the resulting model token (no re-wrap on the descriptor side).
-    expect(modelRecord[SCHEMA_DESCRIPTOR]).toBe(schemaRecord[SCHEMA_DESCRIPTOR]);
-  });
-
-  it("SCHEMA_BRAND brand check correctly distinguishes a token from a descriptor object", () => {
-    // A plain descriptor (no SCHEMA_BRAND) takes the descriptor branch.
-    const plainDescriptor = { id: uuid };
-    const FromPlain = model<{ id: string; }>(plainDescriptor);
-
-    // The branch that builds a fresh schema token wraps the descriptor in a new
-    // object, so the descriptor identity stored on the model is the plain map.
-    const fromPlainRecord = FromPlain as unknown as Record<symbol, unknown>;
-    expect(fromPlainRecord[SCHEMA_DESCRIPTOR]).toBe(plainDescriptor);
-
-    // A pre-built schema token (carrying SCHEMA_BRAND) takes the reuse branch.
-    const SourceToken = schema({ id: uuid });
-    const FromToken = model(SourceToken);
-
-    const sourceRecord = SourceToken as unknown as Record<symbol, unknown>;
-    const fromTokenRecord = FromToken as unknown as Record<symbol, unknown>;
-    expect(fromTokenRecord[SCHEMA_DESCRIPTOR]).toBe(sourceRecord[SCHEMA_DESCRIPTOR]);
-  });
 });
 
-describe("model() - discriminated union overload", () => {
+describe("discriminated union model token", () => {
   type Cat = { kind: "cat"; lives: number; };
   type Dog = { kind: "dog"; breed: string; };
   type Pet = Cat | Dog;
@@ -152,15 +79,5 @@ describe("model() - discriminated union overload", () => {
 
     const result = Empty.safeParse({ kind: "anything" });
     expect(result.success).toBe(false);
-  });
-
-  it("COMPILED_SERIALIZER is attached even for discriminated form", () => {
-    const PetModel = model<Pet, "union">("kind", {
-      cat: { lives: int },
-      dog: { breed: str },
-    });
-
-    const modelRecord = PetModel as unknown as Record<symbol, unknown>;
-    expect(typeof modelRecord[COMPILED_SERIALIZER]).toBe("function");
   });
 });

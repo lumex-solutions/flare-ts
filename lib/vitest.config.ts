@@ -1,32 +1,19 @@
 import { defineConfig } from "vitest/config";
 
 /**
- * Vitest configuration for `@flare-ts/lib`.
- *
- * Three-tier suite: `lib/tests/{unit,artifact,integration}/`. See docs/testing.md.
- *
- * Coverage: v8 provider, reports under `reports/coverage/lib/`. Excludes
- * mirror the Stryker `mutate` excludes so the two reports describe the same
- * "load-bearing source" set. No thresholds yet — baseline first.
+ * Standalone convenience runner for `@flare-ts/lib` (`pnpm --filter @flare-ts/lib test`), NOT a
+ * workspace project. In the workspace, lib is part of the portable file-set and runs via the
+ * portable:node and portable:cloudflare projects (see the root vitest.config.ts).
  */
 export default defineConfig({
+  define: {
+    __FLARE_TEST_ADAPTER__: JSON.stringify("node"),
+  },
   test: {
     name: "lib",
     environment: "node",
     include: ["tests/**/*.test.ts"],
     exclude: [],
     passWithNoTests: true,
-    coverage: {
-      provider: "v8",
-      reporter: ["text", "html", "lcov", "json-summary"],
-      reportsDirectory: "../reports/coverage/lib",
-      include: ["src/**/*.ts"],
-      exclude: [
-        "src/**/*.d.ts",
-        "src/**/index.ts",
-        "src/**/types/**",
-      ],
-      all: true,
-    },
   },
 });

@@ -1,20 +1,7 @@
-// Behavior tests for the schema/model-token feature.
-//
-// `model()` produces an extendable class form of a schema token. Consumers
-// extend the returned builder (`class UserModel extends model({...}) {}`) to
-// give a DTO a stable name while keeping schema semantics — `safeParse`,
-// `optional`, and the well-known schema symbols all flow through to the
-// subclass. This file exercises the feature as consumers use it (extended class form,
-// descriptor identity reuse, nested composition, and the static `COMPILED_SERIALIZER` symbol).
-//
-// One `describe` per H2 section of the spec, one `it` per `- [ ]` bullet.
-// The cross-feature bullet that requires the host transport layer lives in
-// `core/tests/integration/schema/model-token.test.ts` because this package
-// cannot resolve `@flare-ts/core`.
-//
-// Imports use `../../../src/...` to mirror the convention used by
-// neighbouring schema behavior tests in this package.
-
+/**
+ * Integration tests for `model()`: extended class form, descriptor reuse, nested composition,
+ * and the static COMPILED_SERIALIZER symbol.
+ */
 import { describe, expect, it } from "vitest";
 import { compileSerializer, int, model, schema, str, uuid } from "../../../src/schema/index.js";
 import { SCHEMA_BRAND, SCHEMA_DESCRIPTOR } from "../../../src/schema/internal/token/symbols.js";
@@ -42,8 +29,7 @@ describe("Primary Behavior", () => {
       expect(ok.success).toBe(true);
       if (!ok.success) return;
       // Typed access: the inferred shape of `ok.data` provides `id` and
-      // `name` without any unwrapping, matching the spec's "typed instance"
-      // wording.
+      // `name` without any unwrapping.
       expect(ok.data.id).toBe("550e8400-e29b-41d4-a716-446655440000");
       expect(ok.data.name).toBe("Ada");
       expect(typeof ok.data.id).toBe("string");
@@ -62,9 +48,8 @@ describe("Primary Behavior", () => {
       const schemaRecord = UserSchema as unknown as Record<symbol, unknown>;
       const modelRecord = UserModel as unknown as Record<symbol, unknown>;
 
-      // Descriptor identity is preserved across the schema-token reuse branch
-      // — the spec's "without re-wrapping" wording means the same descriptor
-      // object reference flows through, not a copy.
+      // Descriptor identity is preserved across the schema-token reuse branch:
+      // the same descriptor object reference flows through, not a copy.
       expect(modelRecord[SCHEMA_DESCRIPTOR]).toBe(schemaRecord[SCHEMA_DESCRIPTOR]);
       // The model class also brands itself as a schema token (so the
       // transport layer's `SCHEMA_BRAND` lookup will recognise it).
@@ -128,7 +113,7 @@ describe("Edge Cases", () => {
       const cat = PetModel.safeParse({ kind: "cat", lives: 9 });
       expect(cat.success).toBe(true);
       if (!cat.success) return;
-      // Narrow on the discriminant — typed access to `lives` requires the
+      // Narrow on the discriminant for typed access to `lives` requires the
       // parser to have correctly routed through the `cat` branch.
       if (cat.data.kind !== "cat") throw new Error("expected cat branch");
       expect(cat.data.lives).toBe(9);
@@ -161,7 +146,7 @@ describe("Edge Cases", () => {
       expect(typeof aSerializer).toBe("function");
       expect(typeof bSerializer).toBe("function");
       // Distinct function identities prove the serializers were compiled per
-      // class — not memoised across model() invocations.
+      // class, not memoised across model() invocations.
       expect(aSerializer).not.toBe(bSerializer);
 
       // Both produce equivalent output for the same input (identity differs,
@@ -212,7 +197,7 @@ describe("Cross-Feature Interactions", () => {
       expect(typeof eager).toBe("function");
 
       // Manually invoking compileSerializer against the model class must
-      // produce a function whose output matches the eagerly-attached one —
+      // produce a function whose output matches the eagerly-attached one;
       // they share the same descriptor and the same codegen pipeline.
       const manual = compileSerializer(UserModel as unknown as Parameters<typeof compileSerializer>[0]);
 

@@ -1,14 +1,6 @@
-// Behavior tests for the schema/schema-token feature.
-//
-// These tests exercise `schema(...)` as it is used by consumers: built into a
-// token, composed nested inside another descriptor, parsed via `safeParse`,
-// fed into the compiled serializer, and fed into the JSON Schema exporter.
-// They are deliberately not unit tests of `safeParse` itself - the focus is
-// on the token as a composable value across descriptors and downstream
-// consumers.
-//
-// One `describe` per H2 section of the spec, one `it` per `- [ ]` bullet.
-
+/**
+ * Integration tests for `schema(...)` as a composable token across nested descriptors, safeParse, serializer, and JSON Schema export.
+ */
 import { describe, expect, it } from "vitest";
 import type { SchemaToken } from "../../../src/schema/index.js";
 import { compileSerializer, int, schema, str, toJsonSchema } from "../../../src/schema/index.js";
@@ -69,7 +61,7 @@ describe("Primary Behavior", () => {
       expect(withProfile.data.profile).toEqual({ bio: "hello" });
     }
 
-    // Absent: parent still succeeds, nested key is simply not set on the
+    // Absent: parent still succeeds; nested key is not set on the
     // parsed value (no error pushed for missing optional schema).
     const withoutProfile = User.safeParse({ id: "1" });
     expect(withoutProfile.success).toBe(true);
@@ -130,12 +122,12 @@ describe("Edge Cases", () => {
     // Build a parent that uses the ORIGINAL token as a required field.
     const Parent = schema({ inner: Inner });
 
-    // First parse: required field present -> success.
+    // First parse with required field present succeeds.
     const first = Parent.safeParse({ inner: { value: "1" } });
     expect(first.success).toBe(true);
     if (first.success) expect(first.data.inner.value).toBe(1);
 
-    // Second parse: required field absent -> failure for `inner`.
+    // Second parse with required field absent fails for `inner`.
     // If `.optional()` had mutated `Inner`, this would incorrectly succeed.
     const second = Parent.safeParse({});
     expect(second.success).toBe(false);
@@ -247,7 +239,7 @@ describe("Cross-Feature Interactions", () => {
     expect(second.data).toEqual(first.data);
   });
 
-  it("(with `schema/json-schema-export`) produces a JSON Schema document whose `required` reflects which descriptor fields are non-optional", () => {
+  it("(with `schema/json/to-json-schema`) produces a JSON Schema document whose `required` reflects which descriptor fields are non-optional", () => {
     const Inner = schema({ note: str });
 
     const Doc = schema({

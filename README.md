@@ -1,4 +1,3 @@
-
 <div align="center">
   <img src="./assets/flare-logo.png" alt="Flare" width="280" /><br/><br/>
   <p>Composition-first TypeScript HTTP framework for Node.js and Cloudflare Workers.</p>
@@ -37,7 +36,6 @@ app.run();
 </div>
 
 Write and explore a Flare app in your browser and run it live on Cloudflare Workers. No install, no account. The sandbox is itself built with Flare on the same Cloudflare adapter it showcases.
-
 
 ### Contents
 
@@ -219,11 +217,11 @@ Flare registers config, services, and routes on a `FlareHost`. When you call `ho
 
 ## Runtimes
 
-| Runtime            | Import                                           | Start                                                   |
-| ------------------ | ------------------------------------------------ | ------------------------------------------------------- |
-| Node.js >= 22      | `import { node } from "@flare-ts/core/node"`     | `const app = host.build(); app.run()`                   |
-| Cloudflare Workers | `import { cf } from "@flare-ts/core/cloudflare"` | `const app = host.build(); export default app.export()` |
-| Bun (planned)      | `@flare-ts/core/bun`                             | The adapter import exists but is not yet functional. Use the `node` or `cf` adapter for now. |
+| Runtime            | Import                                           | Start                                                                                                              |
+| ------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Node.js >= 22      | `import { node } from "@flare-ts/core/node"`     | `const app = host.build(); app.run()`                                                                              |
+| Cloudflare Workers | `import { cf } from "@flare-ts/core/cloudflare"` | `const app = host.build(); export default app.export()`                                                            |
+| Bun (planned)      | `@flare-ts/core/bun`                             | The adapter import exists but is not yet functional. Use the `node` or `cf` adapter for now.                       |
 | Deno (planned)     | `@flare-ts/core/deno`                            | The adapter import exists but is not yet functional, and is not in CI yet. Use the `node` or `cf` adapter for now. |
 
 On Workers, use the `cf` adapter. It reads config from `FLARE__`-prefixed values in the `wrangler.toml` `[vars]` table, because a Worker cannot read `flare.json` from disk at runtime:
@@ -270,6 +268,7 @@ An optional `flare.json` sets the port, logging, and custom config sections, and
   "log": { "level": "debug", "format": "pretty" }
 }
 ```
+
 ---
 
 ## Roadmap
@@ -296,7 +295,6 @@ Long-running workers as a first-class part of the app, sharing the same dependen
 ### Phase 4 - Scheduling, storage, and a stable 1.0
 
 Scheduled and recurring work on top of the worker model. Optional storage bindings(inspired by CF, pluggable storage interface for node) for key-value and object storage, one concept across every runtime. Then benchmarks, hardening, and a stable API for 1.0.
-
 
 And at some point Bun and Deno support will land, but that depends entirely on when I get the gumption to go down those rabbit holes. I have mentally planned a lot of those, but no deep dives. Intention is to support for v1.0, but no promises.
 

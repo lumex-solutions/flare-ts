@@ -1,15 +1,6 @@
-// Behavior tests for the schema/safe-parse feature.
-//
-// `safeParse` is the entry point for turning raw request data (a JSON string,
-// an ArrayBuffer, or an already-parsed JsonValue) into a typed value. This
-// file exercises the contract end-to-end via composed `schema(...)` tokens —
-// the same way consumers use it — and complements the unit tests under
-// `lib/tests/unit/internal/parser/`.
-//
-// One `describe` per H2 section of the spec, one `it` per `- [ ]` bullet.
-// Imports use `../../../src/...` to mirror the convention used by neighbouring
-// tests in this package.
-
+/**
+ * Integration tests for `safeParse` with JSON string, ArrayBuffer, and JsonValue inputs via composed schema tokens.
+ */
 import { describe, expect, it } from "vitest";
 import type { FieldError } from "../../../src/schema/index.js";
 import { array, bool, defaultTo, int, optional, schema, str } from "../../../src/schema/index.js";

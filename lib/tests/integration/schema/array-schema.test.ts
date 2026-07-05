@@ -1,12 +1,6 @@
-// Behavior tests for the schema/array-schema feature.
-//
-// Top-level array schemas are declared via `schema([ItemSchema])` and parse a
-// JSON array where each item is validated by the nested schema token. These
-// tests exercise the feature end-to-end through the public `schema(...)` API
-// and the compiled serializer, mirroring how a consumer composes the pieces.
-//
-// One `describe` block per H2 section of the spec, one `it` per `- [ ]` bullet.
-
+/**
+ * Integration tests for top-level array schemas via `schema([ItemSchema])`, safeParse, and compileSerializer.
+ */
 import { describe, expect, it } from "vitest";
 import { compileSerializer, int, schema, str } from "../../../src/schema/index.js";
 
@@ -181,7 +175,6 @@ describe("Cross-Feature Interactions", () => {
 
     const out = serialize(sample);
 
-    // Brackets at both ends.
     expect(out.startsWith("[")).toBe(true);
     expect(out.endsWith("]")).toBe(true);
 

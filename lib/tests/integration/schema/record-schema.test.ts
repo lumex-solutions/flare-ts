@@ -1,17 +1,6 @@
-// Behavior tests for the schema/record-schema feature.
-//
-// A record schema (`schema([{ $record: ValueSchema }])`) parses a JSON object
-// with arbitrary string keys where every value conforms to a single uniform
-// value schema. These tests exercise the feature end-to-end via the public
-// `schema(...)` entrypoint, not the internal `recordSafeParse` helper - that
-// helper has its own unit tests under `lib/tests/unit/internal/parser/`.
-//
-// Imports come from `../../../src` to match the other behavior tests in this
-// package (no build artefacts required).
-//
-// One `describe` block per H2 section of the spec, one `it` per `- [ ]`
-// bullet, in spec order.
-
+/**
+ * Integration tests for record schemas `schema([{ $record: ValueSchema }])` via the public schema entrypoint.
+ */
 import { describe, expect, it } from "vitest";
 import { int, schema, str } from "../../../src/schema/index.js";
 

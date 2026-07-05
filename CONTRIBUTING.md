@@ -4,10 +4,10 @@ Thanks for considering a contribution to Flare. This guide covers setup, convent
 
 ## Prerequisites
 
-| Tool | Version | Install |
-|------|---------|---------|
-| Node.js | >= 22 | [nodejs.org](https://nodejs.org) |
-| pnpm | 10 | `corepack enable && corepack prepare pnpm@10.32.1 --activate` |
+| Tool    | Version | Install                                                       |
+| ------- | ------- | ------------------------------------------------------------- |
+| Node.js | >= 22   | [nodejs.org](https://nodejs.org)                              |
+| pnpm    | 10      | `corepack enable && corepack prepare pnpm@10.32.1 --activate` |
 
 ## Getting started
 
@@ -57,9 +57,9 @@ flare-ts/
 
 ## Packages
 
-| Package | npm | Description |
-|---------|-----|-------------|
-| `@flare-ts/lib` | [![npm](https://img.shields.io/npm/v/@flare-ts/lib.svg)](https://www.npmjs.com/package/@flare-ts/lib) | Standard library — schema primitives, model definitions. Zero runtime deps. |
+| Package          | npm                                                                                                     | Description                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `@flare-ts/lib`  | [![npm](https://img.shields.io/npm/v/@flare-ts/lib.svg)](https://www.npmjs.com/package/@flare-ts/lib)   | Standard library — schema primitives, model definitions. Zero runtime deps.                              |
 | `@flare-ts/core` | [![npm](https://img.shields.io/npm/v/@flare-ts/core.svg)](https://www.npmjs.com/package/@flare-ts/core) | Framework core — host, routing, services, validation, runtime adapters. Depends only on `@flare-ts/lib`. |
 
 ## Development workflow
@@ -67,21 +67,15 @@ flare-ts/
 ### Running tests
 
 ```bash
-# All tests (Node + Cloudflare)
+# All runtimes (portable suites run on node only)
 pnpm test
 
-# Node tests only (lib + core:node)
+# One runtime, plus the portable suites on it
 pnpm test:node
-
-# Cloudflare Workers tests only
 pnpm test:cloudflare
 
-# Single package
-pnpm test:lib
-pnpm test:core
-
-# Coverage
-pnpm test:coverage
+# Everything: every runtime, portable suites on each
+pnpm test
 ```
 
 ### Code quality
@@ -123,7 +117,7 @@ git checkout -b fix/your-fix
 
 ### 3. Write tests
 
-- Tests live alongside source in `unit/`, `integration/`, and `artifact/` directories
+- Tests live under runtime roots (`portable/`, `node/`, `cloudflare/`) with `unit/` and `integration/` tiers inside; see [standards/testing/](standards/testing/structure.md)
 - Use Vitest (`import { describe, it, expect } from 'vitest'`)
 - Both Node and Cloudflare test suites should pass
 
@@ -163,7 +157,7 @@ refactor: restructure without behavior change
 
 - Formatting: [dprint](https://dprint.dev/) (run `pnpm format`)
 - Linting: ESLint (run `pnpm lint`)
-- No `any` types — use `unknown` and narrow
+- No `any` types - use `unknown` and narrow
 - Prefer composition over inheritance (it's in the name)
 
 ### Dependency policy

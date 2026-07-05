@@ -53,10 +53,6 @@
       "types": "./dist/cloudflare.d.ts",
       "import": "./dist/cloudflare.js"
     },
-    "./cloudflare/testing": {
-      "types": "./dist/cloudflare/testing.d.ts",
-      "import": "./dist/cloudflare/testing.js"
-    },
     "./testing": {
       "types": "./dist/testing.d.ts",
       "import": "./dist/testing.js"
@@ -67,17 +63,15 @@
     "typecheck": "tsc -p tsconfig.json",
     "build": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\" && esbuild \"src/**/*.ts\" --format=esm --outdir=dist --platform=neutral --target=es2022 && tsc -p tsconfig.build.json",
     "build:watch": "esbuild \"src/**/*.ts\" --format=esm --outdir=dist --platform=neutral --target=es2022 --watch",
-    "test": "vitest run --config vitest.config.ts",
-    "test:watch": "vitest --config vitest.config.ts",
-    "test:cf": "vitest run --config vitest.config.cloudflare.ts",
-    "test:cf:watch": "vitest --config vitest.config.cloudflare.ts",
-    "test:all": "vitest run --config vitest.config.ts && vitest run --config vitest.config.cloudflare.ts"
+    "test": "vitest run --config vitest.config.node.ts && vitest run --config vitest.config.cloudflare.ts",
+    "test:node": "vitest run --config vitest.config.node.ts",
+    "test:cloudflare": "vitest run --config vitest.config.cloudflare.ts"
   },
   "publishConfig": {
     "access": "public"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.16.17",
+    "@cloudflare/vitest-pool-workers": "^0.18.0",
     "@cloudflare/workers-types": "^4.20260617.1",
     "@types/node": "^20.11.1",
     "esbuild": "^0.27.4",

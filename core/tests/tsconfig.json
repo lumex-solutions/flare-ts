@@ -1,11 +1,13 @@
 {
-  // Node-pool test files. Mirrors vitest.config.ts: Cloudflare tests are typed by
-  // tests/cloudflare/tsconfig.json (workers-types) instead, so they're excluded here to keep DOM
-  // globals (e.g. Headers.getSetCookie) that @cloudflare/workers-types would otherwise shadow.
+  // Node-pool test files (the portable/ and node/ runtime roots). The cloudflare/ root is typed
+  // by tests/cloudflare/tsconfig.json (workers-types) and excluded here, keeping DOM globals
+  // (e.g. Headers.getSetCookie) that @cloudflare/workers-types would otherwise shadow. The
+  // probe/hibernation-canary worker is a deployable CF artifact (typed by wrangler bundling,
+  // not a test), so it is excluded for the same reason.
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "types": ["node", "vitest/globals"]
   },
   "include": ["**/*.ts"],
-  "exclude": ["cloudflare/**"]
+  "exclude": ["cloudflare/**", "probe/hibernation-canary/**"]
 }

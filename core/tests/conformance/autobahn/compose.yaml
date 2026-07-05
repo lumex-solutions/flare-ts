@@ -1,0 +1,30 @@
+# Autobahn conformance run, fully containerized: the flare echo app and the testsuite share one
+# bridge network, so traffic never crosses the container/host boundary. This is what makes a
+# single-session 301-case run reliable: Docker Desktop's host.docker.internal NAT proxy degrades
+# under sustained churn/throughput and silently truncates the run, but container-to-container
+# traffic on a bridge never touches it.
+#
+#   docker compose up --exit-code-from wstest
+#   node verify-report.mjs
+services:
+  echo:
+    image: node:22
+    working_dir: /repo/core/tests/conformance/autobahn
+    volumes:
+      - ../../../..:/repo
+    # tsx is installed container-side (Linux esbuild); the mounted repo supplies the sources, and the
+    # pnpm workspace link core/node_modules/@flare-ts/lib resolves through the mount.
+    command: sh -c "npm install -g tsx >/dev/null 2>&1 && tsx echo-server.mts"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:9001/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 45
+  wstest:
+    image: crossbario/autobahn-testsuite
+    depends_on:
+      echo:
+        condition: service_healthy
+    volumes:
+      - .:/ws
+    command: wstest -m fuzzingclient -s /ws/fuzzingclient.json

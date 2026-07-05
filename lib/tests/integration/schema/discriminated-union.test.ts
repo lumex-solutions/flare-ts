@@ -1,14 +1,7 @@
-// Behavior tests for the schema/discriminated-union feature.
-//
-// These exercise the discriminated `schema(discriminantKey, branches)` overload
-// as a consumer would use it: declare a union type, parse representative
-// payloads through `safeParse`, and observe the runtime result, the type-level
-// shape, and the failure modes documented in the spec. The Cross-Feature
-// section also routes the discriminated descriptor through `toJsonSchema` to
-// verify the `{ anyOf: [...] }` materialisation.
-//
-// Structure: Primary Behavior, Edge Cases, Failure Modes, Cross-Feature Interactions.
-
+/**
+ * Integration tests for discriminated `schema(discriminantKey, branches)`: parsing, failure modes,
+ * and `toJsonSchema` anyOf materialisation.
+ */
 import { describe, expect, it } from "vitest";
 import type { OpaqueSchemaToken } from "../../../src/schema/index.js";
 import { int, optional, schema, str, toJsonSchema } from "../../../src/schema/index.js";
@@ -176,7 +169,7 @@ describe("Failure Modes", () => {
 });
 
 describe("Cross-Feature Interactions", () => {
-  it("(with schema/json-schema-export) toJsonSchema(discriminatedToken) produces { anyOf: [...] } with one branch per registered discriminant value, each with the discriminant field forced to a string type", () => {
+  it("(with schema/json/to-json-schema) toJsonSchema(discriminatedToken) produces { anyOf: [...] } with one branch per registered discriminant value, each with the discriminant field forced to a string type", () => {
     type Cat = { kind: "cat"; lives: number; };
     type Dog = { kind: "dog"; breed: string; };
     type Pet = Cat | Dog;
