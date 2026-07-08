@@ -18,6 +18,20 @@ siblings beats local preference.
 - Bare concept names - services (`Container`); a developer-facing service spells its domain out
   (`WebSocketChannels`).
 
+## Factories
+
+- App-level declaration factories are flare-prefixed (`flareConfig`, `flareErrorCodes`,
+  `flareState`): the developer is declaring something to the framework.
+- Vocabulary factories are bare (`errorSchema`, `optional`, `defaultTo`): they mint a value of
+  their own module's vocabulary.
+- Arc shorthands spell their domain (`httpContract`, `socketContract`).
+
+## Accessors
+
+- An accessor's name states its gating semantics and never contradicts them: a gated view and
+  its raw counterpart are named as such (`detail` returns only what `expose` permits;
+  `rawDetail` returns everything). "Exposed" naming the UNGATED view is the counterexample.
+
 ## Files
 
 - Class modules: kebab-case of the class.

@@ -16,12 +16,13 @@ module or subsystem, and ask them to narrow the target. Never expand scope beyon
 
 ## Rules source
 
-Read all four standards before auditing (paths from the repo root):
+Read all five standards before auditing (paths from the repo root):
 
 1. `standards/style/organization/file-kinds.md`
 2. `standards/style/organization/subsystems.md`
 3. `standards/style/organization/declarations.md`
 4. `standards/style/organization/naming.md`
+5. `standards/style/api/surface.md`
 
 The standards are the only rules. Do not import preferences from elsewhere.
 
