@@ -2,7 +2,6 @@
  * Integration tests for `schema(...)` as a composable token across nested descriptors, safeParse, serializer, and JSON Schema export.
  */
 import { describe, expect, it } from "vitest";
-import type { SchemaToken } from "../../../src/schema/index.js";
 import { compileSerializer, int, schema, str, toJsonSchema } from "../../../src/schema/index.js";
 
 describe("Primary Behavior", () => {
@@ -284,7 +283,3 @@ describe("Cross-Feature Interactions", () => {
     expect(innerExported.required).toEqual(["note"]);
   });
 });
-
-// Compile-time touch: ensures the `SchemaToken` type alias is reachable from
-// this file. Pure type reference, no runtime effect.
-type _TouchSchemaToken = SchemaToken<{ a: number; }>;

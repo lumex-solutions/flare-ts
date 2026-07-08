@@ -2,11 +2,11 @@
  * Unit tests for compileSerializer JSON.stringify fallback on record and discriminated-union descriptors.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonValue, OpaqueSchemaToken } from "../../../../src/schema/schema.js";
-import { compileSerializer } from "../../../../src/schema/json/serializer.js";
-import { int } from "../../../../src/schema/primitives/int.js";
-import { str } from "../../../../src/schema/primitives/str.js";
-import { schema } from "../../../../src/schema/schema.js";
+import type { JsonValue, OpaqueSchemaToken } from "../../../src/schema/schema.js";
+import { int } from "../../../src/schema/primitives/int.js";
+import { str } from "../../../src/schema/primitives/str.js";
+import { schema } from "../../../src/schema/schema.js";
+import { compileSerializer } from "../../../src/schema/serializer.js";
 
 describe("compileSerializer JSON.stringify fallback paths", () => {
   it("record descriptor uses JSON.stringify fallback (no codegen branch)", () => {

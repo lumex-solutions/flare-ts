@@ -1,3 +1,6 @@
+/**
+ * The string primitive with chainable length and pattern constraints.
+ */
 import type { TypedPrimitive } from "./index.js";
 
 /**
@@ -14,6 +17,20 @@ type StringPrimitive = TypedPrimitive<string> & {
 };
 
 type StringConfig = { min?: number; max?: number; pattern?: RegExp; };
+
+/**
+ * String primitive with optional chainable length and pattern constraints.
+ *
+ * @example
+ * ```ts
+ * str                               // any string
+ * str.min(3).max(50)                // length range
+ * str.pattern(/^\S+@\S+\..+$/)      // regex constraint
+ * ```
+ *
+ * @throws {Error} When the raw value fails this primitive's validation.
+ */
+export const str: StringPrimitive = makeStr();
 
 function makeStr(config: StringConfig = {}): StringPrimitive {
   const fn = (v: string): string => {
@@ -39,17 +56,7 @@ function makeStr(config: StringConfig = {}): StringPrimitive {
   fn.min = (n: number) => makeStr({ ...config, min: n });
   fn.max = (n: number) => makeStr({ ...config, max: n });
   fn.pattern = (regex: RegExp) => makeStr({ ...config, pattern: regex });
+  // The parser fn was built up property-by-property; the cast restates the completed
+  // primitive shape the checker cannot follow through mutation.
   return fn as StringPrimitive;
 }
-
-/**
- * String primitive with optional chainable length and pattern constraints.
- *
- * @example
- * ```ts
- * str                               // any string
- * str.min(3).max(50)                // length range
- * str.pattern(/^\S+@\S+\..+$/)      // regex constraint
- * ```
- */
-export const str: StringPrimitive = makeStr();

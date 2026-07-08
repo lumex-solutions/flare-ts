@@ -1,3 +1,6 @@
+/**
+ * The integer primitive with chainable range constraints.
+ */
 import type { TypedPrimitive } from "./index.js";
 
 /**
@@ -14,6 +17,20 @@ type IntPrimitive = TypedPrimitive<number> & {
 type IntConfig = { min?: number; max?: number; };
 
 const MAX_SAFE_INTEGER_DIGITS = String(Number.MAX_SAFE_INTEGER).length;
+
+/**
+ * Integer primitive. Rejects non-integer input and optionally enforces a range.
+ *
+ * @example
+ * ```ts
+ * int                 // any integer
+ * int.min(0)          // non-negative
+ * int.min(1).max(100) // bounded range
+ * ```
+ *
+ * @throws {Error} When the raw value fails this primitive's validation.
+ */
+export const int: IntPrimitive = makeInt();
 
 function makeInt(config: IntConfig = {}): IntPrimitive {
   const { min, max } = config;
@@ -56,17 +73,7 @@ function makeInt(config: IntConfig = {}): IntPrimitive {
   };
   fn.min = (n: number) => makeInt({ ...config, min: n });
   fn.max = (n: number) => makeInt({ ...config, max: n });
+  // The parser fn was built up property-by-property; the cast restates the completed
+  // primitive shape the checker cannot follow through mutation.
   return fn as IntPrimitive;
 }
-
-/**
- * Integer primitive. Rejects non-integer input and optionally enforces a range.
- *
- * @example
- * ```ts
- * int                 // any integer
- * int.min(0)          // non-negative
- * int.min(1).max(100) // bounded range
- * ```
- */
-export const int: IntPrimitive = makeInt();

@@ -1,6 +1,10 @@
-import type { Primitive } from "../primitives/index.js";
-import type { JsonValue, OpaqueSchemaToken } from "../schema.js";
-import { SCHEMA_BRAND, SCHEMA_DESCRIPTOR, SCHEMA_REQUIRED } from "../internal/token/symbols.js";
+/**
+ * Schema-driven JSON output: the compiled fast serializer and the JSON Schema
+ * exporter, both introspecting tokens through the descriptor brand.
+ */
+import type { Primitive } from "./primitives/index.js";
+import type { JsonValue, OpaqueSchemaToken } from "./schema.js";
+import { SCHEMA_BRAND, SCHEMA_DESCRIPTOR, SCHEMA_REQUIRED } from "./schema.js";
 
 type ArraySchemaDescriptor = readonly [IntrospectableSchemaToken];
 
@@ -21,10 +25,91 @@ type DescriptorField = Primitive | IntrospectableSchemaToken;
 type DatePrimitiveField = Primitive & { readonly _type: "date"; readonly _format?: string; };
 type ArrayPrimitiveField = Primitive & { readonly _item?: Primitive; };
 
+type JsonSchema =
+  | { type: "object"; properties: Record<string, JsonSchema>; required?: string[]; }
+  | { type: "object"; additionalProperties: JsonSchema; }
+  | { type: "array"; items: JsonSchema; }
+  | { type: "string"; format?: string; enum?: readonly string[]; }
+  | { type: "integer" | "number"; minimum?: number; maximum?: number; }
+  | { type: "boolean"; }
+  | { anyOf: JsonSchema[]; }
+  | Record<string, never>;
+
+type DiscriminatedDescriptor = {
+  discriminant: string;
+  branches: Record<string, ObjectDescriptor>;
+};
+
 /**
- * Serializes a matching JSON value to a string, compiled from a schema token.
+ * A compiled function serializing a JSON value that matches its source schema token.
  */
-export type Serializer = (doc: JsonValue) => string;
+export type SchemaSerializer = (doc: JsonValue) => string;
+
+const VALID_IDENTIFIER = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
+const DIRTY_RE = /[\x00-\x1f"\\]/;
+
+const DISCRIMINANT_PRIMITIVE: Primitive = {
+  _type: "string",
+  _required: true,
+  jsonSchema: { type: "string" },
+};
+
+/**
+ * Compiles a fast JSON serializer from a schema token.
+ *
+ * The compiled serializer outperforms fast-json-stringify on typical API response
+ * shapes because Flare's schema carries type information (uuid, date, enum, string
+ * vs text) that allows the codegen to skip escape scans and use pre-built LUTs
+ * wherever the field domain guarantees safety.
+ *
+ * Record and discriminated-union descriptors get a SchemaSerializer that delegates
+ * to JSON.stringify. Callers see the same shape and behaviour as a compiled one,
+ * just without the fast path.
+ *
+ * @param token - A schema token produced by {@link schema} or {@link model}.
+ */
+export function compileSerializer(token: OpaqueSchemaToken): SchemaSerializer {
+  // Public tokens hide the descriptor brand; the introspectable view is how the
+  // compiler reads what schema() stored under SCHEMA_DESCRIPTOR.
+  const introspectable = token as IntrospectableSchemaToken;
+  const descriptor = introspectable[SCHEMA_DESCRIPTOR] as
+    | SchemaDescriptor
+    | DiscriminatedDescriptor;
+
+  if (Array.isArray(descriptor)) {
+    const first = descriptor[0];
+    if (first !== null && typeof first === "object" && "$record" in (first as object)) {
+      return jsonStringifyFallback;
+    }
+    // Top-level array schema: compile item serializer, emit into pre-allocated
+    // array and join to avoid growing ConsString ropes on large arrays.
+    const itemDescriptor = (descriptor as ArraySchemaDescriptor)[0]![SCHEMA_DESCRIPTOR] as ObjectDescriptor;
+    const inner = buildSerializer(itemDescriptor);
+    return function serializeArray(doc: JsonValue): string {
+      const arr = doc as JsonValue[];
+      const parts = new Array<string>(arr.length);
+      for (let i = 0; i < arr.length; i++) parts[i] = inner(arr[i]!);
+      return "[" + parts.join(",") + "]";
+    };
+  }
+
+  if (isDiscriminatedDescriptor(descriptor)) {
+    return jsonStringifyFallback;
+  }
+
+  return buildSerializer(descriptor as ObjectDescriptor);
+}
+
+/**
+ * Converts a schema token into a JSON Schema Draft 7 object.
+ *
+ * Supports flat object descriptors, top-level array tokens, record tokens
+ * (`[{ $record: … }]`), and discriminated unions. Unrecognized descriptor
+ * fields are omitted from `properties` rather than throwing.
+ */
+export function toJsonSchema(token: OpaqueSchemaToken): JsonSchema {
+  return descriptorToJsonSchema((token as IntrospectableSchemaToken)[SCHEMA_DESCRIPTOR]);
+}
 
 function isSchemaToken(value: DescriptorField): value is IntrospectableSchemaToken {
   return SCHEMA_BRAND in value;
@@ -89,68 +174,6 @@ function buildPrimitiveArrayHelper(
   )(...closureVals) as (arr: JsonValue[]) => string;
 }
 
-const VALID_IDENTIFIER = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
-const DIRTY_RE = /[\x00-\x1f"\\]/;
-
-type JsonSchema =
-  | { type: "object"; properties: Record<string, JsonSchema>; required?: string[]; }
-  | { type: "object"; additionalProperties: JsonSchema; }
-  | { type: "array"; items: JsonSchema; }
-  | { type: "string"; format?: string; enum?: readonly string[]; }
-  | { type: "integer" | "number"; minimum?: number; maximum?: number; }
-  | { type: "boolean"; }
-  | { anyOf: JsonSchema[]; }
-  | Record<string, never>;
-
-type DiscriminatedDescriptor = {
-  discriminant: string;
-  branches: Record<string, ObjectDescriptor>;
-};
-
-/**
- * Compiles a fast JSON serializer from a schema token.
- *
- * The compiled serializer outperforms fast-json-stringify on typical API response
- * shapes because Flare's schema carries type information (uuid, date, enum, string
- * vs text) that allows the codegen to skip escape scans and use pre-built LUTs
- * wherever the field domain guarantees safety.
- *
- * For record and discriminated-union descriptors there is no codegen branch yet,
- * so a Serializer that delegates to JSON.stringify is returned. Callers see the
- * same shape and behaviour as a compiled one, just without the fast-path.
- *
- * @param token - A schema token produced by {@link schema} or {@link model}.
- */
-export function compileSerializer(token: OpaqueSchemaToken): Serializer {
-  const introspectable = token as IntrospectableSchemaToken;
-  const descriptor = introspectable[SCHEMA_DESCRIPTOR] as
-    | SchemaDescriptor
-    | DiscriminatedDescriptor;
-
-  if (Array.isArray(descriptor)) {
-    const first = descriptor[0];
-    if (first !== null && typeof first === "object" && "$record" in (first as object)) {
-      return jsonStringifyFallback;
-    }
-    // Top-level array schema: compile item serializer, emit into pre-allocated
-    // array and join to avoid growing ConsString ropes on large arrays.
-    const itemDescriptor = (descriptor as ArraySchemaDescriptor)[0]![SCHEMA_DESCRIPTOR] as ObjectDescriptor;
-    const inner = buildSerializer(itemDescriptor);
-    return function serializeArray(doc: JsonValue): string {
-      const arr = doc as JsonValue[];
-      const parts = new Array<string>(arr.length);
-      for (let i = 0; i < arr.length; i++) parts[i] = inner(arr[i]!);
-      return "[" + parts.join(",") + "]";
-    };
-  }
-
-  if (isDiscriminatedDescriptor(descriptor)) {
-    return jsonStringifyFallback;
-  }
-
-  return buildSerializer(descriptor as ObjectDescriptor);
-}
-
 function jsonStringifyFallback(doc: JsonValue): string {
   return JSON.stringify(doc);
 }
@@ -175,7 +198,7 @@ function serializeDate(value: Date, format?: string): string {
   }
 }
 
-function buildSerializer(descriptor: ObjectDescriptor): Serializer {
+function buildSerializer(descriptor: ObjectDescriptor): SchemaSerializer {
   const closureArgs: string[] = ["esc", "date"];
   const closureVals: unknown[] = [serializeText, serializeDate];
   let generatedNameId = 0;
@@ -340,24 +363,7 @@ function buildSerializer(descriptor: ObjectDescriptor): Serializer {
   const body = emitFields(descriptor, "o");
   return new Function(...closureArgs, `return function serialize(o){ return '{' + ${body} + '}'; }`)(
     ...closureVals,
-  ) as Serializer;
-}
-
-const DISCRIMINANT_PRIMITIVE: Primitive = {
-  _type: "string",
-  _required: true,
-  jsonSchema: { type: "string" },
-};
-
-/**
- * Converts a schema token into a JSON Schema Draft 7 object.
- *
- * Supports flat object descriptors, top-level array tokens, record tokens
- * (`[{ $record: … }]`), and discriminated unions. Unrecognized descriptor
- * fields are omitted from `properties` rather than throwing.
- */
-export function toJsonSchema(token: OpaqueSchemaToken): JsonSchema {
-  return descriptorToJsonSchema((token as IntrospectableSchemaToken)[SCHEMA_DESCRIPTOR]);
+  ) as SchemaSerializer;
 }
 
 function isDiscriminatedDescriptor(

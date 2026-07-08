@@ -3,8 +3,8 @@
  * Exercises Draft-7 JSON Schema export without a FlareApp.testing() harness.
  */
 import { describe, expect, it } from "vitest";
-import type { OpaqueSchemaToken, SchemaToken } from "../../../../src/schema/index.js";
-import { enums, int, optional, schema, str, toJsonSchema, uuid } from "../../../../src/schema/index.js";
+import type { OpaqueSchemaToken, SchemaToken } from "../../../src/schema/index.js";
+import { enums, int, optional, schema, str, toJsonSchema, uuid } from "../../../src/schema/index.js";
 
 describe("Primary Behavior", () => {
   it("produces { type: 'object', properties: { id, name }, required: ['id', 'name'] } for schema({ id: uuid, name: str })", () => {

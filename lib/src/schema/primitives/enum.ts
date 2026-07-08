@@ -1,3 +1,6 @@
+/**
+ * The enum primitive: membership-checked string literals with a serializer LUT.
+ */
 import type { TypedPrimitive } from "./index.js";
 
 /**
@@ -15,6 +18,8 @@ type EnumPrimitive<T extends readonly string[]> = TypedPrimitive<T[number]> & {
  * ```ts
  * const role = enums(["admin", "user", "guest"]);
  * ```
+ *
+ * @throws {Error} When the raw value fails this primitive's validation.
  */
 function enums<const T extends readonly string[]>(values: T): EnumPrimitive<T> {
   const fn = (v: string): T[number] => {
@@ -30,6 +35,8 @@ function enums<const T extends readonly string[]>(values: T): EnumPrimitive<T> {
     enum: values,
   };
   fn.lut = Object.fromEntries(values.map((v) => [v, `"${v}"`]));
+  // The parser fn was built up property-by-property; the cast restates the completed
+  // primitive shape the checker cannot follow through mutation.
   return fn as EnumPrimitive<T>;
 }
 

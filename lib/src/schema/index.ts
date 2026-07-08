@@ -28,5 +28,5 @@ export type { BranchShape, DescriptorValue, DiscriminantValues, OpaqueSchemaToke
 export type { FieldError, JsonObject, JsonValue, SafeParseResult, SchemaError } from "./schema.js";
 
 // JSON Schema / serialization
-export { compileSerializer, toJsonSchema } from "./json/serializer.js";
-export type { Serializer } from "./json/serializer.js";
+export { compileSerializer, toJsonSchema } from "./serializer.js";
+export type { SchemaSerializer } from "./serializer.js";

@@ -2,8 +2,8 @@
  * Unit tests for `discriminatedSafeParse` branch routing, discriminant lookup, and per-branch field errors.
  */
 import { describe, expect, it } from "vitest";
-import type { DescriptorValue, JsonValue } from "../../../../../src/schema/schema.js";
-import { discriminatedSafeParse } from "../../../../../src/schema/internal/parser/discriminated.js";
+import type { DescriptorValue, JsonValue } from "../../../../src/schema/schema.js";
+import { discriminatedSafeParse } from "../../../../src/schema/parser/discriminated.js";
 
 type Cat = { kind: "cat"; lives: number; };
 
@@ -24,8 +24,8 @@ function makePrimitive<T>(
 ): DescriptorValue<T> {
   const fn = (v: string) => call(v);
   (fn as unknown as { _required: boolean; })._required = required;
-  (fn as unknown as { _type: string; })._type = "stub";
-  (fn as unknown as { jsonSchema: unknown; }).jsonSchema = {};
+  // _type and jsonSchema are deliberately absent: the field routine reads only
+  // _required and the call signature.
   return fn as unknown as DescriptorValue<T>;
 }
 

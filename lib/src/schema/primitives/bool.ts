@@ -1,7 +1,12 @@
+/**
+ * The boolean primitive.
+ */
 import type { TypedPrimitive } from "./index.js";
 
 /**
  * Boolean primitive. Accepts `"true"`, `"1"`, `"false"`, `"0"` (case-insensitive).
+ *
+ * @throws {Error} When the raw value fails this primitive's validation.
  */
 const bool: TypedPrimitive<boolean> = Object.assign(
   (v: string): boolean => {

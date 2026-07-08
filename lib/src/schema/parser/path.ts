@@ -1,3 +1,6 @@
+/**
+ * Error-path prefixing for nested and array-item parse failures.
+ */
 /** @internal Prefixes a nested field path with its parent object key. */
 export function prefixNestedPath(key: string, path: string): string {
   if (!path) return key;

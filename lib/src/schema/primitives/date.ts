@@ -1,3 +1,7 @@
+/**
+ * The date primitive: format-aware parsing (ISO, DMY/MDY/YMD, TIMESTAMP) with
+ * chainable format selection.
+ */
 import type { TypedPrimitive } from "./index.js";
 
 /**
@@ -14,6 +18,30 @@ type DatePrimitive = TypedPrimitive<Date> & {
   format(format: DateFormatKey): DatePrimitive;
   readonly _format: string;
 };
+
+/**
+ * Date primitive. Parses a date string and returns a `Date` object.
+ * Defaults to ISO 8601. Chain `.format()` to select a different input format.
+ *
+ * @example
+ * ```ts
+ * date                       // ISO 8601 (default)
+ * date.format("DMY")         // DD/MM/YYYY
+ * date.format("TIMESTAMP")   // Unix seconds / ms / μs
+ * ```
+ *
+ * @throws {Error} When the raw value fails this primitive's validation.
+ */
+
+const DATE_JSON_SCHEMA: Record<DateFormatKey, { type: "string"; format?: string; }> = {
+  ISO: { type: "string", format: "date-time" },
+  YMD: { type: "string", format: "date" },
+  DMY: { type: "string" },
+  MDY: { type: "string" },
+  TIMESTAMP: { type: "string" },
+};
+
+export const date: DatePrimitive = makeDatePrimitive();
 
 function throwBadInput(format: string, raw: string): never {
   throw new Error(`Invalid ${format} date: "${raw}"`);
@@ -85,15 +113,6 @@ function parseTimestamp(raw: string): Date {
   if (isNaN(d.getTime())) throwBadInput("TIMESTAMP", raw);
   return d;
 }
-
-const DATE_JSON_SCHEMA: Record<DateFormatKey, { type: "string"; format?: string; }> = {
-  ISO: { type: "string", format: "date-time" },
-  YMD: { type: "string", format: "date" },
-  DMY: { type: "string" },
-  MDY: { type: "string" },
-  TIMESTAMP: { type: "string" },
-};
-
 /**
  * Parses a date string using the specified {@link DateFormatKey}.
  *
@@ -129,18 +148,7 @@ function makeDatePrimitive(format: DateFormatKey = "ISO"): DatePrimitive {
   fn.jsonSchema = DATE_JSON_SCHEMA[format];
   fn._format = format;
   fn.format = (nextFormat: DateFormatKey) => makeDatePrimitive(nextFormat);
+  // The parser fn was built up property-by-property; the cast restates the completed
+  // primitive shape the checker cannot follow through mutation.
   return fn as DatePrimitive;
 }
-
-/**
- * Date primitive. Parses a date string and returns a `Date` object.
- * Defaults to ISO 8601. Chain `.format()` to select a different input format.
- *
- * @example
- * ```ts
- * date                       // ISO 8601 (default)
- * date.format("DMY")         // DD/MM/YYYY
- * date.format("TIMESTAMP")   // Unix seconds / ms / μs
- * ```
- */
-export const date: DatePrimitive = makeDatePrimitive();

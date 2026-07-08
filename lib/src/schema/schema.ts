@@ -1,11 +1,13 @@
-import type { AnyDescriptorValue, InferSchemaShape } from "./internal/types/inference.js";
+/**
+ * The schema core: the token brands, the schema vocabulary (tokens, errors, parse
+ * results, JSON values), and the `schema()` factory whose overloads build flat, array,
+ * record, and discriminated-union tokens.
+ */
 import type { TypedPrimitive } from "./primitives/index.js";
-import { arraySafeParse } from "./internal/parser/array.js";
-import { discriminatedSafeParse } from "./internal/parser/discriminated.js";
-import { flatSafeParse } from "./internal/parser/object.js";
-import { recordSafeParse } from "./internal/parser/record.js";
-import { makeOptionalSchemaToken } from "./internal/token/optionality.js";
-import { SCHEMA_BRAND, SCHEMA_DESCRIPTOR, SCHEMA_REQUIRED } from "./internal/token/symbols.js";
+import { arraySafeParse } from "./parser/array.js";
+import { discriminatedSafeParse } from "./parser/discriminated.js";
+import { flatSafeParse } from "./parser/object.js";
+import { recordSafeParse } from "./parser/record.js";
 
 /** @internal One-item tuple used to declare an array schema token. */
 type TopLevelArraySchemaInput<T> = readonly [SchemaToken<T>];
@@ -48,6 +50,18 @@ export type JsonValue = string | number | boolean | null | JsonValue[] | { [key:
 export type JsonObject = {
   [key: string]: JsonValue;
 };
+
+// The three token brands use Symbol.for so the identities survive duplicate copies of the
+// package; `as never` is the only way to type a `unique symbol` from Symbol.for.
+
+/** @internal Unique symbol used as a static brand on all schema tokens. */
+export const SCHEMA_BRAND: unique symbol = Symbol.for("@flare-ts/schema/brand") as never;
+
+/** @internal Symbol used to track optionality on schema tokens. */
+export const SCHEMA_REQUIRED: unique symbol = Symbol.for("@flare-ts/schema/required") as never;
+
+/** @internal Symbol used to store the descriptor on schema tokens for compile-time introspection. */
+export const SCHEMA_DESCRIPTOR: unique symbol = Symbol.for("@flare-ts/schema/descriptor") as never;
 
 /**
  * Runtime token representing a schema, with its value type erased.
@@ -102,6 +116,40 @@ export type BranchShape<T, K extends keyof T, V extends DiscriminantValues<T, K>
  * @typeParam T The TypeScript type the descriptor entry produces after parsing.
  */
 export type DescriptorValue<T> = TypedPrimitive<T> | SchemaToken<T>;
+
+/**
+ * The union of every value type accepted in a flat schema descriptor.
+ *
+ * Constrains the inferred overload of {@link schema} so `D` narrows without the
+ * output type `T` being stated up-front.
+ *
+ * @internal
+ */
+export type AnyDescriptorValue = TypedPrimitive<unknown> | SchemaToken<unknown>;
+
+/**
+ * The output object type a concrete descriptor shape `D` maps to.
+ *
+ * `SchemaToken<U>` contributes `U`; `TypedPrimitive<U>` contributes `U`.
+ *
+ * @internal
+ */
+export type InferSchemaShape<D extends Record<string, AnyDescriptorValue>> = {
+  [K in keyof D]: D[K] extends SchemaToken<infer U> ? U
+    : D[K] extends TypedPrimitive<infer U> ? U
+    : never;
+};
+
+/**
+ * Creates an optional copy of a schema token without mutating the original.
+ *
+ * @internal
+ */
+export function makeOptionalSchemaToken<T>(token: SchemaToken<T>): SchemaToken<T> {
+  // The spread copies the symbol-keyed brand and methods; only the requiredness flag
+  // changes, which the SchemaToken type does not surface.
+  return { ...token, [SCHEMA_REQUIRED]: false } as SchemaToken<T>;
+}
 
 /**
  * Creates a schema token that parses a JSON object field-by-field using the
@@ -183,6 +231,10 @@ export function schema<T>(
     | TopLevelRecordSchemaInput<unknown>,
   branches?: { [key: string]: { [field: string]: DescriptorValue<T[keyof T]>; }; },
 ): SchemaToken<T> {
+  // Every branch below builds a plain object literal whose symbol-keyed brand and
+  // conditional parse wiring the checker cannot relate back to SchemaToken<T>; each
+  // `as SchemaToken<T>` restates that constructed shape. The `as unknown` descriptor
+  // stores are the declared erasure seam SCHEMA_DESCRIPTOR documents.
   if (Array.isArray(descriptorOrDiscriminant)) {
     if (descriptorOrDiscriminant.length !== 1) {
       throw new Error("Top-level array schemas must be declared with exactly one item schema.");

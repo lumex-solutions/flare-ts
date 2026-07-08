@@ -5,7 +5,7 @@ import { FINALIZE_JSON_BODY, FlareResponse } from "./flare-response.js";
 
 // Access schema symbols via Symbol.for so this module does not need to import
 // from lib internals. The well-known keys mirror those defined in
-// lib/src/schema/internal/token/symbols.ts and lib/src/schema/symbol.ts.
+// lib/src/schema/schema.ts and lib/src/schema/model.ts.
 const _SCHEMA_BRAND = Symbol.for("@flare-ts/schema/brand");
 const _COMPILED_SERIALIZER = Symbol.for("@flare-ts/schema/compiled-serializer");
 

@@ -4,8 +4,11 @@
  */
 import { describe, expect, it } from "vitest";
 import { compileSerializer, int, model, schema, str, uuid } from "../../../src/schema/index.js";
-import { SCHEMA_BRAND, SCHEMA_DESCRIPTOR } from "../../../src/schema/internal/token/symbols.js";
-import { COMPILED_SERIALIZER } from "../../../src/schema/symbol.js";
+// The three seams below are asserted via their well-known Symbol.for keys, the
+// documented external access pattern, never lib-internal imports.
+const COMPILED_SERIALIZER = Symbol.for("@flare-ts/schema/compiled-serializer");
+const SCHEMA_BRAND = Symbol.for("@flare-ts/schema/brand");
+const SCHEMA_DESCRIPTOR = Symbol.for("@flare-ts/schema/descriptor");
 
 describe("Primary Behavior", () => {
   it(

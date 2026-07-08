@@ -1,3 +1,6 @@
+/**
+ * The float primitive with chainable range constraints.
+ */
 import type { TypedPrimitive } from "./index.js";
 
 /**
@@ -12,6 +15,19 @@ type FloatPrimitive = TypedPrimitive<number> & {
 };
 
 type FloatConfig = { min?: number; max?: number; };
+
+/**
+ * Floating-point number primitive with optional chainable range constraints.
+ *
+ * @example
+ * ```ts
+ * float                 // any number
+ * float.min(0).max(1)   // probability range
+ * ```
+ *
+ * @throws {Error} When the raw value fails this primitive's validation.
+ */
+export const float: FloatPrimitive = makeFloat();
 
 function makeFloat(config: FloatConfig = {}): FloatPrimitive {
   const fn = (v: string): number => {
@@ -40,16 +56,7 @@ function makeFloat(config: FloatConfig = {}): FloatPrimitive {
   };
   fn.min = (n: number) => makeFloat({ ...config, min: n });
   fn.max = (n: number) => makeFloat({ ...config, max: n });
+  // The parser fn was built up property-by-property; the cast restates the completed
+  // primitive shape the checker cannot follow through mutation.
   return fn as FloatPrimitive;
 }
-
-/**
- * Floating-point number primitive with optional chainable range constraints.
- *
- * @example
- * ```ts
- * float                 // any number
- * float.min(0).max(1)   // probability range
- * ```
- */
-export const float: FloatPrimitive = makeFloat();

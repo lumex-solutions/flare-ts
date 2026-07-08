@@ -1,3 +1,6 @@
+/**
+ * The email primitive: a pattern-constrained string parser.
+ */
 import type { TypedPrimitive } from "./index.js";
 
 // RFC 5322 simplified — covers practical email formats without full RFC compliance.
@@ -15,6 +18,8 @@ const EMAIL_RE =
  * email("User@Example.COM")   // "user@example.com"
  * email("not-an-email")       // throws
  * ```
+ *
+ * @throws {Error} When the raw value fails this primitive's validation.
  */
 const email: TypedPrimitive<string> = Object.assign(
   (v: string): string => {

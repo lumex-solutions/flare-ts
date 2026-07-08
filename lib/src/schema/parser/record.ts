@@ -1,13 +1,19 @@
-import type { FieldError, JsonValue, SafeParseResult, SchemaToken } from "../../schema.js";
+/**
+ * Parses record schemas: dynamic string keys with every value validated by one
+ * nested schema token, prototype-pollution keys rejected.
+ */
+import type { FieldError, JsonValue, SafeParseResult, SchemaToken } from "../schema.js";
 import { resolveInput } from "./input.js";
 import { prefixNestedPath } from "./path.js";
 
+// Keys that would write into the prototype chain instead of plain data; rejecting
+// them keeps a parsed record from ever polluting Object.prototype.
 const UNSAFE_RECORD_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 
 /**
  * @internal
- * Core implementation for record schemas. Parses a JSON object whose values
- * are all validated by a single `valueSchema`.
+ * Parses raw input as a JSON object whose values are all validated by a single
+ * `valueSchema`.
  */
 export function recordSafeParse<V>(
   raw: ArrayBuffer | string | JsonValue,
@@ -25,6 +31,8 @@ export function recordSafeParse<V>(
     const result: Record<string, V> = Object.create(null);
     const errors: FieldError[] = [];
 
+    // resolveInput already proved parsed is a plain object; entries iteration needs
+    // the index-signature view.
     for (const [key, value] of Object.entries(parsed as Record<string, JsonValue>)) {
       if (UNSAFE_RECORD_KEYS.has(key)) {
         errors.push({ path: key, message: "Unsafe record key", received: key });

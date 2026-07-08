@@ -1,3 +1,6 @@
+/**
+ * The text primitive: like str, but escape-scanned at serialization time.
+ */
 import type { TypedPrimitive } from "./index.js";
 
 /**
@@ -14,6 +17,27 @@ type TextPrimitive = TypedPrimitive<string> & {
 };
 
 type TextConfig = { min?: number; max?: number; pattern?: RegExp; };
+
+/**
+ * Text primitive with optional chainable length and pattern constraints.
+ *
+ * Text is always escaped when serialized to JSON, so it is safe for untrusted input and
+ * can contain arbitrary Unicode characters including newlines. In contrast, the
+ * `string` primitive is intended for short single-line strings without special
+ * characters (e.g. names, titles) and is not escaped when serialized, so it will
+ * throw an error on the consumer side if the input contains special characters that
+ * would break JSON syntax.
+ *
+ * @example
+ * ```ts
+ * text                            // any text
+ * text.min(3).max(50)             // length range
+ * text.pattern(/^\S+@\S+\..+$/)  // regex constraint
+ * ```
+ *
+ * @throws {Error} When the raw value fails this primitive's validation.
+ */
+export const text: TextPrimitive = makeText();
 
 function makeText(config: TextConfig = {}): TextPrimitive {
   const fn = (v: string): string => {
@@ -39,24 +63,7 @@ function makeText(config: TextConfig = {}): TextPrimitive {
   fn.min = (n: number) => makeText({ ...config, min: n });
   fn.max = (n: number) => makeText({ ...config, max: n });
   fn.pattern = (regex: RegExp) => makeText({ ...config, pattern: regex });
+  // The parser fn was built up property-by-property; the cast restates the completed
+  // primitive shape the checker cannot follow through mutation.
   return fn as TextPrimitive;
 }
-
-/**
- * Text primitive with optional chainable length and pattern constraints.
- *
- * Text is always escaped when serialized to JSON, so it is safe for untrusted input and
- * can contain arbitrary Unicode characters including newlines. In contrast, the
- * `string` primitive is intended for short single-line strings without special
- * characters (e.g. names, titles) and is not escaped when serialized, so it will
- * throw an error on the consumer side if the input contains special characters that
- * would break JSON syntax.
- *
- * @example
- * ```ts
- * text                            // any text
- * text.min(3).max(50)             // length range
- * text.pattern(/^\S+@\S+\..+$/)  // regex constraint
- * ```
- */
-export const text: TextPrimitive = makeText();

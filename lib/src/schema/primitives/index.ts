@@ -1,3 +1,7 @@
+/**
+ * The primitives barrel and shared primitive vocabulary: the TypedPrimitive shape,
+ * JSON Schema fragments, and the optional/defaultTo wrappers.
+ */
 export { array } from "./array.js";
 export { bool } from "./bool.js";
 export { date } from "./date.js";
@@ -118,5 +122,7 @@ export function defaultTo<T>(fallback: T, primitive: TypedPrimitive<T>): TypedPr
   fn._type = primitive._type;
   fn._required = false;
   fn.jsonSchema = primitive.jsonSchema;
+  // The parser fn was built up property-by-property; the cast restates the completed
+  // primitive shape the checker cannot follow through mutation.
   return fn as TypedPrimitive<T>;
 }

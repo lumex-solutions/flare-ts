@@ -1,10 +1,14 @@
-import type { FieldError, JsonValue, SafeParseResult, SchemaToken } from "../../schema.js";
+/**
+ * Parses top-level array schemas: per-item delegation to the item token with
+ * index-prefixed error paths.
+ */
+import type { FieldError, JsonValue, SafeParseResult, SchemaToken } from "../schema.js";
 import { resolveArrayInput } from "./input.js";
 import { prefixRootArrayItemPath } from "./path.js";
 
 /**
  * @internal
- * Core implementation for top-level array schemas.
+ * Parses raw input as an array and delegates each item to the item schema token.
  */
 export function arraySafeParse<T>(
   raw: ArrayBuffer | string | JsonValue,

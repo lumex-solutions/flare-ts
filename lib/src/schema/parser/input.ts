@@ -1,4 +1,8 @@
-import type { JsonValue } from "../../schema.js";
+/**
+ * Raw-input resolution shared by every parser: JSON strings, ArrayBuffers, and
+ * already-parsed values normalize to plain objects or arrays here.
+ */
+import type { JsonValue } from "../schema.js";
 
 /**
  * @internal
@@ -25,6 +29,8 @@ export function resolveInput(raw: ArrayBuffer | string | JsonValue): { [key: str
     return tryParseJSON(raw);
   }
   if (typeof raw === "object" && raw !== null && !Array.isArray(raw)) {
+    // The guards above prove raw is a non-null, non-array object; only the
+    // index-signature view is being restated.
     return raw as { [key: string]: JsonValue; };
   }
   throw new Error("Expected object");

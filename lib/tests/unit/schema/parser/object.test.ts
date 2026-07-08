@@ -8,9 +8,14 @@ import type {
   JsonValue,
   SafeParseResult,
   SchemaToken,
-} from "../../../../../src/schema/schema.js";
-import { flatSafeParse, processField } from "../../../../../src/schema/internal/parser/object.js";
-import { SCHEMA_BRAND, SCHEMA_REQUIRED } from "../../../../../src/schema/internal/token/symbols.js";
+} from "../../../../src/schema/schema.js";
+import { flatSafeParse, isSchemaRequired, processField } from "../../../../src/schema/parser/object.js";
+import {
+  makeOptionalSchemaToken,
+  SCHEMA_BRAND,
+  SCHEMA_DESCRIPTOR,
+  SCHEMA_REQUIRED,
+} from "../../../../src/schema/schema.js";
 
 /** Inline stub: a SchemaToken whose safeParse delegates to a per-test function. */
 function makeStubSchema<T>(
@@ -20,9 +25,7 @@ function makeStubSchema<T>(
   const token = {
     [SCHEMA_BRAND]: true as const,
     [SCHEMA_REQUIRED]: required,
-    optional() {
-      return makeStubSchema(impl, false);
-    },
+    // optional() is deliberately absent: the parser under test never calls it.
     safeParse(raw: ArrayBuffer | string | JsonValue): SafeParseResult<T> {
       return impl(raw as JsonValue);
     },
@@ -40,8 +43,8 @@ function makePrimitive<T>(
 ): DescriptorValue<T> {
   const fn = (v: string) => call(v);
   (fn as unknown as { _required: boolean; })._required = required;
-  (fn as unknown as { _type: string; })._type = "stub";
-  (fn as unknown as { jsonSchema: unknown; }).jsonSchema = {};
+  // _type and jsonSchema are deliberately absent: the field routine reads only
+  // _required and the call signature.
   return fn as unknown as DescriptorValue<T>;
 }
 
@@ -305,5 +308,50 @@ describe("flat object descriptor parsing", () => {
 
     assertRootObjectError(flatSafeParse<{ n: number; }>([1], descriptor));
     assertRootObjectError(flatSafeParse<{ n: number; }>(42 as JsonValue, descriptor));
+  });
+});
+
+/**
+ * Builds a minimal SchemaToken-shaped object suitable for direct unit testing
+ * of the requiredness read without depending on `schema()`, so failures localize to
+ * the parser module.
+ */
+function makeToken<T>(required: boolean | undefined): SchemaToken<T> {
+  const safeParse = (): never => {
+    throw new Error("safeParse stub - not exercised by optionality tests");
+  };
+  const optional = (): SchemaToken<T> => {
+    throw new Error("optional stub - not exercised by optionality tests");
+  };
+
+  const base: Record<symbol, unknown> = {
+    [SCHEMA_BRAND]: true,
+    [SCHEMA_DESCRIPTOR]: { marker: "descriptor" },
+  };
+  if (required !== undefined) {
+    base[SCHEMA_REQUIRED] = required;
+  }
+
+  return Object.assign(base, { safeParse, optional }) as unknown as SchemaToken<T>;
+}
+
+describe("schema token requiredness", () => {
+  it("returns true for a token with SCHEMA_REQUIRED = true", () => {
+    const token = makeToken<string>(true);
+
+    expect(isSchemaRequired(token)).toBe(true);
+  });
+
+  it("returns true for a token with SCHEMA_REQUIRED missing (only explicit false counts as optional)", () => {
+    const token = makeToken<string>(undefined);
+
+    expect(isSchemaRequired(token)).toBe(true);
+  });
+
+  it("returns false for a token produced by makeOptionalSchemaToken", () => {
+    const original = makeToken<string>(true);
+    const opt = makeOptionalSchemaToken<string>(original);
+
+    expect(isSchemaRequired(opt)).toBe(false);
   });
 });

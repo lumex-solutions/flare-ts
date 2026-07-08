@@ -1,10 +1,14 @@
-import type { DescriptorValue, FieldError, JsonValue, SafeParseResult } from "../../schema.js";
+/**
+ * Parses discriminated-union schemas: branch selection by discriminant value, then
+ * per-field delegation to the shared field routine.
+ */
+import type { DescriptorValue, FieldError, JsonValue, SafeParseResult } from "../schema.js";
 import { resolveInput, tryGetValue } from "./input.js";
 import { processField } from "./object.js";
 
 /**
  * @internal
- * Core implementation for discriminated union schemas.
+ * Parses raw input by selecting the branch descriptor named by the discriminant field.
  */
 export function discriminatedSafeParse<T, K extends keyof T>(
   raw: ArrayBuffer | string | JsonValue,
@@ -23,12 +27,17 @@ export function discriminatedSafeParse<T, K extends keyof T>(
       return invalidSchemaError<T>(String(discriminant), "Invalid discriminant value", String(discriminantValue));
     }
 
+    // Built incrementally per branch field; assembled as a plain record and restated
+    // as T at the end, which the checker cannot follow through mutation.
     const result = {} as Record<string, T[keyof T]>;
     const errors: FieldError[] = [];
 
+    // The branch lookup above proves the discriminant value is one of T's literals.
     result[String(discriminant)] = discriminantValue as T[keyof T];
 
     for (const key in branch) {
+      // The for-in key erases the per-field descriptor type; each entry is one member
+      // of the branch's declared value union.
       processField(key, branch[key] as DescriptorValue<T[keyof T]>, parsed[key], result, errors);
     }
 

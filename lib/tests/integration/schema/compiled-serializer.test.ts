@@ -3,7 +3,7 @@
  * and integration with `model()` and top-level array schemas.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonValue, Serializer } from "../../../src/schema/index.js";
+import type { JsonValue, SchemaSerializer } from "../../../src/schema/index.js";
 import {
   array,
   bool,
@@ -270,7 +270,7 @@ describe("Cross-Feature Interactions", () => {
 
     // The retrieved function is a working serializer specialised for the
     // model's descriptor.
-    const out = (compiled as Serializer)({
+    const out = (compiled as SchemaSerializer)({
       id: "550e8400-e29b-41d4-a716-446655440000",
       name: "Alice",
     });

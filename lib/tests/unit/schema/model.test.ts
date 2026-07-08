@@ -9,13 +9,13 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { SCHEMA_BRAND, SCHEMA_DESCRIPTOR, SCHEMA_REQUIRED } from "../../../src/schema/internal/token/symbols.js";
 import { model } from "../../../src/schema/model.js";
+import { COMPILED_SERIALIZER } from "../../../src/schema/model.js";
 import { int } from "../../../src/schema/primitives/int.js";
 import { str } from "../../../src/schema/primitives/str.js";
 import { uuid } from "../../../src/schema/primitives/uuid.js";
+import { SCHEMA_BRAND, SCHEMA_DESCRIPTOR, SCHEMA_REQUIRED } from "../../../src/schema/schema.js";
 import { schema } from "../../../src/schema/schema.js";
-import { COMPILED_SERIALIZER } from "../../../src/schema/symbol.js";
 
 describe("model token from descriptor", () => {
   it("descriptor overload attaches schema metadata and a compiled serializer", () => {

@@ -2,14 +2,14 @@
  * Unit tests for compileSerializer codegen paths: nested schemas, arrays, enums, and opaque tokens.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonValue, OpaqueSchemaToken, SchemaToken } from "../../../../src/schema/schema.js";
-import { compileSerializer, toJsonSchema } from "../../../../src/schema/json/serializer.js";
-import { enums } from "../../../../src/schema/primitives/enum.js";
-import { optional } from "../../../../src/schema/primitives/index.js";
-import { int } from "../../../../src/schema/primitives/int.js";
-import { str } from "../../../../src/schema/primitives/str.js";
-import { uuid } from "../../../../src/schema/primitives/uuid.js";
-import { schema } from "../../../../src/schema/schema.js";
+import type { JsonValue, OpaqueSchemaToken, SchemaToken } from "../../../src/schema/schema.js";
+import { enums } from "../../../src/schema/primitives/enum.js";
+import { optional } from "../../../src/schema/primitives/index.js";
+import { int } from "../../../src/schema/primitives/int.js";
+import { str } from "../../../src/schema/primitives/str.js";
+import { uuid } from "../../../src/schema/primitives/uuid.js";
+import { schema } from "../../../src/schema/schema.js";
+import { compileSerializer, toJsonSchema } from "../../../src/schema/serializer.js";
 
 describe("schema token classification during serializer emission", () => {
   it("nested schema token fields emit as inline JSON objects", () => {

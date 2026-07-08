@@ -2,18 +2,14 @@
  * Unit tests for recordSafeParse: string-key object parsing and per-value schema delegation.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonValue, SafeParseResult, SchemaToken } from "../../../../../src/schema/schema.js";
-import { recordSafeParse } from "../../../../../src/schema/internal/parser/record.js";
-import { SCHEMA_BRAND, SCHEMA_REQUIRED } from "../../../../../src/schema/internal/token/symbols.js";
+import type { JsonValue, SafeParseResult, SchemaToken } from "../../../../src/schema/schema.js";
+import { recordSafeParse } from "../../../../src/schema/parser/record.js";
 
 /** Inline stub: a SchemaToken whose safeParse delegates to a per-test function. */
 function makeStubSchema<T>(impl: (value: JsonValue) => SafeParseResult<T>): SchemaToken<T> {
+  // Only safeParse is consumed by the parser under test; the rest of the
+  // SchemaToken surface is deliberately absent (the cast below declares the slice).
   const token = {
-    [SCHEMA_BRAND]: true as const,
-    [SCHEMA_REQUIRED]: true,
-    optional() {
-      return token as unknown as SchemaToken<T>;
-    },
     safeParse(raw: ArrayBuffer | string | JsonValue): SafeParseResult<T> {
       return impl(raw as JsonValue);
     },

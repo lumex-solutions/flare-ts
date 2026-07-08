@@ -1,3 +1,6 @@
+/**
+ * The URL primitive: a WHATWG-parse-validated string parser.
+ */
 import type { TypedPrimitive } from "./index.js";
 
 /**
@@ -13,6 +16,8 @@ import type { TypedPrimitive } from "./index.js";
  * url("ftp://example.com")         // throws (scheme not allowed)
  * url("not a url")                 // throws
  * ```
+ *
+ * @throws {Error} When the raw value fails this primitive's validation.
  */
 const url: TypedPrimitive<string> = Object.assign(
   (v: string): string => {

@@ -2,7 +2,7 @@
  * Unit tests for `prefixNestedPath` and `prefixRootArrayItemPath` field error path prefixing.
  */
 import { describe, expect, it } from "vitest";
-import { prefixNestedPath, prefixRootArrayItemPath } from "../../../../../src/schema/internal/parser/path.js";
+import { prefixNestedPath, prefixRootArrayItemPath } from "../../../../src/schema/parser/path.js";
 
 describe("nested field error path prefixing", () => {
   it("joins a key and a non-empty plain path with a dot", () => {

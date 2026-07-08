@@ -2,8 +2,8 @@
  * Unit tests for `resolveInput`, `resolveArrayInput`, and `tryGetValue` field value lookup from parsed objects.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonValue } from "../../../../../src/schema/schema.js";
-import { resolveArrayInput, resolveInput, tryGetValue } from "../../../../../src/schema/internal/parser/input.js";
+import type { JsonValue } from "../../../../src/schema/schema.js";
+import { resolveArrayInput, resolveInput, tryGetValue } from "../../../../src/schema/parser/input.js";
 
 describe("field value lookup from parsed objects", () => {
   it("returns a string value at the given key", () => {
