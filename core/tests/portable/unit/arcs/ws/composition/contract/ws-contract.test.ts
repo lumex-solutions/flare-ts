@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { schema, str } from "@flare-ts/lib/schema";
 import { socketContract } from "../../../../../../../src/lib/arcs/ws/composition/contract/ws-contract.js";
-import { CONTRACT_BRAND, contractKind } from "../../../../../../../src/lib/contract/contract.js";
+import { CONTRACT_BRAND } from "../../../../../../../src/lib/contract/contract.js";
+import { contractKind } from "../../../../../../../src/lib/contract/read.js";
 
 const MsgIn = schema({ text: str });
 

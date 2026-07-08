@@ -3,7 +3,7 @@ import type { HttpValidationContext } from "../../contexts.js";
 import type { IValidator, ValidationError } from "../../types.js";
 import { joinRoutePath } from "../../../arcs/http/routing/path.js";
 import { _getRoutes } from "../../../arcs/http/routing/route-store.js";
-import { descriptorsOf } from "../../../contract/contract.js";
+import { descriptorsOf } from "../../../contract/read.js";
 
 /**
  * Validates route and query parameter names for every registered handler:

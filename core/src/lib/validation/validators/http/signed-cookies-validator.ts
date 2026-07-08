@@ -1,7 +1,7 @@
 import type { RequestDescriptor } from "../../../arcs/http/composition/contract/http-contract.js";
 import type { HttpValidationContext } from "../../contexts.js";
 import type { IValidator, ValidationError } from "../../types.js";
-import { descriptorsOf } from "../../../contract/contract.js";
+import { descriptorsOf } from "../../../contract/read.js";
 
 /**
  * Fails the build when a route declares `signedCookies: true` but no cookie secret is configured.

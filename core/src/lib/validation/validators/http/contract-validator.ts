@@ -1,7 +1,7 @@
 import type { HttpValidationContext } from "../../contexts.js";
 import type { IValidator, ValidationError } from "../../types.js";
 import { _getRoutes } from "../../../arcs/http/routing/route-store.js";
-import { contractKind } from "../../../contract/contract.js";
+import { contractKind } from "../../../contract/read.js";
 
 /**
  * Warns about contract entries that have no corresponding handler method, and fails the build when a

@@ -17,8 +17,8 @@ import {
   httpContract,
   flareState,
   MiddlewareBase,
+  socketContract,
 } from "../../../../../src/index.js";
-import { CONTRACT_BRAND } from "../../../../../src/lib/contract/contract.js";
 import { testHost } from "../../../helpers/test-host.js";
 
 /** Invokes host.build() and returns the FlareValidationError when build fails. */
@@ -307,19 +307,21 @@ describe("Edge Cases", () => {
   );
 
   it(
-    "contract object without CONTRACT_BRAND is ignored by both validation/contract-alignment and validation/route-params",
+    "an unbranded contract object is ignored by both validation/contract-alignment and validation/route-params",
     () => {
-      // A plain object passed as `static contract` (no CONTRACT_BRAND symbol)
-      // must be ignored by the contract-alignment validator (no
-      // ORPHANED_CONTRACT_ENTRY) AND by the route-params validator (no
-      // ROUTE_QUERY_PARAM_COLLISION for the colliding key "id").
+      // A plain object passed as `static contract` (never produced by a contract
+      // factory, so it carries no brand) must be ignored by the contract-alignment
+      // validator (no ORPHANED_CONTRACT_ENTRY) AND by the route-params validator
+      // (no ROUTE_QUERY_PARAM_COLLISION for the colliding key "id").
       const fakeContract = {
         // A bogus entry that would otherwise be flagged as orphaned (no
         // handler named "ghost") and a descriptor for "show" with a query
         // key "id" that would otherwise collide with the route param ":id".
         ghost: {},
         show: { query: { id: { _type: "string" } } },
-      } as unknown as { readonly [CONTRACT_BRAND]: "http"; };
+        // The cast simulates a JS caller assigning a bare literal where the typed
+        // surface wants a factory-built token; the value deliberately has no brand.
+      } as unknown as NonNullable<(typeof ControllerBase)["contract"]>;
 
       class C extends ControllerBase {
         public static override deps = [];
@@ -392,14 +394,12 @@ describe("Failure Modes", () => {
   it(
     "a branded contract of the wrong kind fails the build with CONTRACT_KIND_MISMATCH",
     () => {
-      // The runtime counterpart of the type-level cross-arc rejection: a JS caller (or a cast)
-      // attaching a "ws" contract to an HTTP controller must fail host.build() loudly instead of
-      // silently compiling the route with no request validation. The cast simulates the bypass;
-      // the runtime brand value is deliberately "ws".
-      const wsContract = {
-        [CONTRACT_BRAND]: "ws",
-        show: {},
-      } as unknown as { readonly [CONTRACT_BRAND]: "http"; };
+      // The runtime counterpart of the type-level cross-arc rejection: attaching a ws
+      // contract to an HTTP controller must fail host.build() loudly instead of silently
+      // compiling the route with no request validation. The token is a REAL socketContract
+      // (public surface, genuine "ws" brand value); the cast simulates the JS caller who
+      // bypasses the compile-time kind gate, which is exactly the seam this test pins.
+      const wsContract = socketContract({ show: {} }) as unknown as NonNullable<(typeof ControllerBase)["contract"]>;
 
       class C extends ControllerBase {
         public static override deps = [];

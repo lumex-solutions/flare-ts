@@ -14,7 +14,7 @@ import type {
   GroupRegistration,
   MiddlewareRegistration,
 } from "./types/registration.js";
-import { descriptorsOf } from "../../contract/contract.js";
+import { descriptorsOf } from "../../contract/read.js";
 import { buildFlareRouter, scoreRoute, splitPath } from "../../routing/flare-router.js";
 import { compileCorsPolicy } from "./cors.js";
 import { compileExecFn } from "./exec-codegen.js";
