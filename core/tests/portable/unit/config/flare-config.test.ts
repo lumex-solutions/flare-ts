@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { schema } from "@flare-ts/lib";
 import { int, str } from "@flare-ts/lib/schema";
-import { flareConfig, type FlareLogConfig, HOST_CONFIG, LOG_CONFIG } from "../../../../src/lib/config/flare-config.js";
+import { flareConfig, type LogConfig, HOST_CONFIG, LOG_CONFIG } from "../../../../src/lib/config/flare-config.js";
 
 /**
  * Pulls a single descriptor entry as a runtime `(v: string) => unknown`
@@ -53,16 +53,6 @@ describe("flareConfig", () => {
     expect(token.descriptor).toEqual({});
   });
 
-  it("falls back to { key } only branch when the descriptor argument is falsy at runtime (internal safety)", () => {
-    // The public signature requires a descriptor, but the runtime ternary
-    // `return descriptor ? { key, descriptor } : { key }` keeps a safety arm
-    // for misuse where descriptor is undefined.
-    const token = flareConfig("no-desc", undefined as never);
-
-    expect(token.key).toBe("no-desc");
-    expect(token).not.toHaveProperty("descriptor");
-  });
-
   it("returns a plain object with no prototype methods beyond Object.prototype", () => {
     const token = flareConfig("plain", { url: str });
 
@@ -72,7 +62,7 @@ describe("flareConfig", () => {
 });
 
 describe("HOST_CONFIG", () => {
-  it("declares every FlareHostConfig field that has a runtime default", () => {
+  it("declares every HostConfig field that has a runtime default", () => {
     expect(HOST_CONFIG.descriptor).toBeDefined();
     const fields = Object.keys(HOST_CONFIG.descriptor!).sort();
 
@@ -155,7 +145,7 @@ describe("LOG_CONFIG", () => {
     const empty = sectionSchema.safeParse({});
     expect(empty.success).toBe(true);
     if (empty.success) {
-      const data = empty.data as unknown as FlareLogConfig;
+      const data = empty.data as unknown as LogConfig;
       expect(data.transports).toBeUndefined();
       expect(data.level).toBe("info");
       expect(data.format).toBe("json");
@@ -170,7 +160,7 @@ describe("LOG_CONFIG", () => {
     });
     expect(withTransports.success).toBe(true);
     if (withTransports.success) {
-      const data = withTransports.data as unknown as FlareLogConfig;
+      const data = withTransports.data as unknown as LogConfig;
       expect(data.transports?.console?.level).toBe("warn");
       expect(data.transports?.file?.level).toBe("error");
     }

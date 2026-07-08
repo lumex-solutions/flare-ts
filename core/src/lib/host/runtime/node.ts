@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 import { Readable } from "node:stream";
 import type { ResponseLike } from "../../arcs/http/transport/types/response.js";
 import type { IFlareWebSocket } from "../../arcs/ws/transport/socket.js";
-import type { FlareHostConfig, FlareLogConfig } from "../../config/flare-config.js";
+import type { HostConfig, LogConfig } from "../../config/flare-config.js";
 import type { LogContext } from "../../logger/types.js";
 import type { LoggerTransportClass } from "../../logger/types.js";
 import type { FlareTestRequestInput } from "../../testing/types/flare-test-req.js";
@@ -190,8 +190,8 @@ export class FlareAppNode extends FlareAppBase {
 
     this.#bindProcessHandlers();
 
-    const hostCfg = this.host.config.host as FlareHostConfig;
-    const logCfg = this.host.config.log as FlareLogConfig;
+    const hostCfg = this.host.config.host as HostConfig;
+    const logCfg = this.host.config.log as LogConfig;
 
     const port = options?.port ?? hostCfg.port ?? 3000;
     const host = options?.host ?? hostCfg.host ?? "localhost";

@@ -2,11 +2,11 @@
  * Unit tests for {@link WsConfigValidator} WebSocket config field validation.
  */
 import { describe, expect, it } from "vitest";
-import type { FlareWebSocketsConfig } from "../../../../../../src/lib/config/flare-config.js";
+import type { WebSocketsConfig } from "../../../../../../src/lib/config/flare-config.js";
 import type { WsValidationContext } from "../../../../../../src/lib/validation/contexts.js";
 import { WsConfigValidator } from "../../../../../../src/lib/validation/validators/ws/config-validator.js";
 
-const VALID: FlareWebSocketsConfig = {
+const VALID: WebSocketsConfig = {
   maxMessageSize: 1024,
   maxFrameSize: 1024,
   maxFragments: 16,
@@ -17,7 +17,7 @@ const VALID: FlareWebSocketsConfig = {
   pongPolicy: "each",
 };
 
-const run = (config: FlareWebSocketsConfig | undefined) =>
+const run = (config: WebSocketsConfig | undefined) =>
   new WsConfigValidator().validate({ wsPatterns: [], httpControllers: [], config } as WsValidationContext);
 
 describe("WebSocket config numeric bounds", () => {

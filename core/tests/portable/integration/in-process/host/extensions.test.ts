@@ -15,7 +15,7 @@ import type { SingletonExtension } from "../../../../../src/lib/host/extensions/
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import type { LogRecord } from "../../../../../src/lib/logger/types.js";
 import type { LoggerTransportClass } from "../../../../../src/lib/logger/types.js";
-import { flareConfig } from "../../../../../src/lib/config/flare-config.js";
+import { flareConfig } from "../../../../../src/index.js";
 import { defineHostExtension } from "../../../../../src/lib/host/extensions/extension.js";
 import { singletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
 import { FlareAppBase } from "../../../../../src/lib/host/flare-app.js";

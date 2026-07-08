@@ -1,7 +1,7 @@
 /** Build-time compilation for the WebSocket arc: turns raw registrations into executable pipelines. */
 import type { SchemaToken } from "@flare-ts/lib/schema";
 import { compileSerializer } from "@flare-ts/lib/schema";
-import type { ConfigToken, FlareWebSocketsConfig } from "../../../config/flare-config.js";
+import type { ConfigToken, WebSocketsConfig } from "../../../config/flare-config.js";
 import type { LogRunner } from "../../../logger/logger.js";
 import type { FlareRouter } from "../../../routing/flare-router.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
@@ -58,7 +58,7 @@ type SynthesizedScope = {
  */
 export function compileWsRoutes(
   registrations: readonly WsRegistration[],
-  config: FlareWebSocketsConfig | undefined,
+  config: WebSocketsConfig | undefined,
 ): {
   pipelines: readonly WsPipeline[];
   router: FlareRouter | undefined;
@@ -120,7 +120,7 @@ export function compileWsRoutes(
   return { pipelines, router: buildFlareRouter(patterns, maxDepth), routes, acceptOptions };
 }
 
-function resolveAcceptOptions(config: FlareWebSocketsConfig | undefined): WsAcceptOptions {
+function resolveAcceptOptions(config: WebSocketsConfig | undefined): WsAcceptOptions {
   const limits = config
     ? {
       maxMessageSize: config.maxMessageSize,

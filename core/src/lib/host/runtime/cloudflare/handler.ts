@@ -2,7 +2,7 @@ import type { HttpArc } from "../../../arcs/http/http-arc.js";
 import type { ResponseLike } from "../../../arcs/http/transport/types/response.js";
 import type { IWsChannelDomain } from "../../../arcs/ws/channels/domain.js";
 import type { WebSocketArc } from "../../../arcs/ws/ws-arc.js";
-import type { ConfigToken, FlareHostConfig } from "../../../config/flare-config.js";
+import type { ConfigToken, HostConfig } from "../../../config/flare-config.js";
 import type { LogContext } from "../../../logger/types.js";
 import type { Injected } from "../../../services/composition/flare-base.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
@@ -81,7 +81,7 @@ abstract class FlareCfHandlerBase {
     /** This context's WebSocket arc: `host.ws` in the Worker, the per-DO arc in a Durable Object. */
     protected readonly wsArc: WebSocketArc | null = null,
   ) {
-    const hostCfg = this.host.config.host as FlareHostConfig;
+    const hostCfg = this.host.config.host as HostConfig;
     this.#emitRequestIdHeader = hostCfg.requestIdHeader === true;
     this.#captureRequestTiming = hostCfg.requestTiming === true;
   }

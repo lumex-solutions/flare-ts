@@ -10,9 +10,9 @@ import type { SingletonExtension } from "../../../../../src/lib/host/extensions/
 import type { FlareAppNode } from "../../../../../src/lib/host/runtime/node.js";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import type { LoggerTransportClass } from "../../../../../src/lib/logger/types.js";
-import { FlareHost, FlareService, LOG_CONFIG, LoggerTransport, type FlareLogConfig } from "../../../../../src/index.js";
+import { FlareHost, FlareService, LOG_CONFIG, LoggerTransport, type LogConfig } from "../../../../../src/index.js";
 import { loggerALS, type LogRecord } from "../../../../../src/lib/logger/types.js";
-// FlareLogConfig used in the cross-feature test's `observed` typing below.
+// LogConfig used in the cross-feature test's `observed` typing below.
 import { node } from "../../../../../src/node.js";
 import { registerMinimalPingRoute } from "../../../../portable/helpers/host-fixtures.js";
 
@@ -364,7 +364,7 @@ describe("Failure Modes", () => {
 
 describe("Cross-Feature Interactions", () => {
   it("auto-registers LOG_CONFIG alongside HOST_CONFIG so a service can declare static config = [LOG_CONFIG] without host.cfg(LOG_CONFIG)", async () => {
-    let observed: FlareLogConfig | undefined;
+    let observed: LogConfig | undefined;
 
     class LogConsumer extends FlareService {
       static override readonly deps = [];

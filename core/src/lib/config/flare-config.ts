@@ -1,3 +1,8 @@
+/**
+ * Typed config tokens over `flare.json`: the `flareConfig` factory, the token shapes it
+ * mints, and the pre-defined tokens for Flare's own `host`, `cookies`, `log`, and
+ * `websockets` sections.
+ */
 import { enums, schema } from "@flare-ts/lib";
 import {
   array,
@@ -10,10 +15,8 @@ import {
   str,
   type TypedPrimitive,
 } from "@flare-ts/lib/schema";
-import type { LogLevel } from "../logger/types";
-import { FlareHost } from "../host/flare-host";
-
-// TODO: config is backed by an interace, while schema is not. Need to look into this.
+import type { FlareHost } from "../host/flare-host.js";
+import type { LogLevel } from "../logger/types.js";
 
 // `unknown` here is the descriptor's element type at the registry boundary: the
 // concrete per-field types are recovered through `InferConfigField` / `InferConfigShape`
@@ -21,6 +24,7 @@ import { FlareHost } from "../host/flare-host";
 // require an existential which TypeScript cannot express.
 type ConfigDescriptorValue = DescriptorValue<unknown>;
 
+/** The value type a single descriptor field resolves to: the primitive's or schema's payload. */
 type InferConfigField<P> = P extends TypedPrimitive<infer T> ? T : P extends SchemaToken<infer T> ? T : never;
 
 /**
@@ -49,16 +53,17 @@ export type ConfigToken<T> = OpaqueConfigToken & {
   readonly _type?: T;
 };
 
-/** Infers the config section type from a {@link flareConfig} descriptor object. */
+/** The config section shape derived from a {@link flareConfig} descriptor object. */
 export type InferConfigShape<T extends Record<string, ConfigDescriptorValue>> = {
   [K in keyof T]: InferConfigField<T[K]>;
 };
 
 /**
- * Resolved shape of the `host` section of `flare.json`, covering listen address,
- * timeouts, body limits, and the request-id / timing toggles.
+ * Resolved shape of the `host` section of `flare.json`.
+ *
+ * Covers listen address, timeouts, body limits, and the request-id / timing toggles.
  */
-export interface FlareHostConfig {
+export type HostConfig = {
   /** Current runtime environment name. Defaults to `"development"`. */
   env: string;
   /** HTTP listen port. Defaults to `3000`. */
@@ -101,13 +106,15 @@ export interface FlareHostConfig {
    * Mirrors `http.Server.requestTimeout`.
    */
   requestTimeout: number;
-}
+};
 
 /**
- * Resolved shape of the `cookies` section of `flare.json`, holding the secret(s)
- * used to sign and verify cookies via `ctx.cookies.setSigned` / `getSigned`.
+ * Resolved shape of the `cookies` section of `flare.json`.
+ *
+ * Holds the secret(s) used to sign and verify cookies via `ctx.cookies.setSigned` /
+ * `getSigned`.
  */
-export interface FlareCookiesConfig {
+export type CookiesConfig = {
   /**
    * Secret used to sign cookies and to verify incoming signatures. Required for
    * any route that declares `signedCookies: true`; absent by default, in which
@@ -119,22 +126,24 @@ export interface FlareCookiesConfig {
    * secret can be rotated without invalidating cookies signed under the prior one.
    */
   previousSecrets?: string[];
-}
+};
 
 /**
- * Resolved shape of the `log` section of `flare.json`, covering level threshold,
- * output format, async-context stamping, and per-transport level overrides.
+ * Resolved shape of the `log` section of `flare.json`.
+ *
+ * Covers level threshold, output format, async-context stamping, and per-transport
+ * level overrides.
  */
-export interface FlareLogConfig {
+export type LogConfig = {
   /** Minimum log level to emit. Defaults to `"debug"` in development, `"info"` otherwise. */
   level: LogLevel;
   /** Log output format for {@link ConsoleTransport}. Defaults to `"pretty"` in development, `"json"` otherwise. */
   format: "pretty" | "json";
-  /** When `true`, the logger uses AsyncLocalStorage to stamp all LogRecords with a source and id. */
+  /** When `true`, the logger uses AsyncLocalStorage to stamp all LogRecords with a source and id. Defaults to `false`. */
   enableContext: boolean;
   /** Per-transport minimum level overrides. Keys are transport `static name` values. */
   transports?: Record<string, { level: LogLevel; }>;
-}
+};
 
 /**
  * Creates a typed config token for a top-level section of `flare.json`.
@@ -147,14 +156,11 @@ export interface FlareLogConfig {
  * that all required fields are present. TypeScript infers the section type
  * directly from the descriptor; no manual type annotation needed.
  *
- * Omit the descriptor for complex or nested config shapes; only the top-level
- * key presence will be validated in that case.
- *
  * Declare it at module scope, register it on the host via `host.cfg(token)`,
  * and add it to `static config` on any class that needs it.
  *
  * @param key - The top-level key in `flare.json` that this token maps to.
- * @param descriptor - Optional field descriptor. Required keys must appear in `flare.json` (or env).
+ * @param descriptor - Field descriptor keyed by field name. Required keys must appear in `flare.json` (or env).
  *
  * @example
  * ```ts
@@ -178,13 +184,13 @@ export function flareConfig<T extends Record<string, ConfigDescriptorValue>>(
   key: string,
   descriptor: T,
 ): ConfigToken<InferConfigShape<T>> {
-  return descriptor ? { key, descriptor } : { key };
+  return { key, descriptor };
 }
 
 // TODO: Extract host and logging defaults into constants
 
 /** Pre-defined token for Flare-internal host config (`host.env`, `host.port`). */
-export const HOST_CONFIG: ConfigToken<FlareHostConfig> = flareConfig("host", {
+export const HOST_CONFIG: ConfigToken<HostConfig> = flareConfig("host", {
   env: defaultTo("development", str),
   port: defaultTo(3000, int),
   host: defaultTo("localhost", str),
@@ -199,16 +205,18 @@ export const HOST_CONFIG: ConfigToken<FlareHostConfig> = flareConfig("host", {
 
 /**
  * Pre-defined token for Flare-internal cookie config (`cookies.secret`). Both fields are optional, so
- * the type is left to inference: {@link FlareCookiesConfig} is the resolved shape carried on
- * {@link FlareConfig}.
+ * the type is left to inference: {@link CookiesConfig} is the resolved shape.
  */
 export const COOKIES_CONFIG = flareConfig("cookies", {
   secret: optional(str),
   previousSecrets: optional(array(str)),
 });
 
-/** Resolved shape of the `websockets` config section: the per-connection size caps and liveness timers. */
-export interface FlareWebSocketsConfig {
+/**
+ * Resolved shape of the `websockets` config section: the per-connection size caps and
+ * liveness timers.
+ */
+export type WebSocketsConfig = {
   /** Largest assembled message (all fragments) accepted; a larger one closes 1009. */
   maxMessageSize: number;
   /** Largest single frame accepted. */
@@ -237,13 +245,15 @@ export interface FlareWebSocketsConfig {
    * duration), so a client heartbeat never defeats hibernation. Max 2048 chars each. Cloudflare-only.
    */
   autoResponsePing?: string | undefined;
-  /** The pong payload the runtime returns for an {@link autoResponsePing} (see there). */
+  /** The pong payload the runtime returns for an {@link autoResponsePing}. */
   autoResponsePong?: string | undefined;
-}
+};
 
 /**
- * The built-in `websockets` defaults: the single source both the config token below and any WS arc
- * compiled WITHOUT a resolved config (a bare unit test) derive from, so the two can never drift.
+ * The built-in `websockets` defaults.
+ *
+ * The single source both the config token below and any WS arc compiled WITHOUT a
+ * resolved config (a bare unit test) derive from, so the two can never drift.
  */
 export const WEBSOCKETS_DEFAULTS = {
   maxMessageSize: 1024 * 1024,
@@ -257,7 +267,7 @@ export const WEBSOCKETS_DEFAULTS = {
 } as const;
 
 /** Pre-defined token for Flare-internal WebSocket config (size caps and liveness timers). */
-export const WEBSOCKETS_CONFIG: ConfigToken<FlareWebSocketsConfig> = flareConfig("websockets", {
+export const WEBSOCKETS_CONFIG: ConfigToken<WebSocketsConfig> = flareConfig("websockets", {
   maxMessageSize: defaultTo(WEBSOCKETS_DEFAULTS.maxMessageSize, int),
   maxFrameSize: defaultTo(WEBSOCKETS_DEFAULTS.maxFrameSize, int),
   maxFragments: defaultTo(WEBSOCKETS_DEFAULTS.maxFragments, int),
@@ -273,7 +283,7 @@ export const WEBSOCKETS_CONFIG: ConfigToken<FlareWebSocketsConfig> = flareConfig
 const TRANSPORT_SCHEMA = schema({ level: enums(["trace", "debug", "info", "warn", "error", "fatal"]) });
 
 /** Pre-defined token for Flare-internal log config (`log.level`, `log.format`). */
-export const LOG_CONFIG: ConfigToken<FlareLogConfig> = flareConfig("log", {
+export const LOG_CONFIG: ConfigToken<LogConfig> = flareConfig("log", {
   level: defaultTo("info", enums(["trace", "debug", "info", "warn", "error", "fatal"])),
   format: defaultTo("json", enums(["pretty", "json"])),
   enableContext: defaultTo(false, bool),

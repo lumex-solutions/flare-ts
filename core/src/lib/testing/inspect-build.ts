@@ -1,4 +1,4 @@
-import type { FlareHostConfig } from "../config/flare-config.js";
+import type { HostConfig } from "../config/flare-config.js";
 import type { IFlareApp } from "../host/flare-app.js";
 import type { IFlareHost, IFlareTestHost } from "../host/flare-host.js";
 import type { AppInspectSnapshot, FlareBuildSnapshot } from "./types/inspect-build.js";
@@ -24,7 +24,7 @@ export function inspectBuild(input: { host: IFlareHost & IFlareTestHost; app?: I
   const hostSnap = input.host[INSPECT_HOST]();
   const httpSnap = input.host.http[INSPECT_HTTP_ARC]();
 
-  const hostCfg = hostSnap.config.host as FlareHostConfig | undefined;
+  const hostCfg = hostSnap.config.host as HostConfig | undefined;
 
   const app: AppInspectSnapshot = input.app
     ? {

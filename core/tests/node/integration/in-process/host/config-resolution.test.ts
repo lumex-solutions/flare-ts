@@ -2,6 +2,8 @@
  * In-process integration tests for config resolution from flare.json, env overrides,
  * descriptor defaults, nested path mapping, and build-time schema validation.
  */
+// FLARE_MODE must be set before any host adapter import reads `process.env` so
+// `host.build().test()` is allowed.
 process.env["FLARE_MODE"] = "test";
 
 import { describe, expect, it } from "vitest";
@@ -247,10 +249,13 @@ describe("Cross-Feature Interactions", () => {
     class ConfigSnoopingTransport extends LoggerTransport {
       static override readonly transportName = "config-snoop";
       static override deps: never[] = [];
+      static override config = [LOG_CONFIG] as const;
 
       constructor(container: ConstructorParameters<typeof LoggerTransport>[0]) {
         super(container);
-        const log = container.resolveCfg(LOG_CONFIG);
+        // Resolved through the declared-token guardrail; still inside the constructor,
+        // so the resolved-before-transports-instantiate claim is unchanged.
+        const log = this.config(LOG_CONFIG);
         observedLevel = log.level;
         observedFormat = log.format;
       }

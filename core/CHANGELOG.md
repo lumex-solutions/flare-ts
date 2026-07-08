@@ -24,6 +24,11 @@ host extensions are coming soon.
 - The `FlareError` accessor `exposedDetail` is renamed to `rawDetail`; the old name
   read as the exposure-gated view, but it is the ungated one (`detail` is the gated
   view).
+- Four config section shapes are renamed, with no aliases: `FlareHostConfig` to
+  `HostConfig`, `FlareCookiesConfig` to `CookiesConfig`, `FlareLogConfig` to
+  `LogConfig`, and `FlareWebSocketsConfig` to `WebSocketsConfig`. All four are also
+  now `type` aliases rather than `interface` declarations, so module augmentation on
+  them (never supported behavior) no longer compiles.
 
 ### Added
 
@@ -228,6 +233,13 @@ host extensions are coming soon.
   Type-surface assertions moved out of the integration suites into a dedicated types
   suite, and integration tests no longer import internal brand symbols.
   Behavior-preserving.
+- Config test claims were rerouted to their true runtime roots (portable resolution
+  claims to `portable/`, live-server timeout application to
+  `node/integration/transport/`). Behavior-preserving.
+- Deleted `flareConfig`'s unreachable no-descriptor branch and the JSDoc claim of an
+  omissible descriptor: the signature always required one, no caller omits it, and all
+  consumers read `token.descriptor` by truthiness, so nothing observable changes. A
+  descriptor-less token form, if ever wanted, would be an explicit overload.
 
 ## 0.2.0
 

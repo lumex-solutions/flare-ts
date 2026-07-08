@@ -5,7 +5,7 @@ import type {
   GroupRegistration,
   MiddlewareRegistration,
 } from "../arcs/http/types/registration.js";
-import type { ConfigToken, FlareWebSocketsConfig, OpaqueConfigToken } from "../config/flare-config.js";
+import type { ConfigToken, WebSocketsConfig, OpaqueConfigToken } from "../config/flare-config.js";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceRegistration } from "../services/types/registration.js";
 import type { ServiceToken } from "../services/types/types.js";
@@ -60,7 +60,7 @@ export type WsValidationContext = {
   /** All HTTP controllers, so WS paths can be checked against HTTP routes for cross-arc conflicts. */
   readonly httpControllers: readonly ControllerRegistration[];
   /** The resolved `websockets` config section, for caps/timers sanity checks. */
-  readonly config: FlareWebSocketsConfig | undefined;
+  readonly config: WebSocketsConfig | undefined;
 };
 
 /**

@@ -19,7 +19,7 @@ export type { ServiceToken } from "./lib/services/types/types.js";
 
 // Config
 export { flareConfig, HOST_CONFIG, LOG_CONFIG, WEBSOCKETS_CONFIG } from "./lib/config/flare-config.js";
-export type { ConfigToken, FlareHostConfig, FlareLogConfig, FlareWebSocketsConfig } from "./lib/config/flare-config.js";
+export type { ConfigToken, HostConfig, LogConfig, WebSocketsConfig } from "./lib/config/flare-config.js";
 
 // HTTP arc
 export { ControllerBase } from "./lib/arcs/http/composition/classes/controller-base.js";

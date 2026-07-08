@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { schema, str } from "@flare-ts/lib/schema";
 import type { WsRegistration } from "../../../../../../src/lib/arcs/ws/composition/types/registration.js";
-import type { FlareWebSocketsConfig } from "../../../../../../src/lib/config/flare-config.js";
+import type { WebSocketsConfig } from "../../../../../../src/lib/config/flare-config.js";
 import { compileWsRoutes } from "../../../../../../src/lib/arcs/ws/pipeline/build.js";
 
 /** Minimal function-form registration with only the fields compilation reads. */
@@ -62,7 +62,7 @@ describe("compileWsRoutes", () => {
   });
 
   it("resolves accept options from the websockets config when provided", () => {
-    const config: FlareWebSocketsConfig = {
+    const config: WebSocketsConfig = {
       maxMessageSize: 5,
       maxFrameSize: 6,
       maxFragments: 7,

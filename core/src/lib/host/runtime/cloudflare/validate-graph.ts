@@ -2,7 +2,7 @@ import type { JsonObject } from "@flare-ts/lib";
 import type { HttpArc } from "../../../arcs/http/http-arc.js";
 import type { ControllerRegistration, MiddlewareRegistration } from "../../../arcs/http/types/registration.js";
 import type { WebSocketArc } from "../../../arcs/ws/ws-arc.js";
-import type { ConfigToken, FlareWebSocketsConfig, OpaqueConfigToken } from "../../../config/flare-config.js";
+import type { ConfigToken, WebSocketsConfig, OpaqueConfigToken } from "../../../config/flare-config.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { ServiceRegistration } from "../../../services/types/registration.js";
 import type { ServiceToken } from "../../../services/types/types.js";
@@ -254,7 +254,7 @@ function durableDepErrors(graph: CfValidationGraph): ValidationError[] {
  * config section is host-global and would otherwise report duplicate errors per context.
  */
 function wsValidationErrors(graph: CfValidationGraph): ValidationError[] {
-  const wsConfig = (graph.resolvedConfig as { websockets?: FlareWebSocketsConfig; }).websockets;
+  const wsConfig = (graph.resolvedConfig as { websockets?: WebSocketsConfig; }).websockets;
   const syntax = new WsRouteSyntaxValidator();
   const conflict = new WsRouteConflictValidator();
   const results: ValidationError[] = [];
