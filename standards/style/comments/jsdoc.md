@@ -39,7 +39,7 @@ export type HostRuntime = "node" | "bun" | "deno" | "cloudflare";
 ```
 
 For generic aliases, describe what the alias resolves to, not the mechanics of resolution;
-`@template` covers a type parameter whose semantics are not obvious from its constraint.
+`@typeParam` covers a type parameter whose semantics are not obvious from its constraint.
 
 **Interfaces** - noun phrase describing the contract. Properties get a single-line doc only when
 name plus type are not self-evident (`port?: number` on an HTTP config needs nothing; a
@@ -109,8 +109,8 @@ never merely restates the type.
 them); omitted for internal panics and programmer errors. Format:
 `@throws {ErrorType} When condition description.`
 
-**`@template`** - required when a type parameter's semantics are not obvious from its constraint;
-format `@template T - Description.`
+**`@typeParam`** - required when a type parameter's semantics are not obvious from its constraint;
+format `@typeParam T - Description.`
 
 **`@internal`** - marks a symbol out of the public API; the tag alone is sufficient.
 

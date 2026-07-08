@@ -24,7 +24,7 @@ export type HostState = "starting" | "ready" | "draining" | "stopped";
 /**
  * Compiled application instance returned by {@link FlareHost.build}, typed to the host runtime.
  *
- * @template TAdapter The runtime adapter type; determines the concrete application class returned by {@link FlareHost.build}.
+ * @typeParam TAdapter The runtime adapter type; determines the concrete application class returned by {@link FlareHost.build}.
  */
 export type FlareApp<TAdapter> = TAdapter extends
   HostRuntimeAdapter<infer TApp, LoggerTransportClass, HostRuntimeLifecycle> ? TApp : never;

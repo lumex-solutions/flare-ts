@@ -25,7 +25,7 @@ export type ValidationError = {
  * Implementations collect every problem they find and return them as an array;
  * they never throw and never short-circuit on the first error.
  *
- * @template TContext The validation context the implementation inspects.
+ * @typeParam TContext The validation context the implementation inspects.
  */
 export interface IValidator<TContext> {
   validate(ctx: TContext): ValidationError[];

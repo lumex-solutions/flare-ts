@@ -5,7 +5,7 @@ import type { IValidator, ValidationError } from "./types.js";
  *
  * Every inner validator runs unconditionally; errors are collected, not short-circuited.
  *
- * @template TContext The shape of the validation context shared by all inner validators.
+ * @typeParam TContext The shape of the validation context shared by all inner validators.
  */
 export class CompositeValidator<TContext> implements IValidator<TContext> {
   constructor(private readonly validators: IValidator<TContext>[]) {}

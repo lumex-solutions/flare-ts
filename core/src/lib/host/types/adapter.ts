@@ -15,10 +15,10 @@ import type { HostRuntime } from "./types";
  * runtime's `flare.json` source, environment map, default transports, and factories for the app,
  * logger, and synthesized test request.
  *
- * @template TApp - Concrete {@link IFlareApp} produced by {@link createApp}.
- * @template TTransportClass - Logger transport class type understood by this runtime.
- * @template TLifecycle - `"sync"` or `"async"`; constrains whether service hooks may return Promises.
- * @template TExt - Members the adapter stamps onto the host at construction via `extendHost`.
+ * @typeParam TApp - Concrete {@link IFlareApp} produced by {@link createApp}.
+ * @typeParam TTransportClass - Logger transport class type understood by this runtime.
+ * @typeParam TLifecycle - `"sync"` or `"async"`; constrains whether service hooks may return Promises.
+ * @typeParam TExt - Members the adapter stamps onto the host at construction via `extendHost`.
  */
 export interface HostRuntimeAdapter<
   TApp extends IFlareApp,

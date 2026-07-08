@@ -65,7 +65,7 @@ export type Primitive = {
  * Callable as `(v: string) => T`. Used as a leaf value inside schema
  * descriptors and wherever the output type is needed.
  *
- * @template T The output type produced after parsing and validation.
+ * @typeParam T The output type produced after parsing and validation.
  */
 export type TypedPrimitive<T> = Primitive & {
   (v: string): T;
@@ -75,7 +75,7 @@ export type TypedPrimitive<T> = Primitive & {
  * Array-accepting primitive parser that splits a comma-separated string or
  * maps over an existing string array.
  *
- * @template T The element type produced after parsing each item.
+ * @typeParam T The element type produced after parsing each item.
  */
 export type ArrayTypedPrimitive<T> = Primitive & {
   (v: string | string[]): T[];

@@ -99,7 +99,7 @@ export type BranchShape<T, K extends keyof T, V extends DiscriminantValues<T, K>
  * `int`, `str`, `uuid`) or a nested {@link SchemaToken} produced by
  * {@link schema}, enabling structural composition.
  *
- * @template T The TypeScript type the descriptor entry produces after parsing.
+ * @typeParam T The TypeScript type the descriptor entry produces after parsing.
  */
 export type DescriptorValue<T> = TypedPrimitive<T> | SchemaToken<T>;
 
