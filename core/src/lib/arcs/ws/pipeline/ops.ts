@@ -8,7 +8,7 @@ import type { FieldError, JsonValue } from "@flare-ts/lib/schema";
 import type { FlareWebSocketContext } from "../transport/flare-web-socket-context.js";
 import type { WsDecodedMessage, WsRawInput, WsTypedInput } from "./input.js";
 import type { WsPipeline } from "./route.js";
-import { _log } from "../../../logger/logger.js";
+import { _log } from "../../../logger/bootstrap.js";
 import { FlareWebSocketMessage } from "../transport/flare-web-socket-message.js";
 
 const TEXT_DECODER = new TextDecoder();

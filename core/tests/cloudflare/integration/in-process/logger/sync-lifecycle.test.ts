@@ -6,10 +6,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
 import type { LogRecord } from "../../../../../src/index.js";
-import { CFWLoggerTransport, FlareHost } from "../../../../../src/index.js";
-import { CFWLogger } from "../../../../../src/lib/logger/logger.js";
-import { CFWConsoleTransport } from "../../../../../src/lib/logger/transports/console.js";
-import { loggerALS } from "../../../../../src/lib/logger/types.js";
+import { CfLoggerTransport, FlareHost } from "../../../../../src/index.js";
+import { loggerALS } from "../../../../../src/lib/logger/context.js";
+import { CfConsoleTransport } from "../../../../../src/lib/logger/runtime/cloudflare/cf-console-transport.js";
+import { CfLogger } from "../../../../../src/lib/logger/runtime/cloudflare/cf-logger.js";
 import { cfLoggerTestAdapter, cfTestAdapter } from "../../../helpers/cf-test-adapter.js";
 import { registerMinimalPingRoute } from "../../../helpers/minimal-route.js";
 
@@ -17,12 +17,12 @@ type LifecycleEvent =
   | { kind: "start"; name: string; }
   | { kind: "stop"; name: string; };
 
-/** Builds a test adapter that drops default CFWConsoleTransport so only registered transports fire. */
+/** Builds a test adapter that drops default CfConsoleTransport so only registered transports fire. */
 function makeCfAdapter(config: JsonObject): ReturnType<typeof cfTestAdapter> {
   return cfLoggerTestAdapter(config);
 }
 
-/** Builds a test adapter that retains the default CFWConsoleTransport stack. */
+/** Builds a test adapter that retains the default CfConsoleTransport stack. */
 function makeCfAdapterKeepDefaults(config: JsonObject): ReturnType<typeof cfTestAdapter> {
   return cfTestAdapter(config);
 }
@@ -33,7 +33,7 @@ function resetEvents(): void {
   events.length = 0;
 }
 
-class SyncTransportA extends CFWLoggerTransport {
+class SyncTransportA extends CfLoggerTransport {
   static override readonly transportName = "sync-a";
   static override deps: never[] = [];
   static records: LogRecord[] = [];
@@ -48,7 +48,7 @@ class SyncTransportA extends CFWLoggerTransport {
   }
 }
 
-class SyncTransportB extends CFWLoggerTransport {
+class SyncTransportB extends CfLoggerTransport {
   static override readonly transportName = "sync-b";
   static override deps: never[] = [];
   static records: LogRecord[] = [];
@@ -63,7 +63,7 @@ class SyncTransportB extends CFWLoggerTransport {
   }
 }
 
-class SyncTransportC extends CFWLoggerTransport {
+class SyncTransportC extends CfLoggerTransport {
   static override readonly transportName = "sync-c";
   static override deps: never[] = [];
   static records: LogRecord[] = [];
@@ -100,18 +100,18 @@ describe("Primary Behavior", () => {
     host.logging.transport(SyncTransportA);
 
     // Build (which compiles the logger) but do not yet run the test app's
-    // lifecycle so that we can directly invoke CFWLogger.onStart() and observe
+    // lifecycle so that we can directly invoke CfLogger.onStart() and observe
     // its return value.
     host.build();
     const logger = host.logger;
-    expect(logger).toBeInstanceOf(CFWLogger);
+    expect(logger).toBeInstanceOf(CfLogger);
 
     // Synchronous semantics: the start event for our transport must already be
     // recorded immediately after the call returns, with no microtask boundary
     // in between. Capture the events length before invoking onStart so we can
     // assert the diff fired synchronously.
     const before = events.length;
-    const ret = (logger as CFWLogger).onStart();
+    const ret = (logger as CfLogger).onStart();
     const after = events.length;
 
     expect(ret).toBeUndefined();
@@ -139,7 +139,7 @@ describe("Primary Behavior", () => {
     // transport is started. We invoke onStop directly to observe the sync
     // return value while the logger is still alive.
     resetEvents();
-    const ret = (host.logger as CFWLogger).onStop();
+    const ret = (host.logger as CfLogger).onStop();
     expect(ret).toBeUndefined();
     expect((ret as unknown) instanceof Promise).toBe(false);
     // The stop event for sync-a must already be recorded synchronously.
@@ -187,16 +187,16 @@ describe("Primary Behavior", () => {
 
     const app = await host.build().test();
     try {
-      // The bootstrapped logger is a CFWLogger, not a plain Logger.
-      expect(host.logger).toBeInstanceOf(CFWLogger);
+      // The bootstrapped logger is a CfLogger, not a plain Logger.
+      expect(host.logger).toBeInstanceOf(CfLogger);
 
-      // The adapter's defaultLoggerTransports advertise CFWConsoleTransport.
-      expect(adapter.defaultLoggerTransports).toEqual([CFWConsoleTransport]);
+      // The adapter's defaultLoggerTransports advertise CfConsoleTransport.
+      expect(adapter.defaultLoggerTransports).toEqual([CfConsoleTransport]);
 
-      // The resulting logger holds a CFWConsoleTransport instance, observed
+      // The resulting logger holds a CfConsoleTransport instance, observed
       // through the protected `transports` getter via reflection.
       const transports = (host.logger as unknown as { transports: readonly object[]; }).transports;
-      expect(transports.some((t) => t instanceof CFWConsoleTransport)).toBe(true);
+      expect(transports.some((t) => t instanceof CfConsoleTransport)).toBe(true);
     } finally {
       await app.stop();
     }
@@ -211,7 +211,7 @@ describe("Edge Cases", () => {
 
   it("a transport whose onStart hook is synchronous runs that hook during logger startup", async () => {
     let started = 0;
-    class VoidStartTransport extends CFWLoggerTransport {
+    class VoidStartTransport extends CfLoggerTransport {
       static override readonly transportName = "void-start";
       static override deps: never[] = [];
       override onStart(): void {
@@ -243,12 +243,12 @@ describe("Edge Cases", () => {
       resolveStart = res;
     });
 
-    class PromiseStartTransport extends CFWLoggerTransport {
+    class PromiseStartTransport extends CfLoggerTransport {
       static override readonly transportName = "promise-start";
       static override deps: never[] = [];
       write(_record: LogRecord): void {}
     }
-    // TypeScript narrows CFWLoggerTransport.onStart to `(): void`. Assign a
+    // TypeScript narrows CfLoggerTransport.onStart to `(): void`. Assign a
     // Promise-returning function via the prototype with a cast: the duck-typed
     // override is structurally accepted at runtime but the framework does not
     // await it. This codifies the documented CFW gap.
@@ -270,7 +270,7 @@ describe("Edge Cases", () => {
     const app = await host.build().test();
     try {
       // After test() resolves, the framework's startAsync awaited
-      // CFWLogger.onStart, which itself did NOT await the transport's promise.
+      // CfLogger.onStart, which itself did NOT await the transport's promise.
       // The "enter" sentinel is recorded; "after-await" is not, because the
       // gate has not been released yet.
       expect(order).toEqual(["enter"]);
@@ -287,12 +287,12 @@ describe("Edge Cases", () => {
   it("framework bootstrap records are flushed synchronously after all transport onStart hooks run", async () => {
     // Framework boot emits trace-level "Lifecycle event" records via the
     // internal `_log` function before the Logger exists. Those records sit in
-    // the bootstrap buffer and are drained at the end of CFWLogger.onStart(),
+    // the bootstrap buffer and are drained at the end of CfLogger.onStart(),
     // after every transport's onStart fired. Run at level=trace so the drain
     // is not filtered out, and use a recording transport with onStart that
     // snapshots its records length so we can prove the flush happened AFTER
     // its own start.
-    class SnapshotTransport extends CFWLoggerTransport {
+    class SnapshotTransport extends CfLoggerTransport {
       static override readonly transportName = "snapshot";
       static override deps: never[] = [];
       static records: LogRecord[] = [];
@@ -350,7 +350,7 @@ describe("Failure Modes", () => {
   });
 
   it("a throw from a transport synchronous onStart propagates and aborts host boot before any user-facing log call", async () => {
-    class BrokenStartTransport extends CFWLoggerTransport {
+    class BrokenStartTransport extends CfLoggerTransport {
       static override readonly transportName = "broken-start";
       static override deps: never[] = [];
       override onStart(): void {
@@ -359,7 +359,7 @@ describe("Failure Modes", () => {
       write(_record: LogRecord): void {}
     }
 
-    class TrailingTransport extends CFWLoggerTransport {
+    class TrailingTransport extends CfLoggerTransport {
       static override readonly transportName = "trailing";
       static override deps: never[] = [];
       static started = false;
@@ -496,8 +496,8 @@ describe("Cross-Feature Interactions", () => {
       expect(outCtx!.context).toBeUndefined();
       expect(outCtx!.state).toBeUndefined();
 
-      // Confirms the host logger is a CFWLogger so the test exercised the Cloudflare emit path.
-      expect(host.logger).toBeInstanceOf(CFWLogger);
+      // Confirms the host logger is a CfLogger so the test exercised the Cloudflare emit path.
+      expect(host.logger).toBeInstanceOf(CfLogger);
     } finally {
       await app.stop();
     }

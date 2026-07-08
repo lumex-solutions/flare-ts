@@ -32,7 +32,7 @@ function newTestHost(adapter: ReturnType<typeof nodeAdapter>) {
 }
 
 // Adapter helpers. The default Node and CF adapters install ConsoleTransport /
-// CFWConsoleTransport as their first default; tests that want a deterministic
+// CfConsoleTransport as their first default; tests that want a deterministic
 // transport list override `defaultLoggerTransports`. Tests that exercise the
 // "defaults first" ordering keep the production default in place.
 

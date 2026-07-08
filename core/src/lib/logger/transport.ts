@@ -1,3 +1,7 @@
+/**
+ * The abstract base every Flare log transport extends: the write contract and the
+ * lifecycle hooks the logger drives.
+ */
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceToken } from "../services/types/types.js";
 import type { LogRecord } from "./types.js";
@@ -42,8 +46,10 @@ export abstract class LoggerTransport extends FlareBase {
   static readonly transportName: string;
   static deps: never[] = [];
 
+  /** Receives one fully assembled record; the transport decides how to format and emit it. */
   abstract write(record: LogRecord): void;
 
+  /** Always throws: transports cannot inject services; use `onStart()` and `this.config()`. */
   override inject<T extends FlareService>(token: ServiceToken<T>): T {
     throw new Error(
       `[flare] ${this.constructor.name} attempted to inject "${token.name}", but transports cannot inject services. Register clients or other dependencies in onStart() instead, and access config via this.config().`,
@@ -52,15 +58,4 @@ export abstract class LoggerTransport extends FlareBase {
 
   onStart?(): Promise<void> | void;
   onStop?(): Promise<void> | void;
-}
-
-/**
- * Abstract base for log transports running under {@link CFWLogger}.
- *
- * Narrows `onStart` and `onStop` to synchronous return types so the CFW logger
- * can drive lifecycle without awaiting promises.
- */
-export abstract class CFWLoggerTransport extends LoggerTransport {
-  onStart?(): void;
-  onStop?(): void;
 }

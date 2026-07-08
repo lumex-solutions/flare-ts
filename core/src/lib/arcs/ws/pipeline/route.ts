@@ -5,7 +5,7 @@
  * Durable Object hibernation engine drive them, and nothing else needs to cross that boundary.
  */
 import type { SchemaToken, TypedPrimitive } from "@flare-ts/lib/schema";
-import type { LogRunner } from "../../../logger/logger.js";
+import type { LogRunner } from "../../../logger/context.js";
 import type { Container } from "../../../services/container.js";
 import type { WsRegistration } from "../composition/types/registration.js";
 import type { FlareWebSocketContext } from "../transport/flare-web-socket-context.js";

@@ -9,17 +9,12 @@ process.env.FLARE_MODE = "test";
 
 import { afterEach, describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
+import type { LogContext } from "../../../../../src/lib/logger/types.js";
 import { FlareHost } from "../../../../../src/index.js";
-import { loggerALS, type LogContext } from "../../../../../src/lib/logger/types.js";
+import { runWithLogStore } from "../../../../../src/index.js";
 import { nodeAdapter } from "../../../../node/helpers/node-adapter.js";
+import { captureConsole, type ConsoleCapture, stripAnsi } from "../../../../portable/helpers/console-capture.js";
 import { registerMinimalPingRoute } from "../../../../portable/helpers/host-fixtures.js";
-
-interface ConsoleCapture {
-  log: string[];
-  warn: string[];
-  error: string[];
-  restore(): void;
-}
 
 // Console capture: each describe captures console.log/warn/error so we can
 // assert on the ConsoleTransport's rendered output without it actually
@@ -31,44 +26,12 @@ function newTestHost(adapter: ReturnType<typeof nodeAdapter>) {
   return host;
 }
 
-function captureConsole(): ConsoleCapture {
-  const originalLog = console.log;
-  const originalWarn = console.warn;
-  const originalError = console.error;
-  const cap: ConsoleCapture = {
-    log: [],
-    warn: [],
-    error: [],
-    restore(): void {
-      console.log = originalLog;
-      console.warn = originalWarn;
-      console.error = originalError;
-    },
-  };
-  console.log = (msg?: unknown): void => {
-    cap.log.push(String(msg));
-  };
-  console.warn = (msg?: unknown): void => {
-    cap.warn.push(String(msg));
-  };
-  console.error = (msg?: unknown): void => {
-    cap.error.push(String(msg));
-  };
-  return cap;
-}
-
-// ANSI stripper: pretty-mode output is intentionally heavy on escapes, but
-// the spec is about visible content and structure.
-function stripAnsi(value: string): string {
-  return value.replace(/\x1b\[[0-9;]*m/g, "");
-}
-
 function visibleLength(value: string): number {
   return stripAnsi(value).length;
 }
 
 // Adapter helpers: inject a synthetic flare.json while preserving the real
-// runtime adapter's default ConsoleTransport (or CFWConsoleTransport) so this
+// runtime adapter's default ConsoleTransport (or CfConsoleTransport) so this
 // suite exercises the actual transport that ships with each adapter.
 function makeNodeAdapter(config: JsonObject) {
   return nodeAdapter(config, { FLARE_MODE: "test" });
@@ -273,7 +236,7 @@ describe("Edge Cases", () => {
         method: "POST",
         url: "/items",
       };
-      loggerALS.run({ context: ctx, state: { tenantId: "t-7" } }, () => {
+      runWithLogStore({ context: ctx, state: { tenantId: "t-7" } }, () => {
         host.logger.error(err, "wrap-msg", { hint: "see-docs" });
       });
 
@@ -348,7 +311,7 @@ describe("Edge Cases", () => {
         method: "GET",
         url: "/u",
       };
-      loggerALS.run({ context: ctx, state: { tenant: "t1" } }, () => {
+      runWithLogStore({ context: ctx, state: { tenant: "t1" } }, () => {
         host.logger.error(new Error("jboom"), "jmsg", { extra: 9 });
       });
 
@@ -381,7 +344,7 @@ describe("Edge Cases", () => {
         method: "POST",
         url: "/items",
       };
-      loggerALS.run({ context: ctx }, () => {
+      runWithLogStore({ context: ctx }, () => {
         host.logger.info("inline-msg");
       });
 
@@ -542,7 +505,7 @@ describe("Cross-Feature Interactions", () => {
         method: "PUT",
         url: "/things/42",
       };
-      loggerALS.run({ context: ctx }, () => {
+      runWithLogStore({ context: ctx }, () => {
         host.logger.error(new Error("ctx-err"), "ctx-wrap");
       });
 

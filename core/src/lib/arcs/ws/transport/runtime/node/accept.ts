@@ -9,7 +9,8 @@ import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import type { WsConnection } from "../../../connection.js";
 import type { IFlareWebSocket, WsAcceptOptions } from "../../socket.js";
-import { _log, toErrorField } from "../../../../../logger/logger.js";
+import { _log } from "../../../../../logger/bootstrap.js";
+import { toErrorField } from "../../../../../logger/fields.js";
 import { performHandshake } from "./handshake.js";
 import { NodeWebSocket } from "./web-socket.js";
 

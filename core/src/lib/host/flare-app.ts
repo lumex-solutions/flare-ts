@@ -4,7 +4,8 @@ import type { FlareServiceClass, ServiceToken } from "../services/types/types.js
 import type { TestAppHandle } from "../testing/test.js";
 import type { IFlareHost } from "./flare-host.js";
 import { START_HTTP_ARC, START_HTTP_ARC_ASYNC, STOP_HTTP_ARC, STOP_HTTP_ARC_ASYNC } from "../arcs/http/http-arc.js";
-import { _log, Logger } from "../logger/logger.js";
+import { _log } from "../logger/bootstrap.js";
+import { Logger } from "../logger/logger.js";
 
 /**
  * One step of a lifecycle program: a callback to run plus the label used in the sync interpreter's

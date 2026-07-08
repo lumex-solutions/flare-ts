@@ -16,7 +16,7 @@ import type { ExecFn } from "./types/exec-fn.js";
 import type { Pipeline } from "./types/pipeline.js";
 import type { CompiledQueryPrimitive } from "./types/pipeline.js";
 import type { GroupRegistration } from "./types/registration.js";
-import { toErrorField } from "../../logger/logger.js";
+import { toErrorField } from "../../logger/fields.js";
 import { isValidInboundPath } from "../../routing/path.js";
 import { Container } from "../../services/container.js";
 import { compileHttp } from "./build.js";

@@ -4,7 +4,7 @@
 
 import type { JsonObject } from "@flare-ts/lib";
 import type { CloudflareAdapter } from "../../../src/lib/host/runtime/cloudflare/index.js";
-import type { CFWLoggerTransportClass } from "../../../src/lib/logger/types.js";
+import type { CfLoggerTransportClass } from "../../../src/lib/logger/types.js";
 import { cf } from "../../../src/lib/host/runtime/cloudflare/index.js";
 
 type CfTransport = typeof cf.defaultLoggerTransports[number];
@@ -65,7 +65,7 @@ export function cfLoggerTestAdapter(
   flareJson: JsonObject,
   opts: {
     env?: Record<string, string | undefined>;
-    defaultLoggerTransports?: readonly CFWLoggerTransportClass[];
+    defaultLoggerTransports?: readonly CfLoggerTransportClass[];
   } = {},
 ): CloudflareAdapter {
   // Spread `env` conditionally so the literal does not include an explicit

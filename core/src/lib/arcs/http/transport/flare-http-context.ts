@@ -8,7 +8,7 @@ import type { FlareRequest } from "./flare-request.js";
 import type { SseEvent, SseWriter } from "./sse.js";
 import type { RequestContext, TypedRequestContext } from "./types/request-context.js";
 import type { ResponseSerializers, Serializer } from "./types/response.js";
-import { loggerALS } from "../../../logger/types.js";
+import { loggerALS } from "../../../logger/context.js";
 import { getTokenDefault, getTokenDerivation, getTokenLogMapper } from "../../../state/flare-state.js";
 import { StateMap } from "../../../state/state-map.js";
 import { FlareResponse } from "./flare-response.js";

@@ -321,7 +321,7 @@ describe("Cross-Feature Interactions", () => {
   it(
     "(with http-arc/transport-cloudflare) FlareRequest body / headers / signal semantics line up with the underlying Cloudflare Request",
     async () => {
-      // The CF transport (`CFWRequestAdapter`) hands back the underlying
+      // The CF transport (`CfRequestAdapter`) hands back the underlying
       // `Request.headers`, `Request.signal`, and uses the body stream
       // directly. Surface each of those through a handler that reads the
       // documented FlareRequest API and confirm the values match what the

@@ -10,8 +10,9 @@ import type { SingletonExtension } from "../../../../../src/lib/host/extensions/
 import type { FlareAppNode } from "../../../../../src/lib/host/runtime/node.js";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import type { LoggerTransportClass } from "../../../../../src/lib/logger/types.js";
+import type { LogRecord } from "../../../../../src/lib/logger/types.js";
 import { FlareHost, FlareService, LOG_CONFIG, LoggerTransport, type LogConfig } from "../../../../../src/index.js";
-import { loggerALS, type LogRecord } from "../../../../../src/lib/logger/types.js";
+import { runWithLogStore } from "../../../../../src/index.js";
 // LogConfig used in the cross-feature test's `observed` typing below.
 import { node } from "../../../../../src/node.js";
 import { registerMinimalPingRoute } from "../../../../portable/helpers/host-fixtures.js";
@@ -231,7 +232,7 @@ describe("Primary Behavior", () => {
     try {
       // Run a log emission inside an explicit loggerALS scope so the record
       // picks up the store contents.
-      loggerALS.run(
+      runWithLogStore(
         { context: { source: "flare:host" }, state: { tag: "scoped-emit" } },
         () => {
           host.logger.info("inside-als");

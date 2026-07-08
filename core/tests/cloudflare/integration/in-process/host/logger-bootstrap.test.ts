@@ -1,22 +1,22 @@
 /**
- * Logger bootstrap on the Cloudflare adapter: cf createLogger returns CFWLogger and default
- * transports use CFWConsoleTransport semantics. Drives via cfLoggerTestAdapter (adapter.env
+ * Logger bootstrap on the Cloudflare adapter: cf createLogger returns CfLogger and default
+ * transports use CfConsoleTransport semantics. Drives via cfLoggerTestAdapter (adapter.env
  * supplies FLARE_MODE) and host.build().test() so bootstrap runs through the public host API.
  */
 import { afterEach, describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
 import { FlareHost } from "../../../../../src/index.js";
-import { CFWLogger } from "../../../../../src/lib/logger/logger.js";
-import { CFWConsoleTransport } from "../../../../../src/lib/logger/transports/console.js";
+import { CfConsoleTransport } from "../../../../../src/lib/logger/runtime/cloudflare/cf-console-transport.js";
+import { CfLogger } from "../../../../../src/lib/logger/runtime/cloudflare/cf-logger.js";
 import { cfLoggerTestAdapter } from "../../../helpers/cf-test-adapter.js";
 import { registerMinimalPingRoute } from "../../../helpers/minimal-route.js";
 
 function makeCfAdapter(
   config: JsonObject,
-  opts: { defaults?: readonly (typeof CFWConsoleTransport)[]; } = {},
+  opts: { defaults?: readonly (typeof CfConsoleTransport)[]; } = {},
 ): ReturnType<typeof cfLoggerTestAdapter> {
-  // Cast to the helper's parameter type - `typeof CFWConsoleTransport` is a
-  // valid CFWLoggerTransportClass at runtime but the array elementtypes don't
+  // Cast to the helper's parameter type - `typeof CfConsoleTransport` is a
+  // valid CfLoggerTransportClass at runtime but the array elementtypes don't
   // align structurally without the cast.
   return cfLoggerTestAdapter(config, { defaultLoggerTransports: (opts.defaults ?? []) as never });
 }
@@ -24,15 +24,15 @@ function makeCfAdapter(
 describe("Cross-Feature Interactions", () => {
   afterEach(() => {});
   it(
-    "(with host/runtime-cloudflare) CFWLogger is used instead of Logger; transports receive CFWConsoleTransport semantics",
+    "(with host/runtime-cloudflare) CfLogger is used instead of Logger; transports receive CfConsoleTransport semantics",
     async () => {
-      // CF adapter installs CFWConsoleTransport as its default, and its
-      // createLogger returns a CFWLogger (sync onStart/onStop). Verify both
+      // CF adapter installs CfConsoleTransport as its default, and its
+      // createLogger returns a CfLogger (sync onStart/onStop). Verify both
       // sides of the contract through the live host.logger reference and the
       // identity of the runtime default transport class.
       const adapter = makeCfAdapter(
         { host: { env: "test" }, log: { level: "info" } },
-        { defaults: [CFWConsoleTransport] },
+        { defaults: [CfConsoleTransport] },
       );
       const host = new FlareHost(adapter);
       registerMinimalPingRoute(host);
@@ -40,15 +40,15 @@ describe("Cross-Feature Interactions", () => {
       // Observe what bootstrap installed with no user transports.
       const app = await host.build().test();
       try {
-        // host.logger is a CFWLogger (a subclass of Logger). The .constructor
+        // host.logger is a CfLogger (a subclass of Logger). The .constructor
         // identity must be the CF variant under cf adapter.
-        expect(host.logger).toBeInstanceOf(CFWLogger);
+        expect(host.logger).toBeInstanceOf(CfLogger);
 
-        // The CF default transport class is CFWConsoleTransport, the sync
+        // The CF default transport class is CfConsoleTransport, the sync
         // variant. Any user-registered CF transport must extend
-        // CFWLoggerTransport so its onStart/onStop are synchronous.
+        // CfLoggerTransport so its onStart/onStop are synchronous.
         const CfTransportClass = adapter.defaultLoggerTransports[0]!;
-        expect(CfTransportClass).toBe(CFWConsoleTransport);
+        expect(CfTransportClass).toBe(CfConsoleTransport);
       } finally {
         await app.stop();
       }

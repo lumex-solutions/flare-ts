@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { LogRecord } from "../../../../../src/index.js";
-import { CFWLoggerTransport, FlareHost } from "../../../../../src/index.js";
+import { CfLoggerTransport, FlareHost } from "../../../../../src/index.js";
 import { cfLoggerTestAdapter } from "../../../helpers/cf-test-adapter.js";
 import { registerMinimalPingRoute } from "../../../helpers/minimal-route.js";
 
@@ -16,7 +16,7 @@ describe("Cross-Feature Interactions", () => {
       resolveStart = res;
     });
 
-    class CfPromiseTransport extends CFWLoggerTransport {
+    class CfPromiseTransport extends CfLoggerTransport {
       static override readonly transportName = "cfw-promise";
       static override deps: never[] = [];
       write(_record: LogRecord): void {}

@@ -305,7 +305,7 @@ describe("Edge Cases", () => {
     expect(cReadies).toEqual([]);
   });
 
-  it("awaits a transport's Promise-returning onStart before starting the next transport (under Logger, not CFWLogger)", async () => {
+  it("awaits a transport's Promise-returning onStart before starting the next transport (under Logger, not CfLogger)", async () => {
     const order: string[] = [];
 
     class AsyncFirstTransport extends LoggerTransport {

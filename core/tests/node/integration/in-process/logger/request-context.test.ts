@@ -1,32 +1,23 @@
 /**
  * Pins logger AsyncLocalStorage context propagation: enableContext gating, nested
- * loggerALS.run scopes, captureLogStore/runWithLogStore re-entry, and per-request
+ * runWithLogStore scopes, captureLogStore/runWithLogStore re-entry, and per-request
  * HttpLogContext from the Node runtime.
  * FLARE_MODE must be set before any FlareHost is constructed so the host enters test mode.
  */
 process.env["FLARE_MODE"] = "test";
 
-import type { AddressInfo } from "node:net";
-import { once } from "node:events";
 import { afterEach, describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
 import {
   captureLogStore,
   FlareHost,
-  FlareResponse,
   LoggerTransport,
   runWithLogStore,
   type LogRecord,
 } from "../../../../../src/index.js";
 import { ConsoleTransport } from "../../../../../src/lib/logger/transports/console.js";
-import {
-  loggerALS,
-  type HostLogContext,
-  type HttpLogContext,
-  type LogContext,
-} from "../../../../../src/lib/logger/types.js";
-import { node } from "../../../../../src/node.js";
-import { nodeAdapter, type NodeTestAdapter } from "../../../../node/helpers/node-adapter.js";
+import { type HostLogContext, type HttpLogContext, type LogContext } from "../../../../../src/lib/logger/types.js";
+import { nodeAdapter } from "../../../../node/helpers/node-adapter.js";
 import { registerMinimalPingRoute } from "../../../../portable/helpers/host-fixtures.js";
 
 /** Captures every log record; per-test reset keeps assertions scoped to one call. */
@@ -63,31 +54,12 @@ function newTestHost(adapter: ReturnType<typeof nodeAdapter>) {
   return host;
 }
 
-/** Builds a live Node adapter with empty `env` so `host.build()` returns FlareAppNode for runtime ALS tests. */
-function nodeLiveAdapter(
-  flareJson: JsonObject,
-): NodeTestAdapter {
-  return {
-    runtime: node.runtime,
-    lifecycle: node.lifecycle,
-    env: {},
-    defaultLoggerTransports: [],
-    createApp: node.createApp.bind(node),
-    createLogger: node.createLogger.bind(node),
-    createTestRequest: node.createTestRequest.bind(node),
-    extendHost: node.extendHost!.bind(node),
-    get flareJsonFile(): JsonObject {
-      return flareJson;
-    },
-  };
-}
-
 describe("Primary Behavior", () => {
   afterEach(() => {
     resetRecords();
   });
 
-  it("with log.enableContext: true, calling logger.info inside loggerALS.run produces a record whose context deep-equals the store's context", async () => {
+  it("with log.enableContext: true, calling logger.info inside runWithLogStore produces a record whose context deep-equals the store's context", async () => {
     const adapter = makeAdapter({
       host: { env: "test" },
       log: { level: "info", enableContext: true },
@@ -103,7 +75,7 @@ describe("Primary Behavior", () => {
         method: "GET",
         url: "/things",
       };
-      loggerALS.run({ context: ctx }, () => {
+      runWithLogStore({ context: ctx }, () => {
         host.logger.info("hi");
       });
 
@@ -133,7 +105,7 @@ describe("Primary Behavior", () => {
         url: "/things",
       };
       const state = { tenantId: "tnt-7", userId: "u-2" };
-      loggerALS.run({ context: ctx, state }, () => {
+      runWithLogStore({ context: ctx, state }, () => {
         host.logger.info("hello");
       });
 
@@ -156,7 +128,7 @@ describe("Primary Behavior", () => {
     const app = await host.build().test();
     try {
       resetRecords();
-      // No surrounding loggerALS.run: emitted at "top of process".
+      // No surrounding runWithLogStore: emitted at "top of process".
       host.logger.info("naked");
 
       const rec = RecordingTransport.records.find((r) => r.message === "naked");
@@ -168,7 +140,7 @@ describe("Primary Behavior", () => {
     }
   });
 
-  it("with log.enableContext: false, records never carry context or state even inside an active loggerALS.run", async () => {
+  it("with log.enableContext: false, records never carry context or state even inside an active runWithLogStore", async () => {
     const adapter = makeAdapter({
       host: { env: "test" },
       // enableContext omitted (defaults to false).
@@ -185,7 +157,7 @@ describe("Primary Behavior", () => {
         method: "GET",
         url: "/nope",
       };
-      loggerALS.run({ context: ctx, state: { tenantId: "t-x" } }, () => {
+      runWithLogStore({ context: ctx, state: { tenantId: "t-x" } }, () => {
         host.logger.info("inside-but-disabled");
       });
 
@@ -205,7 +177,7 @@ describe("Edge Cases", () => {
     resetRecords();
   });
 
-  it("nested loggerALS.run calls: the innermost store wins", async () => {
+  it("nested runWithLogStore calls: the innermost store wins", async () => {
     const adapter = makeAdapter({
       host: { env: "test" },
       log: { level: "info", enableContext: true },
@@ -228,9 +200,9 @@ describe("Edge Cases", () => {
         url: "/inner",
       };
 
-      loggerALS.run({ context: outer }, () => {
+      runWithLogStore({ context: outer }, () => {
         host.logger.info("at-outer");
-        loggerALS.run({ context: inner }, () => {
+        runWithLogStore({ context: inner }, () => {
           host.logger.info("at-inner");
         });
         host.logger.info("after-inner");
@@ -270,7 +242,7 @@ describe("Edge Cases", () => {
           method: "GET",
           url: "/users/42",
         };
-        loggerALS.run({ context: ctx }, () => {
+        runWithLogStore({ context: ctx }, () => {
           host.logger.info("served");
         });
       } finally {
@@ -310,12 +282,12 @@ describe("Edge Cases", () => {
           method: "GET",
           url: "/x",
         };
-        loggerALS.run({ context: httpCtx }, () => {
+        runWithLogStore({ context: httpCtx }, () => {
           host.logger.info("with-http-ctx");
         });
 
         const hostCtx: HostLogContext = { source: "flare:host" };
-        loggerALS.run({ context: hostCtx }, () => {
+        runWithLogStore({ context: hostCtx }, () => {
           host.logger.info("with-host-ctx");
         });
       } finally {
@@ -355,7 +327,7 @@ describe("Edge Cases", () => {
         traceId: "trace-abc",
       } as unknown as LogContext;
 
-      loggerALS.run({ context: ctx }, () => {
+      runWithLogStore({ context: ctx }, () => {
         host.logger.info("extras");
       });
 
@@ -378,11 +350,11 @@ describe("Failure Modes", () => {
     resetRecords();
   });
 
-  it("ALS does NOT flow into a callback invoked outside the original loggerALS.run scope; captureLogStore + runWithLogStore restores context", async () => {
+  it("ALS does NOT flow into a callback invoked outside the original runWithLogStore scope; captureLogStore + runWithLogStore restores context", async () => {
     // The spec calls out CF's `ctx.waitUntil` as the platform constraint:
     // work scheduled there does not inherit the ALS store. The underlying
     // mechanism is generic: any callback invoked OUTSIDE an active
-    // `loggerALS.run` frame sees no store, regardless of how it was captured.
+    // `runWithLogStore` frame sees no store, regardless of how it was captured.
     //
     // Node + Cloudflare workerd both implement `AsyncLocalStorage` such that
     // the store is bound to the synchronous execution of the `.run(...)`
@@ -409,16 +381,16 @@ describe("Failure Modes", () => {
 
       // Captured-from-inside, invoked-from-outside callback. This is the
       // documented platform-constraint shape for CFW `waitUntil`: the
-      // callback's execution stack sits outside `loggerALS.run`.
+      // callback's execution stack sits outside `runWithLogStore`.
       let deferred: (() => void) | undefined;
       let snapshot: ReturnType<typeof captureLogStore>;
 
-      loggerALS.run({ context: ctx }, () => {
+      runWithLogStore({ context: ctx }, () => {
         // Sanity: inside the run, the store is visible to the logger.
         host.logger.info("inside-run");
         snapshot = captureLogStore();
         deferred = () => {
-          // No surrounding loggerALS.run when this fires, so no store is visible.
+          // No surrounding runWithLogStore when this fires, so no store is visible.
           host.logger.info("detached-no-ctx");
 
           // Documented mitigation: snapshot and re-run.
@@ -442,7 +414,7 @@ describe("Failure Modes", () => {
       // Detached callback: ALS does not flow, so the logger sees no store and
       // the record carries no context (matches the documented constraint).
       expect("context" in detached!).toBe(false);
-      // Once the caller re-enters via loggerALS.run, the context is restored.
+      // Once the caller re-enters via runWithLogStore, the context is restored.
       expect(reentered!.context).toEqual(ctx);
     } finally {
       await app.stop();
@@ -453,59 +425,6 @@ describe("Failure Modes", () => {
 describe("Cross-Feature Interactions", () => {
   afterEach(() => {
     resetRecords();
-  });
-
-  it("HTTP request scope (Node runtime): the per-request loggerALS wrap sets an HttpLogContext so every record emitted inside the handler carries it", async () => {
-    // The Node runtime wraps each incoming request in `loggerALS.run` with an
-    // HttpLogContext before dispatching to the HTTP arc. Use the live Node
-    // runtime (not the test-mode shim) so we exercise that wrap end-to-end.
-    const records: LogRecord[] = [];
-    class CapturingTransport extends LoggerTransport {
-      static override readonly transportName = "capture-http";
-      static override deps: never[] = [];
-      write(record: LogRecord): void {
-        records.push(record);
-      }
-    }
-
-    const host = newTestHost(nodeLiveAdapter({
-      host: { port: 0, host: "127.0.0.1", requestIdHeader: true },
-      log: { level: "trace", enableContext: true, format: "json" },
-    }));
-    host.logging.transport(CapturingTransport);
-
-    // Handler logs from inside the request scope. The runtime's loggerALS
-    // wrap must propagate the HttpLogContext to this emit.
-    host.http.get("/log-here", () => {
-      host.logger.info("handler-emit");
-      return new FlareResponse(200, { ok: true });
-    });
-
-    const app = host.build();
-    const handle = app.run();
-    try {
-      if (!handle.server.listening) {
-        await once(handle.server, "listening");
-      }
-      const addr = handle.server.address() as AddressInfo;
-      const res = await fetch(`http://127.0.0.1:${addr.port}/log-here`);
-      expect(res.status).toBe(200);
-
-      const rec = records.find((r) => r.message === "handler-emit");
-      expect(rec).toBeDefined();
-      // The HTTP arc subsystem's per-request scope produced an HttpLogContext.
-      expect(rec!.context).toBeDefined();
-      expect(rec!.context).toMatchObject({
-        source: "flare:http",
-        method: "GET",
-        url: "/log-here",
-      });
-      // requestId is generated by the runtime; it must be a non-empty string.
-      expect(typeof (rec!.context as HttpLogContext).requestId).toBe("string");
-      expect((rec!.context as HttpLogContext).requestId.length).toBeGreaterThan(0);
-    } finally {
-      await handle.stop();
-    }
   });
 
   it("an error record emitted inside the HTTP scope renders a pretty error block whose context section lists method, url, and request_id", async () => {
@@ -532,7 +451,7 @@ describe("Cross-Feature Interactions", () => {
           method: "POST",
           url: "/widgets",
         };
-        loggerALS.run({ context: ctx }, () => {
+        runWithLogStore({ context: ctx }, () => {
           host.logger.error(new Error("boom-in-scope"), "while-handling");
         });
       } finally {
@@ -551,43 +470,6 @@ describe("Cross-Feature Interactions", () => {
       expect(plain).toMatch(/request_id[= ]rid-err-ctx/);
     } finally {
       await app.stop();
-    }
-  });
-
-  it("host lifecycle code (Node runtime startup) emits records inside a HostLogContext so lifecycle traces are tagged with source: flare:host", async () => {
-    // The Node runtime wraps `#start` in `loggerALS.run({ context:
-    // { source: "flare:host" } })` when enableContext is on. The
-    // "HTTP server started listening on ..." info log is emitted from inside
-    // that scope and must carry the HostLogContext on the record.
-    const records: LogRecord[] = [];
-    class CapturingHostTransport extends LoggerTransport {
-      static override readonly transportName = "capture-host";
-      static override deps: never[] = [];
-      write(record: LogRecord): void {
-        records.push(record);
-      }
-    }
-
-    const host = newTestHost(nodeLiveAdapter({
-      host: { port: 0, host: "127.0.0.1" },
-      log: { level: "trace", enableContext: true, format: "json" },
-    }));
-    host.logging.transport(CapturingHostTransport);
-
-    const app = host.build();
-    const handle = app.run();
-    try {
-      if (!handle.server.listening) {
-        await once(handle.server, "listening");
-      }
-
-      // The "listening" info log fires once startup completes. Find it.
-      const listening = records.find((r) => r.message.startsWith("HTTP server started listening"));
-      expect(listening).toBeDefined();
-      // It was emitted from inside the host lifecycle ALS scope.
-      expect(listening!.context).toEqual({ source: "flare:host" });
-    } finally {
-      await handle.stop();
     }
   });
 });

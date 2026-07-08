@@ -1,24 +1,16 @@
+/**
+ * The structured logger service: level filtering, context stamping, transport fan-out,
+ * and the transport lifecycle it drives.
+ */
 import type { JsonValue } from "@flare-ts/lib";
 import type { Container } from "../services/container.js";
-import type { CFWLoggerTransport, LoggerTransport } from "./transport.js";
-import type { LogContext } from "./types.js";
+import type { LoggerTransport } from "./transport.js";
 import { LOG_CONFIG } from "../config/flare-config.js";
 import { FlareService } from "../services/composition/flare-service.js";
-import { LOG_LEVELS, type LogError, loggerALS, type LogLevel, type LogMeta, type LogRecord } from "./types.js";
-
-/** Runs a call under a logger context (or passes through when none): what {@link loggerRunner} builds. */
-export type LogRunner = <R>(fn: () => R) => R;
-
-/**
- * Builds a {@link LogRunner} for `context`: when a context was built, every call it wraps runs under
- * {@link loggerALS} so records emitted inside carry that context; without one it passes through. Used
- * by long-lived scopes (e.g. a WebSocket connection's handlers) that wrap many calls under one context.
- */
-export function loggerRunner(context: LogContext | undefined): LogRunner {
-  return context
-    ? <R>(fn: () => R): R => loggerALS.run({ context }, fn)
-    : <R>(fn: () => R): R => fn();
-}
+import { _log, clearBootstrapBuffer, peekBootstrapBuffer } from "./bootstrap.js";
+import { loggerALS } from "./context.js";
+import { type LogError, toErrorField } from "./fields.js";
+import { LOG_LEVELS, type LogLevel, type LogMeta, type LogRecord } from "./types.js";
 
 /**
  * Structured logger that emits records to one or more registered transports.
@@ -67,10 +59,11 @@ export class Logger<T extends Record<string, JsonValue> = Record<string, JsonVal
   /** @internal */
   protected flushBootstrapBuffer(): void {
     // Flush bootstrap buffer after transports are ready, to ensure no records are lost.
-    for (const record of _buffer) {
+    // Clear only AFTER the loop: a transport throw mid-flush leaves the buffer intact.
+    for (const record of peekBootstrapBuffer()) {
       this.#emit(record.level, record.message, record.meta);
     }
-    _buffer.length = 0;
+    clearBootstrapBuffer();
   }
 
   /** @internal */
@@ -126,13 +119,17 @@ export class Logger<T extends Record<string, JsonValue> = Record<string, JsonVal
     this.#emit("warn", message, meta);
   }
   /**
-   * Emits a record at error level. Pass an error value as the first argument
-   * to attach a structured `error` field assembled via {@link toErrorField}.
+   * Emits a record at error level.
+   *
+   * Pass an error value as the first argument to attach a structured `error` field
+   * assembled via {@link toErrorField}.
    */
   error(message: string, meta?: LogMeta<T>): void;
   error(error: unknown, message: string, meta?: LogMeta<T>): void;
   error(messageOrError: string | unknown, messageOrMeta?: string | LogMeta<T>, meta?: LogMeta<T>): void {
     if (typeof messageOrError === "string") {
+      // The string overload's second parameter is the meta object; the union type of the
+      // implementation signature cannot see which overload the caller took.
       this.#emit("error", messageOrError, messageOrMeta as LogMeta<T> | undefined);
       return;
     }
@@ -141,13 +138,16 @@ export class Logger<T extends Record<string, JsonValue> = Record<string, JsonVal
     this.#emit("error", message, meta, toErrorField(messageOrError));
   }
   /**
-   * Emits a record at fatal level. Pass an error value as the first argument
-   * to attach a structured `error` field assembled via {@link toErrorField}.
+   * Emits a record at fatal level.
+   *
+   * Pass an error value as the first argument to attach a structured `error` field
+   * assembled via {@link toErrorField}.
    */
   fatal(message: string, meta?: LogMeta<T>): void;
   fatal(error: unknown, message: string, meta?: LogMeta<T>): void;
   fatal(messageOrError: string | unknown, messageOrMeta?: string | LogMeta<T>, meta?: LogMeta<T>): void {
     if (typeof messageOrError === "string") {
+      // Same overload-erasure narrowing as error() above.
       this.#emit("fatal", messageOrError, messageOrMeta as LogMeta<T> | undefined);
       return;
     }
@@ -239,81 +239,8 @@ export class Logger<T extends Record<string, JsonValue> = Record<string, JsonVal
   }
 }
 
-/**
- * Synchronous logger variant for Cloudflare Workers.
- *
- * Behaves like {@link Logger} except that `onStart` and `onStop` run without
- * awaiting promises, matching the CFW host lifecycle.
- *
- * @typeParam T - Shape of the `meta` object accepted by log methods.
- */
-export class CFWLogger<T extends Record<string, JsonValue> = Record<string, JsonValue>> extends Logger<T> {
-  constructor(transports: CFWLoggerTransport[], container: Container) {
-    super(transports, container);
-  }
-
-  override onStart(): void {
-    this.configure();
-
-    for (const transport of this.transports as CFWLoggerTransport[]) {
-      transport.onStart?.();
-    }
-
-    this.flushBootstrapBuffer();
-  }
-
-  override onStop(): void {
-    for (let i = this.transports.length - 1; i >= 0; i--) {
-      const transport = this.transports[i]! as CFWLoggerTransport;
-      const start = this.emitTransportShutdownStart(transport, i + 1);
-      transport.onStop?.();
-      this.emitTransportShutdownReady(transport, start, i);
-    }
-  }
-}
-
 function getTransportName(transport: LoggerTransport): string {
+  // Statics live on the constructor; the instance type cannot express "constructor of a
+  // LoggerTransport subclass", so the read narrows through the base class type.
   return (transport.constructor as typeof LoggerTransport).transportName;
-}
-
-const _buffer: LogRecord[] = [];
-/**
- * Buffers framework-internal log calls made before the real {@link Logger} is ready.
- *
- * Fatals are written to stderr immediately. Every other level is appended to a
- * module-scope buffer that is drained through the configured transports during
- * `Logger.onStart()`.
- *
- * @internal
- */
-export const _log = (level: LogLevel, message: string, meta?: LogMeta): void => {
-  if (level === "fatal") {
-    console.error(`[flare] FATAL: ${message}${meta ? " " + JSON.stringify(meta) : ""}\n`);
-    return;
-  }
-
-  const record: LogRecord = {
-    timestamp: Date.now(),
-    level,
-    message,
-  };
-
-  if (meta) record.meta = meta;
-
-  _buffer.push(record);
-};
-
-/**
- * Normalizes a thrown value into a structured {@link LogError}.
- *
- * Returns `{ name, message, stack? }` for `Error` instances, or `{ message }`
- * built from `String(err)` for any other value.
- */
-export function toErrorField(err: unknown): LogError {
-  if (!(err instanceof Error)) return { message: String(err) };
-
-  const name = err.name === "Error" ? err.constructor.name : err.name;
-  const field: LogError = { name, message: err.message };
-  if (err.stack) field.stack = err.stack;
-  return field;
 }

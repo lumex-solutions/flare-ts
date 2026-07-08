@@ -1,12 +1,14 @@
 /** Framework-side lifecycle for one live WebSocket connection, returned by {@link UPGRADE_WS} on a match. */
-import type { LogRunner } from "../../logger/logger.js";
+import type { LogRunner } from "../../logger/context.js";
 import type { LogContext } from "../../logger/types.js";
 import type { Container } from "../../services/container.js";
 import type { IWsChannelDomain } from "./channels/domain.js";
 import type { WsRawInput, WsTypedInput } from "./pipeline/input.js";
 import type { WsController, WsPipeline } from "./pipeline/route.js";
 import type { IFlareWebSocket, WsAcceptOptions } from "./transport/socket.js";
-import { _log, loggerRunner, toErrorField } from "../../logger/logger.js";
+import { _log } from "../../logger/bootstrap.js";
+import { loggerRunner } from "../../logger/context.js";
+import { toErrorField } from "../../logger/fields.js";
 import { buildInput, decodeMessage } from "./pipeline/ops.js";
 import { FlareWebSocketContext, WS_LEAVE_ALL } from "./transport/flare-web-socket-context.js";
 

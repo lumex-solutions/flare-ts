@@ -7,10 +7,11 @@ process.env.FLARE_MODE = "test";
 
 import { afterEach, describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
+import type { LogContext } from "../../../../../src/lib/logger/types.js";
 import { FlareHost, LoggerTransport, type LogRecord } from "../../../../../src/index.js";
-import { toErrorField } from "../../../../../src/lib/logger/logger.js";
+import { runWithLogStore } from "../../../../../src/index.js";
+import { toErrorField } from "../../../../../src/lib/logger/fields.js";
 import { ConsoleTransport } from "../../../../../src/lib/logger/transports/console.js";
-import { loggerALS, type LogContext } from "../../../../../src/lib/logger/types.js";
 import { nodeAdapter } from "../../../../node/helpers/node-adapter.js";
 import { registerMinimalPingRoute } from "../../../../portable/helpers/host-fixtures.js";
 
@@ -341,7 +342,7 @@ describe("Cross-Feature Interactions", () => {
     }
   });
 
-  it("an error record emitted inside loggerALS.run carries both context and the error field (logger/request-context)", async () => {
+  it("an error record emitted inside runWithLogStore carries both context and the error field (logger/request-context)", async () => {
     const adapter = makeAdapter({
       host: { env: "test" },
       log: { level: "info", enableContext: true },
@@ -357,7 +358,7 @@ describe("Cross-Feature Interactions", () => {
         method: "POST",
         url: "/things",
       };
-      loggerALS.run({ context: ctx, state: { tenantId: "t-1" } }, () => {
+      runWithLogStore({ context: ctx, state: { tenantId: "t-1" } }, () => {
         host.logger.error(new Error("inside-als"), "with-ctx");
       });
 

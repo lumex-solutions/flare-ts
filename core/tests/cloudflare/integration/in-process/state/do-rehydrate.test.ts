@@ -7,13 +7,13 @@ import type { JsonObject } from "@flare-ts/lib";
 import type { CloudflareApp } from "../../../../../src/cloudflare.js";
 import { composeDurableInstance, FlareDurableObject } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareHttpContext, FlareRequest, FlareResponse, flareState } from "../../../../../src/index.js";
-import { CFWRequestAdapter } from "../../../../../src/lib/arcs/http/transport/runtime/cloudflare.js";
+import { CfRequestAdapter } from "../../../../../src/lib/arcs/http/transport/runtime/cloudflare.js";
 import {
   encodeInboundEnvelope,
   RESERVED_STATE_HEADER,
   RESERVED_TRACE_HEADER,
 } from "../../../../../src/lib/host/runtime/cloudflare/state-crossing.js";
-import { loggerALS } from "../../../../../src/lib/logger/types.js";
+import { loggerALS } from "../../../../../src/lib/logger/context.js";
 import { makeEnv, makeExecutionContext, makeFakeDurableState } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 
@@ -64,7 +64,7 @@ function buildDoHost(logCfg: JsonObject = {}): FlareHost {
 
 function makeFrontDoorCtx(): FlareHttpContext {
   const req = new Request("https://flare.test/");
-  const flareReq = new FlareRequest(CFWRequestAdapter, "GET", "/", "front-door-req", req);
+  const flareReq = new FlareRequest(CfRequestAdapter, "GET", "/", "front-door-req", req);
   return new FlareHttpContext(flareReq);
 }
 

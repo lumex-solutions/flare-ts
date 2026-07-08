@@ -10,7 +10,7 @@ process.env.FLARE_MODE = "test";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
 import { FlareHost, LoggerTransport, type LogRecord } from "../../../../../src/index.js";
-import { _log } from "../../../../../src/lib/logger/logger.js";
+import { _log } from "../../../../../src/lib/logger/bootstrap.js";
 import { nodeAdapter } from "../../../../node/helpers/node-adapter.js";
 import { registerMinimalPingRoute } from "../../../../portable/helpers/host-fixtures.js";
 

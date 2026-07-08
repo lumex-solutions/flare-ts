@@ -9,7 +9,12 @@ are mechanical - for any file there is exactly one legal shape, derivable withou
   minus any leading segments the file's own folder path already spells: `NodeWebSocket` in
   `runtime/node/` is `web-socket.ts`, `WsChannelRegistry` in `arcs/ws/channels/` is
   `registry.ts`, but `HibernationChannelIndex` in `runtime/cloudflare/` keeps
-  `hibernation-channel-index.ts` (no path segment spells it).
+  `hibernation-channel-index.ts` (no path segment spells it). Exception: when the stripped
+  name would shadow a module at the subsystem root, keep the full class kebab (`CfLogger` in
+  `logger/runtime/cloudflare/` is `cf-logger.ts` because `logger/logger.ts` exists). Sibling
+  collisions across runtime folders are fine (`runtime/node/web-socket.ts` and
+  `runtime/cloudflare/web-socket.ts` read as one concern per runtime); shadowing an ancestor
+  is not.
 - **Operations module** - exported functions over one concern; named for the concern, not a
   function (`build.ts`, `codec.ts`, `ops.ts`, `handshake.ts`). Never exports a class.
 - **Declarations module** - types, interfaces, brands, symbols, constants: the vocabulary of a

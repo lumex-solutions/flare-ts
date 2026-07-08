@@ -1,21 +1,14 @@
 /**
- * Unit tests for {@link ConsoleTransport} and {@link CFWConsoleTransport} formatting and output routing.
+ * Unit tests for {@link ConsoleTransport} formatting and output routing.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib/schema";
 import type { LogContext, LogError, LogLevel, LogMeta, LogRecord } from "../../../../../src/lib/logger/types.js";
 import { HOST_CONFIG, LOG_CONFIG } from "../../../../../src/lib/config/flare-config.js";
-import { CFWConsoleTransport, ConsoleTransport } from "../../../../../src/lib/logger/transports/console.js";
+import { ConsoleTransport } from "../../../../../src/lib/logger/transports/console.js";
 import { Container } from "../../../../../src/lib/services/container.js";
 import { FlareRegistrationMap } from "../../../../../src/lib/services/registration-map.js";
-
-/** Captures every call routed to console.log/warn/error during the test. */
-interface ConsoleCapture {
-  log: string[];
-  warn: string[];
-  error: string[];
-  restore(): void;
-}
+import { captureConsole, type ConsoleCapture, stripAnsi } from "../../../../portable/helpers/console-capture.js";
 
 /**
  * Builds a Container seeded with `host` and `log` config sections.
@@ -27,37 +20,6 @@ function makeContainer(
   log: Record<string, unknown> = {},
 ): Container {
   return new Container(new FlareRegistrationMap(), new Map(), { host, log } as unknown as JsonObject);
-}
-
-/** ANSI escape stripper used by helper assertions. */
-function stripAnsi(value: string): string {
-  return value.replace(/\x1b\[[0-9;]*m/g, "");
-}
-
-function captureConsole(): ConsoleCapture {
-  const originalLog = console.log;
-  const originalWarn = console.warn;
-  const originalError = console.error;
-  const cap: ConsoleCapture = {
-    log: [],
-    warn: [],
-    error: [],
-    restore(): void {
-      console.log = originalLog;
-      console.warn = originalWarn;
-      console.error = originalError;
-    },
-  };
-  console.log = (msg?: unknown): void => {
-    cap.log.push(String(msg));
-  };
-  console.warn = (msg?: unknown): void => {
-    cap.warn.push(String(msg));
-  };
-  console.error = (msg?: unknown): void => {
-    cap.error.push(String(msg));
-  };
-  return cap;
 }
 
 function makeRecord(partial: Partial<LogRecord> & { level: LogLevel; message: string; }): LogRecord {
@@ -387,80 +349,6 @@ describe("asynchronous console transport output", () => {
       expect(capture.log).toHaveLength(3);
     });
   });
-});
-
-describe("synchronous console transport output", () => {
-  let capture: ConsoleCapture;
-
-  beforeEach(() => {
-    capture = captureConsole();
-  });
-
-  afterEach(() => {
-    capture.restore();
-  });
-
-  // Primary Behavior
-  it('transportName static is "console"', () => {
-    expect(CFWConsoleTransport.transportName).toBe("console");
-  });
-
-  it("static config declares [LOG_CONFIG, HOST_CONFIG]", () => {
-    expect(CFWConsoleTransport.config).toEqual([LOG_CONFIG, HOST_CONFIG]);
-  });
-
-  it('onStart() selects json format when log.format is unset and host.env !== "development"', () => {
-    const t = new CFWConsoleTransport(makeContainer({ env: "production" }, {}));
-    t.onStart();
-    t.write(makeRecord({ level: "info", message: "hi" }));
-    expect(() => JSON.parse(capture.log[0]!)).not.toThrow();
-  });
-
-  it('onStart() selects pretty format when log.format is unset and host.env === "development"', () => {
-    const t = new CFWConsoleTransport(makeContainer({ env: "development" }, {}));
-    t.onStart();
-    t.write(makeRecord({ level: "info", message: "hi" }));
-    expect(capture.log[0]).toContain("\x1b[");
-    expect(() => JSON.parse(capture.log[0]!)).toThrow();
-  });
-
-  it('onStart() explicit log.format = "json" overrides host.env = "development"', () => {
-    const t = new CFWConsoleTransport(makeContainer({ env: "development" }, { format: "json" }));
-    t.onStart();
-    t.write(makeRecord({ level: "info", message: "hi" }));
-    expect(() => JSON.parse(capture.log[0]!)).not.toThrow();
-  });
-
-  it('onStart() explicit log.format = "pretty" overrides host.env = "production"', () => {
-    const t = new CFWConsoleTransport(makeContainer({ env: "production" }, { format: "pretty" }));
-    t.onStart();
-    t.write(makeRecord({ level: "info", message: "hi" }));
-    expect(capture.log[0]).toContain("\x1b[");
-  });
-
-  describe("level routing", () => {
-    function prettyTransport(): CFWConsoleTransport {
-      const t = new CFWConsoleTransport(makeContainer({ env: "development" }, { format: "pretty" }));
-      t.onStart();
-      return t;
-    }
-
-    it("routes warn to console.warn, error/fatal to console.error, everything else to console.log", () => {
-      const t = prettyTransport();
-      t.write(makeRecord({ level: "trace", message: "x" }));
-      t.write(makeRecord({ level: "debug", message: "x" }));
-      t.write(makeRecord({ level: "info", message: "x" }));
-      t.write(makeRecord({ level: "warn", message: "x" }));
-      t.write(makeRecord({ level: "error", message: "x" }));
-      t.write(makeRecord({ level: "fatal", message: "x" }));
-      expect(capture.log).toHaveLength(3);
-      expect(capture.warn).toHaveLength(1);
-      expect(capture.error).toHaveLength(2);
-    });
-  });
-
-  // The "error block frame width from terminal columns" cases live in the node root's mirror of
-  // this suite: frame width derives from process.stdout.columns, a node console concern.
 });
 
 /**

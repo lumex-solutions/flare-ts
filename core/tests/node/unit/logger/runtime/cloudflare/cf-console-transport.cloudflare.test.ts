@@ -1,58 +1,20 @@
 /**
- * Node-rooted deliberately: frame width derives from process.stdout.columns, a node console
- * concern the portable root must not touch (the portable console suite covers everything else).
+ * Node-rooted deliberately (and lint-annotated .cloudflare): frame width derives from
+ * process.stdout.columns, a node console concern, while the subject is the CF transport.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib/schema";
-import type { LogError, LogLevel, LogRecord } from "../../../../../src/lib/logger/types.js";
-import { CFWConsoleTransport } from "../../../../../src/lib/logger/transports/console.js";
-import { Container } from "../../../../../src/lib/services/container.js";
-import { FlareRegistrationMap } from "../../../../../src/lib/services/registration-map.js";
-
-/** Captures every call routed to console.log/warn/error during the test. */
-interface ConsoleCapture {
-  log: string[];
-  warn: string[];
-  error: string[];
-  restore(): void;
-}
+import type { LogError, LogLevel, LogRecord } from "../../../../../../src/lib/logger/types.js";
+import { CfConsoleTransport } from "../../../../../../src/lib/logger/runtime/cloudflare/cf-console-transport.js";
+import { Container } from "../../../../../../src/lib/services/container.js";
+import { FlareRegistrationMap } from "../../../../../../src/lib/services/registration-map.js";
+import { captureConsole, type ConsoleCapture, stripAnsi } from "../../../../../portable/helpers/console-capture.js";
 
 function makeContainer(
   host: Record<string, unknown> = { env: "development" },
   log: Record<string, unknown> = {},
 ): Container {
   return new Container(new FlareRegistrationMap(), new Map(), { host, log } as unknown as JsonObject);
-}
-
-/** ANSI escape stripper used by helper assertions. */
-function stripAnsi(value: string): string {
-  return value.replace(/\x1b\[[0-9;]*m/g, "");
-}
-
-function captureConsole(): ConsoleCapture {
-  const originalLog = console.log;
-  const originalWarn = console.warn;
-  const originalError = console.error;
-  const cap: ConsoleCapture = {
-    log: [],
-    warn: [],
-    error: [],
-    restore(): void {
-      console.log = originalLog;
-      console.warn = originalWarn;
-      console.error = originalError;
-    },
-  };
-  console.log = (msg?: unknown): void => {
-    cap.log.push(String(msg));
-  };
-  console.warn = (msg?: unknown): void => {
-    cap.warn.push(String(msg));
-  };
-  console.error = (msg?: unknown): void => {
-    cap.error.push(String(msg));
-  };
-  return cap;
 }
 
 function makeRecord(partial: Partial<LogRecord> & { level: LogLevel; message: string; }): LogRecord {
@@ -104,7 +66,7 @@ describe("error block frame width from terminal columns", () => {
   }
 
   function buildBlock(): string {
-    const t = new CFWConsoleTransport(makeContainer({ env: "development" }, { format: "pretty" }));
+    const t = new CfConsoleTransport(makeContainer({ env: "development" }, { format: "pretty" }));
     t.onStart();
     const err: LogError = { name: "E", message: "x", stack: "E: x\n    at f (a.js:1:1)" };
     t.write(makeRecord({ level: "error", message: "m", error: err }));
@@ -147,7 +109,7 @@ describe("error block frame width from terminal columns", () => {
     // columns=undefined -> frameWidth=64 -> max stack chars = max(16, 64 - 12) = 52
     setColumns(undefined);
     const longFrame = `at very-${"x".repeat(200)}`;
-    const t = new CFWConsoleTransport(makeContainer({ env: "development" }, { format: "pretty" }));
+    const t = new CfConsoleTransport(makeContainer({ env: "development" }, { format: "pretty" }));
     t.onStart();
     const err: LogError = { name: "E", message: "x", stack: `E: x\n    ${longFrame}` };
     t.write(makeRecord({ level: "error", message: "m", error: err }));

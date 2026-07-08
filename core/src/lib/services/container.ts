@@ -2,7 +2,8 @@ import type { JsonObject } from "@flare-ts/lib/schema";
 import type { ConfigToken } from "../config/flare-config.js";
 import type { FlareService } from "./composition/flare-service.js";
 import type { ServiceToken } from "./types/types.js";
-import { _log, toErrorField } from "../logger/logger.js";
+import { _log } from "../logger/bootstrap.js";
+import { toErrorField } from "../logger/fields.js";
 import { FlareRegistrationMap } from "./registration-map.js";
 
 /**

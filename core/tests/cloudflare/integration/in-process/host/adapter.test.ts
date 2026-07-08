@@ -9,8 +9,8 @@ import type { CloudflareApp } from "../../../../../src/cloudflare.js";
 import type { FlareHttpContext } from "../../../../../src/index.js";
 import { buildCf, cf } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse } from "../../../../../src/index.js";
-import { CFWLogger } from "../../../../../src/lib/logger/logger.js";
-import { CFWConsoleTransport } from "../../../../../src/lib/logger/transports/console.js";
+import { CfConsoleTransport } from "../../../../../src/lib/logger/runtime/cloudflare/cf-console-transport.js";
+import { CfLogger } from "../../../../../src/lib/logger/runtime/cloudflare/cf-logger.js";
 import { Container } from "../../../../../src/lib/services/container.js";
 import { FlareRegistrationMap } from "../../../../../src/lib/services/registration-map.js";
 import { makeEnv, makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
@@ -24,10 +24,10 @@ function cfJson(host: JsonObject = {}, log: JsonObject = { level: "fatal", forma
 }
 
 describe("cf adapter (module-scope constant)", () => {
-  it("exposes runtime='cloudflare', lifecycle='sync', defaultLoggerTransports=[CFWConsoleTransport]", () => {
+  it("exposes runtime='cloudflare', lifecycle='sync', defaultLoggerTransports=[CfConsoleTransport]", () => {
     expect(cf.runtime).toBe("cloudflare");
     expect(cf.lifecycle).toBe("sync");
-    expect(cf.defaultLoggerTransports).toEqual([CFWConsoleTransport]);
+    expect(cf.defaultLoggerTransports).toEqual([CfConsoleTransport]);
   });
 
   it("flareJsonFile getter returns an empty object ({}) - CF cannot read files at runtime", () => {
@@ -50,14 +50,14 @@ describe("cf adapter (module-scope constant)", () => {
     expect(res.status).toBe(200);
   });
 
-  it("createLogger(transports, container) returns a CFWLogger", () => {
+  it("createLogger(transports, container) returns a CfLogger", () => {
     const container = new Container(
       new FlareRegistrationMap(),
       new Map(),
       { log: { level: "info" } } as unknown as JsonObject,
     );
     const logger = cf.createLogger([], container);
-    expect(logger).toBeInstanceOf(CFWLogger);
+    expect(logger).toBeInstanceOf(CfLogger);
   });
 
   it("createTestRequest(input) delegates to buildCfTestRequest - returns a FlareRequest with matching method/url", () => {
@@ -78,7 +78,7 @@ describe("buildCf(flareJson)", () => {
     const adapter = buildCf({});
     expect(adapter.runtime).toBe("cloudflare");
     expect(adapter.lifecycle).toBe("sync");
-    expect(adapter.defaultLoggerTransports).toEqual([CFWConsoleTransport]);
+    expect(adapter.defaultLoggerTransports).toEqual([CfConsoleTransport]);
   });
 
   it("empty flareJson === {} yields an adapter whose flareJsonFile === the same {} reference", () => {
@@ -451,11 +451,11 @@ describe("request-id nonce memoization across consecutive requests", () => {
   });
 });
 
-describe("CFWRequestAdapter behavior surfaced via buildCfTestRequest", () => {
-  it("buildCfTestRequest threads the CFWRequestAdapter so FlareRequest.signal returns the Request.signal", () => {
+describe("CfRequestAdapter behavior surfaced via buildCfTestRequest", () => {
+  it("buildCfTestRequest threads the CfRequestAdapter so FlareRequest.signal returns the Request.signal", () => {
     const ac = new AbortController();
     const req = cf.createTestRequest({ method: "GET", url: "/sig", signal: ac.signal });
-    // The FlareRequest's signal getter delegates to CFWRequestAdapter.signal(req)
+    // The FlareRequest's signal getter delegates to CfRequestAdapter.signal(req)
     // which returns the inner Request.signal - aborting the controller flips it.
     const sig = req.signal;
     expect(sig.aborted).toBe(false);
@@ -463,7 +463,7 @@ describe("CFWRequestAdapter behavior surfaced via buildCfTestRequest", () => {
     expect(sig.aborted).toBe(true);
   });
 
-  it("CFWRequestAdapter.rawHeaders returns the Request headers directly (a Headers instance)", () => {
+  it("CfRequestAdapter.rawHeaders returns the Request headers directly (a Headers instance)", () => {
     const req = cf.createTestRequest({
       method: "GET",
       url: "/h",

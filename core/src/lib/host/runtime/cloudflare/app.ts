@@ -1,8 +1,8 @@
 import type { JsonObject } from "@flare-ts/lib";
 import type { FlareHandlerScope } from "../../../arcs/http/composition/types/handlers.js";
 import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
-import type { CFWLoggerTransport } from "../../../logger/transport.js";
-import type { CFWLoggerTransportClass } from "../../../logger/types.js";
+import type { CfLoggerTransport } from "../../../logger/runtime/cloudflare/cf-transport.js";
+import type { CfLoggerTransportClass } from "../../../logger/types.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { Container } from "../../../services/container.js";
 import type { InjectMap } from "../../../services/types/inject.js";
@@ -18,8 +18,8 @@ import type { CfValidationGraph } from "./validate-graph.js";
 import { HttpArc } from "../../../arcs/http/http-arc.js";
 import { WebSocketChannels } from "../../../arcs/ws/channels/web-socket-channels.js";
 import { WebSocketArc, WS_REGISTRATIONS } from "../../../arcs/ws/ws-arc.js";
-import { CFWLogger } from "../../../logger/logger.js";
-import { CFWConsoleTransport } from "../../../logger/transports/console.js";
+import { CfConsoleTransport } from "../../../logger/runtime/cloudflare/cf-console-transport.js";
+import { CfLogger } from "../../../logger/runtime/cloudflare/cf-logger.js";
 import { getTokenDefault, getTokenDerivation } from "../../../state/flare-state.js";
 import { FlareValidationError } from "../../../validation/flare-validation-error.js";
 import { FlareAppBase } from "../../flare-app.js";
@@ -145,7 +145,7 @@ export type CloudflareHostExtension = {
  * extension, so `host.singleton()` does not exist on a Cloudflare host.
  */
 export type CloudflareAdapter =
-  & HostRuntimeAdapter<CloudflareApp, CFWLoggerTransportClass, "sync", CloudflareHostExtension>
+  & HostRuntimeAdapter<CloudflareApp, CfLoggerTransportClass, "sync", CloudflareHostExtension>
   & { setup(host: IFlareHost): void; };
 
 /**
@@ -360,12 +360,12 @@ export const cf: CloudflareAdapter = {
     return {};
   },
   env: {},
-  defaultLoggerTransports: [CFWConsoleTransport],
+  defaultLoggerTransports: [CfConsoleTransport],
   createApp(host) {
     return new CloudflareApp(host);
   },
   createLogger(transports, container) {
-    return new CFWLogger(transports as CFWLoggerTransport[], container);
+    return new CfLogger(transports as CfLoggerTransport[], container);
   },
   createTestRequest(input: FlareTestRequestInput) {
     return buildCfTestRequest(input);

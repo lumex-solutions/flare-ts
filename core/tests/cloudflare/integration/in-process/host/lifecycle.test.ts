@@ -1,5 +1,5 @@
 /**
- * Cloudflare sync lifecycle: http arc onStart/onStop callback order, CFWLogger transport hooks,
+ * Cloudflare sync lifecycle: http arc onStart/onStop callback order, CfLogger transport hooks,
  * and export()'s direct transition to host.state "ready". Drives via custom sync adapters and
  * cfProdAdapter.export() so the production terminal runs without the test-mode shim.
  */
@@ -9,14 +9,14 @@ import type { CloudflareApp } from "../../../../../src/cloudflare.js";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import { cf } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse, type LogRecord } from "../../../../../src/index.js";
-import { CFWLoggerTransport } from "../../../../../src/index.js";
-import { CFWLogger } from "../../../../../src/lib/logger/logger.js";
+import { CfLoggerTransport } from "../../../../../src/index.js";
+import { CfLogger } from "../../../../../src/lib/logger/runtime/cloudflare/cf-logger.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 import { registerMinimalPingRoute } from "../../../helpers/minimal-route.js";
 
 type LifecycleEvent = string;
 
-class SilentCFWTransport extends CFWLoggerTransport {
+class SilentCFWTransport extends CfLoggerTransport {
   static override readonly transportName = "silent-cfw";
   static override deps = [];
   override write(_record: LogRecord): void {}
@@ -33,7 +33,7 @@ function buildSyncAdapter(): HostRuntimeAdapter<CloudflareApp, typeof SilentCFWT
     defaultLoggerTransports: [SilentCFWTransport],
     createApp: cf.createApp,
     createLogger(transports, container) {
-      return new CFWLogger(transports, container);
+      return new CfLogger(transports, container);
     },
     createTestRequest() {
       throw new Error("not used");
@@ -51,7 +51,7 @@ describe("Primary Behavior", () => {
       // Http arc callbacks stand in for user-land singletons, which are not
       // supported on Cloudflare Workers. Registration order is A, B, C on
       // start; onStop callbacks fire in the same registration order.
-      class RecordingTransport extends CFWLoggerTransport {
+      class RecordingTransport extends CfLoggerTransport {
         static override readonly transportName = "rec-cfw-1";
         static override deps = [];
         override write(_r: LogRecord): void {}
@@ -73,7 +73,7 @@ describe("Primary Behavior", () => {
         defaultLoggerTransports: [RecordingTransport],
         createApp: cf.createApp,
         createLogger(transports, container) {
-          return new CFWLogger(transports, container);
+          return new CfLogger(transports, container);
         },
         createTestRequest() {
           throw new Error("not used");

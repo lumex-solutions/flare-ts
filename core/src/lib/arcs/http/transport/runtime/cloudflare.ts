@@ -5,7 +5,7 @@ import type { RequestAdapter } from "../types/adapter.js";
  * Request adapter for Cloudflare Workers. Schedules background work via
  * `waitUntil` so promises survive after the response is returned.
  */
-export const CFWRequestAdapter: RequestAdapter = {
+export const CfRequestAdapter: RequestAdapter = {
   rawHeaders(req: Request): Headers {
     return req.headers;
   },

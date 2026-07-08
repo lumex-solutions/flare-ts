@@ -1,15 +1,15 @@
 /**
- * Unit tests for {@link CFWRequestAdapter} against real workerd bindings (waitUntil, raw headers, AbortSignal).
+ * Unit tests for {@link CfRequestAdapter} against real workerd bindings (waitUntil, raw headers, AbortSignal).
  */
 import { describe, it, expect } from "vitest";
-import { CFWRequestAdapter } from "../../../../../../../../src/lib/arcs/http/transport/runtime/cloudflare.js";
+import { CfRequestAdapter } from "../../../../../../../../src/lib/arcs/http/transport/runtime/cloudflare.js";
 
-describe("CFWRequestAdapter", () => {
+describe("CfRequestAdapter", () => {
   it("rawHeaders: returns the inbound Request's Headers instance", () => {
     const req = new Request("http://flare.test/h", {
       headers: { "x-test": "v", "content-type": "text/plain" },
     });
-    const out = CFWRequestAdapter.rawHeaders(req);
+    const out = CfRequestAdapter.rawHeaders(req);
     // The adapter returns `req.headers` by identity.
     expect(out).toBe(req.headers);
     expect(out).toBeInstanceOf(Headers);
@@ -19,7 +19,7 @@ describe("CFWRequestAdapter", () => {
   it("signal: returns the inbound Request's AbortSignal", () => {
     const ac = new AbortController();
     const req = new Request("http://flare.test/s", { signal: ac.signal });
-    const sig = CFWRequestAdapter.signal(req);
+    const sig = CfRequestAdapter.signal(req);
     // The adapter returns `req.signal` by identity (the Request may wrap, but
     // the returned signal must reflect aborts from the source controller).
     expect(sig).toBe(req.signal);
@@ -40,7 +40,7 @@ describe("CFWRequestAdapter", () => {
       return inner;
     };
     // `background` returns void; calling it must not await `fn`'s promise.
-    const result = CFWRequestAdapter.background(fn);
+    const result = CfRequestAdapter.background(fn);
     expect(result).toBeUndefined();
     expect(calls).toBe(1);
     // Resolving the inner promise after the call confirms the adapter did not

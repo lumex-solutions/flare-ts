@@ -96,7 +96,8 @@ export type { FlareReadonly } from "./lib/state/types/readonly.js";
 export type { StateGetter, StateToken, TypedStateToken } from "./lib/state/types/state-token.js";
 
 // Logger
+export { captureLogStore, runWithLogStore } from "./lib/logger/context.js";
 export { Logger } from "./lib/logger/logger.js";
-export { CFWLoggerTransport, LoggerTransport } from "./lib/logger/transport.js";
-export { captureLogStore, runWithLogStore } from "./lib/logger/types.js";
+export { CfLoggerTransport } from "./lib/logger/runtime/cloudflare/cf-transport.js";
+export { LoggerTransport } from "./lib/logger/transport.js";
 export type { HttpErrorContext, LogLevel, LogRecord, LogStore } from "./lib/logger/types.js";

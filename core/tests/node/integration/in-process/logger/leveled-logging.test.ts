@@ -9,8 +9,9 @@ process.env.FLARE_MODE = "test";
 
 import { afterEach, describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
+import type { LogContext } from "../../../../../src/lib/logger/types.js";
 import { FlareHost, LoggerTransport, type LogRecord } from "../../../../../src/index.js";
-import { loggerALS, type LogContext } from "../../../../../src/lib/logger/types.js";
+import { runWithLogStore } from "../../../../../src/index.js";
 import { nodeAdapter } from "../../../../node/helpers/node-adapter.js";
 import { registerMinimalPingRoute } from "../../../../portable/helpers/host-fixtures.js";
 
@@ -293,7 +294,7 @@ describe("Cross-Feature Interactions", () => {
     resetRecorders();
   });
 
-  it("with log.enableContext=true, a record emitted inside loggerALS.run carries context and state to every transport", async () => {
+  it("with log.enableContext=true, a record emitted inside runWithLogStore carries context and state to every transport", async () => {
     const adapter = makeAdapter({
       host: { env: "test" },
       log: { level: "info", enableContext: true },
@@ -311,7 +312,7 @@ describe("Cross-Feature Interactions", () => {
         url: "/ping",
       };
       const state = { tenantId: "tnt-9" };
-      loggerALS.run({ context: ctx, state }, () => {
+      runWithLogStore({ context: ctx, state }, () => {
         host.logger.info("with-ctx");
       });
 

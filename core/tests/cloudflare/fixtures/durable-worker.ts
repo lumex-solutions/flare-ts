@@ -11,7 +11,7 @@ import {
   keyForToken,
   RESERVED_STATE_HEADER,
 } from "../../../src/lib/host/runtime/cloudflare/state-crossing.js";
-import { loggerALS } from "../../../src/lib/logger/types.js";
+import { loggerALS } from "../../../src/lib/logger/context.js";
 import { registerParityRoutes } from "../../portable/parity/routes.js";
 
 const flareJson = {

@@ -19,7 +19,8 @@ import {
 import { pickSubprotocol } from "../../../arcs/ws/transport/subprotocol.js";
 import { WS_CHANNEL_REGISTRY } from "../../../arcs/ws/ws-arc.js";
 import { WEBSOCKETS_CONFIG } from "../../../config/flare-config.js";
-import { _log, toErrorField } from "../../../logger/logger.js";
+import { _log } from "../../../logger/bootstrap.js";
+import { toErrorField } from "../../../logger/fields.js";
 import { COMPILE_INSTANCE_CONTAINER } from "../../types/const.js";
 import { arcForDurableObject, wsArcForDurableObject } from "./app.js";
 import { DurableHandler, isWebSocketUpgrade } from "./handler.js";

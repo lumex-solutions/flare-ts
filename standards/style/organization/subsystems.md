@@ -6,6 +6,14 @@ its layer root; it earns a folder only when it grows a second module, and the fo
 the concern. No folders-by-kind (`utils/`, `helpers/`): kinds are file shapes (see
 [file-kinds.md](file-kinds.md)), concerns are folders.
 
+## Runtime-specific modules live under runtime/
+
+A subsystem's root holds only portable concerns. Modules specific to one runtime live under
+`runtime/<runtime>/` inside the subsystem (`host/runtime/cloudflare/`,
+`ws/transport/runtime/node/`, `logger/runtime/cloudflare/`), one folder per runtime, named for
+the runtime. A runtime variant of a root concern extends the portable module; it never sits
+beside it.
+
 ## Placement follows the data, not the caller
 
 An operations module lives in the subsystem folder of the data it operates on, next to that

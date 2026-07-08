@@ -9,10 +9,11 @@
 process.env["FLARE_MODE"] = "test";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { HttpLogContext } from "../../../../../src/lib/logger/types.js";
 import type { TestAppHandle } from "../../../../../src/testing.js";
 import { Get } from "../../../../../src/decorators.js";
 import { ControllerBase, flareState, FlareHost, FlareResponse, MiddlewareBase } from "../../../../../src/index.js";
-import { loggerALS, type HttpLogContext } from "../../../../../src/lib/logger/types.js";
+import { captureLogStore, runWithLogStore } from "../../../../../src/index.js";
 import { node } from "../../../../../src/node.js";
 
 /** Plain token with no default: drives middleware-set / controller-read and require-on-miss failure cases. */
@@ -146,7 +147,7 @@ describe("Primary Behavior", () => {
   });
 
   it(".withLogging(mapper) merges the mapped fields onto the async-local-storage logger store when the token is written", async () => {
-    // The test runtime does not wrap requests in loggerALS.run (that is a
+    // The test runtime does not wrap requests in runWithLogStore (that is a
     // Node/CF runtime responsibility). Wrap the fetch ourselves so the
     // middleware that sets LoggedState observes a live ALS store, then
     // assert the mapper output landed on store.state.
@@ -165,11 +166,11 @@ describe("Primary Behavior", () => {
       };
 
       let observedState: Record<string, unknown> | undefined;
-      await loggerALS.run({ context: ctx }, async () => {
+      await runWithLogStore({ context: ctx }, async () => {
         await localApp.fetch("GET /logged");
         // Read the store inside the same ALS frame the middleware ran under;
         // #stampState mutates store.state in place via `store.state = {}`.
-        observedState = loggerALS.getStore()!.state;
+        observedState = captureLogStore()!.state;
       });
 
       expect(observedState).toBeDefined();

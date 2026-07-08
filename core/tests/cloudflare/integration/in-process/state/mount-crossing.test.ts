@@ -11,7 +11,7 @@ import { MiddlewareBase } from "../../../../../src/lib/arcs/http/composition/cla
 import { FlareHttpContext } from "../../../../../src/lib/arcs/http/transport/flare-http-context.js";
 import { FlareRequest } from "../../../../../src/lib/arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
-import { CFWRequestAdapter } from "../../../../../src/lib/arcs/http/transport/runtime/cloudflare.js";
+import { CfRequestAdapter } from "../../../../../src/lib/arcs/http/transport/runtime/cloudflare.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
 import { FlareDurableObject } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
 import { DurableState } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
@@ -42,7 +42,7 @@ class CrossingRoom extends FlareDurableObject {
 
 function makeFakeCtx(): FlareHttpContext {
   const req = new Request("https://do.internal/");
-  const flareReq = new FlareRequest(CFWRequestAdapter, "GET", "/", "fake-req-id", req);
+  const flareReq = new FlareRequest(CfRequestAdapter, "GET", "/", "fake-req-id", req);
   return new FlareHttpContext(flareReq);
 }
 

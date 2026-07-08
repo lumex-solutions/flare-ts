@@ -29,8 +29,10 @@ import {
   LOG_CONFIG,
   WEBSOCKETS_CONFIG,
 } from "../config/flare-config.js";
-import { _log, Logger, toErrorField } from "../logger/logger.js";
-import { loggerALS } from "../logger/types.js";
+import { _log } from "../logger/bootstrap.js";
+import { loggerALS } from "../logger/context.js";
+import { toErrorField } from "../logger/fields.js";
+import { Logger } from "../logger/logger.js";
 import { Container } from "../services/container.js";
 import { FlareRegistrationMap } from "../services/registration-map.js";
 import { FlareTestError } from "../testing/error.js";

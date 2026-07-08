@@ -29,6 +29,12 @@ host extensions are coming soon.
   `LogConfig`, and `FlareWebSocketsConfig` to `WebSocketsConfig`. All four are also
   now `type` aliases rather than `interface` declarations, so module augmentation on
   them (never supported behavior) no longer compiles.
+- The `CFW*` logger family is renamed to `Cf*`, with no aliases: `CFWLoggerTransport`
+  to `CfLoggerTransport` and `CFWLoggerTransportClass` to `CfLoggerTransportClass` on
+  the public surface; the internal `CFWLogger`, `CFWConsoleTransport`, and
+  `CFWRequestAdapter` follow (`CfLogger`, `CfConsoleTransport`, `CfRequestAdapter`),
+  matching the `Cf*` spelling the WebSocket arc established and completing the rename
+  that `WorkerExportedHandle` started.
 
 ### Added
 
@@ -227,7 +233,7 @@ host extensions are coming soon.
 - Bundled the HTTP controller registration's five flat group fields into one optional
   `group` context, present only when a controller is registered inside an `HttpGroup`.
   Behavior-preserving.
-- Restructured the errors module per the code standards: the registry builder lives in
+- Restructured the errors module: the registry builder lives in
   `codes.ts`, the vocabulary in `types.ts`, and the detail-schema concern (brand, type,
   `errorSchema`) in `schema.ts`; the standalone symbols module dissolved into them.
   Type-surface assertions moved out of the integration suites into a dedicated types
@@ -240,6 +246,17 @@ host extensions are coming soon.
   omissible descriptor: the signature always required one, no caller omits it, and all
   consumers read `token.descriptor` by truthiness, so nothing observable changes. A
   descriptor-less token form, if ever wanted, would be an explicit overload.
+- Restructured the logger subsystem: one class per module
+  (`Logger`, `LoggerTransport`, `ConsoleTransport` and their Cloudflare variants split
+  apart), Cloudflare variants under `logger/runtime/cloudflare/`, the console pair over
+  a shared `console-format.ts`, and the stray functions rehomed into `bootstrap.ts`
+  (pre-logger buffer), `context.ts` (log-context scope), and `fields.ts` (error field).
+  `logger/types.ts` is pure vocabulary again. The two console transports now share one
+  pretty/JSON renderer behind a `frameWidth` seam instead of duplicating it. Test suites
+  mirror the new modules;
+  integration suites now reach the log scope through the public `runWithLogStore` /
+  `captureLogStore` instead of the internal ALS handle, and live-server log-context
+  claims moved to the transport tier. Behavior-preserving.
 
 ## 0.2.0
 

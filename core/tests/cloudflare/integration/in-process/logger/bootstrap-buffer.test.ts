@@ -5,12 +5,12 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import type { LogRecord } from "../../../../../src/index.js";
-import { CFWLoggerTransport, FlareHost } from "../../../../../src/index.js";
-import { _log } from "../../../../../src/lib/logger/logger.js";
+import { CfLoggerTransport, FlareHost } from "../../../../../src/index.js";
+import { _log } from "../../../../../src/lib/logger/bootstrap.js";
 import { cfLoggerTestAdapter } from "../../../helpers/cf-test-adapter.js";
 import { registerMinimalPingRoute } from "../../../helpers/minimal-route.js";
 
-class CFWRecordingTransport extends CFWLoggerTransport {
+class CFWRecordingTransport extends CfLoggerTransport {
   static override readonly transportName = "cfw-rec";
   static override deps: never[] = [];
   static readonly records: LogRecord[] = [];
@@ -33,7 +33,7 @@ describe("Cross-Feature Interactions", () => {
     resetRecords();
   });
 
-  it("CFWLogger.onStart flushes the buffer synchronously after starting transports synchronously (with logger/cfw-sync-lifecycle)", async () => {
+  it("CfLogger.onStart flushes the buffer synchronously after starting transports synchronously (with logger/cfw-sync-lifecycle)", async () => {
     _log("info", "bb-cfw-sync-1");
     _log("info", "bb-cfw-sync-2");
 

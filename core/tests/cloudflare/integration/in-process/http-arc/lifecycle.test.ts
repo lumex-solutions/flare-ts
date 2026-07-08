@@ -6,11 +6,11 @@
 import { describe, expect, it } from "vitest";
 import type { CloudflareAdapter, CloudflareApp } from "../../../../../src/cloudflare.js";
 import type { LogRecord } from "../../../../../src/index.js";
-import { CFWLoggerTransport, FlareHost } from "../../../../../src/index.js";
+import { CfLoggerTransport, FlareHost } from "../../../../../src/index.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 import { registerMinimalPingRoute } from "../../../helpers/minimal-route.js";
 
-class SilentCFWTransport extends CFWLoggerTransport {
+class SilentCFWTransport extends CfLoggerTransport {
   static override readonly transportName = "silent-cfw-arc-lifecycle";
   static override deps = [];
   override write(_record: LogRecord): void {}

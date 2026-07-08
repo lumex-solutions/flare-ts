@@ -2,7 +2,7 @@
 import type { SchemaToken } from "@flare-ts/lib/schema";
 import { compileSerializer } from "@flare-ts/lib/schema";
 import type { ConfigToken, WebSocketsConfig } from "../../../config/flare-config.js";
-import type { LogRunner } from "../../../logger/logger.js";
+import type { LogRunner } from "../../../logger/context.js";
 import type { FlareRouter } from "../../../routing/flare-router.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { Container } from "../../../services/container.js";
@@ -15,7 +15,8 @@ import type { WsAcceptOptions } from "../transport/socket.js";
 import type { WsTypedInput } from "./input.js";
 import type { WsController, WsControllerFactory, WsPipeline, WsRoute, WsRouteSegment } from "./route.js";
 import { WEBSOCKETS_DEFAULTS } from "../../../config/flare-config.js";
-import { _log, toErrorField } from "../../../logger/logger.js";
+import { _log } from "../../../logger/bootstrap.js";
+import { toErrorField } from "../../../logger/fields.js";
 import { buildFlareRouter, scoreRoute } from "../../../routing/flare-router.js";
 import { attachScopeDeps } from "../../../services/scope.js";
 
