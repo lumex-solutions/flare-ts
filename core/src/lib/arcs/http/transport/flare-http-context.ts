@@ -81,6 +81,10 @@ export type CookieOptions =
   | (BaseCookieOptions & { sameSite: "None"; secure: true; })
   | (BaseCookieOptions & { sameSite?: "Strict" | "Lax"; secure?: boolean; });
 
+// Contract-less routes read an empty input every request; reuse one frozen object rather than
+// allocating `{}` per read. Frozen so a stray write can never leak across requests.
+const EMPTY_REQUEST_CTX: RequestContext = Object.freeze({}) as RequestContext;
+
 /**
  * Full HTTP context passed to controllers, middleware, and handler functions.
  *
@@ -227,7 +231,7 @@ export class FlareHttpContext {
     // The typed-recovery point of the contract pairing: the identity check above proved `descriptor`
     // IS the descriptor this request's inputs were parsed against, so the loose RequestContext values
     // are exactly the shapes T declares - a fact the erased storage cannot state.
-    return (this.#requestCtx ?? {}) as unknown as TypedRequestContext<T>;
+    return (this.#requestCtx ?? EMPTY_REQUEST_CTX) as unknown as TypedRequestContext<T>;
   }
 
   /**
@@ -236,7 +240,7 @@ export class FlareHttpContext {
    * that {@link extract} enforces. Reads the same `#requestCtx`. See {@link REQUEST_INPUT}.
    */
   [REQUEST_INPUT](): RequestContext {
-    return this.#requestCtx ?? {};
+    return this.#requestCtx ?? EMPTY_REQUEST_CTX;
   }
 
   /**

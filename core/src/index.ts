@@ -32,6 +32,7 @@ export type {
   MiddlewareFinallyFn,
 } from "./lib/arcs/http/composition/classes/middleware-base.js";
 export { httpContract, stream } from "./lib/arcs/http/composition/contract/http-contract.js";
+export type { HttpArc } from "./lib/arcs/http/http-arc.js";
 export type { CorsConfig } from "./lib/arcs/http/composition/types/cors.js";
 export type {
   AfterMiddlewareHandler,

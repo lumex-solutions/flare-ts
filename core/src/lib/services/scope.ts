@@ -30,6 +30,15 @@ export function attachScopeDeps<Base extends object, D extends Record<string, Se
   inject: D,
   resolve: (token: ServiceToken<FlareService>) => unknown,
 ): Base & InjectedMap<D> {
+  // Inline routes commonly inject nothing; skip the cache object and the Object.entries array
+  // in that case (the loop below would be a no-op anyway).
+  let hasDeps = false;
+  for (const _key in inject) {
+    hasDeps = true;
+    break;
+  }
+  if (!hasDeps) return scope as Base & InjectedMap<D>;
+
   const cache: Record<string, unknown> = {};
   for (const [key, token] of Object.entries(inject)) {
     Object.defineProperty(scope, key, {
