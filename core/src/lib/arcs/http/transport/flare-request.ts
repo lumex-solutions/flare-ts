@@ -1,7 +1,8 @@
 import type { JsonValue } from "@flare-ts/lib/schema";
 import type { RequestAdapter } from "./types/adapter.js";
-import { errorSchema, flareErrorCodes } from "../../../errors/flare-error-codes.js";
+import { flareErrorCodes } from "../../../errors/codes.js";
 import { FlareError } from "../../../errors/flare-error.js";
+import { errorSchema } from "../../../errors/schema.js";
 
 export const SET_RAW_BODY: unique symbol = Symbol("SET_RAW_BODY");
 export const SET_ROUTE_PARAMS: unique symbol = Symbol("SET_ROUTE_PARAMS");

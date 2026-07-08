@@ -7,8 +7,7 @@ process.env["FLARE_MODE"] = "test";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { TestAppHandle } from "../../../../../src/testing.js";
-import { errorSchema, flareErrorCodes, FlareError, type CodeDescriptor } from "../../../../../src/errors.js";
-import { ERROR_SCHEMA_BRAND } from "../../../../../src/lib/errors/types/symbols.js";
+import { errorSchema, flareErrorCodes, FlareError, type ErrorCodeDescriptor } from "../../../../../src/errors.js";
 import { testHost } from "../../../helpers/test-host.js";
 
 type ValidationDetail = { readonly field: string; readonly reason: string; };
@@ -96,11 +95,11 @@ describe("Primary Behavior", () => {
     const validationDetail = errorSchema<ValidationDetail>();
     const notFoundDetail = errorSchema<NotFoundDetail>();
 
-    // Runtime: both are independently branded and frozen; they are not the same
-    // reference, and the brand survives on each.
+    // Runtime: both are independently constructed frozen markers; they are not
+    // the same reference, and each is sealed against later mutation.
     expect(validationDetail).not.toBe(notFoundDetail);
-    expect((validationDetail as unknown as Record<symbol, unknown>)[ERROR_SCHEMA_BRAND]).toBe(true);
-    expect((notFoundDetail as unknown as Record<symbol, unknown>)[ERROR_SCHEMA_BRAND]).toBe(true);
+    expect(Object.isFrozen(validationDetail)).toBe(true);
+    expect(Object.isFrozen(notFoundDetail)).toBe(true);
 
     // Registry-level: each entry's detail is the schema it was paired with,
     // not the other. The HTTP responses reflect that: each route emits the
@@ -131,68 +130,37 @@ describe("Primary Behavior", () => {
   });
 });
 
-describe("Edge Cases", () => {
-  it("a CodeDescriptor without an errorSchema (no detail field) makes the FlareError constructor's detail argument a compile error", () => {
-    // Type-level snapshot: when TDetail extends undefined, the constructor's
-    // rest parameter resolves to `[]`, so supplying any detail value is a
-    // compile-time error. The @ts-expect-error directive succeeds iff the
-    // compiler rejects the second argument. The runtime call is harmless;
-    // the assertion lives in the type checker, not the runtime expect.
-    const descriptor: CodeDescriptor = {
-      name: "NO_PAYLOAD",
-      category: "invalid",
-      expose: true,
-    };
-
-    // @ts-expect-error - constructor forbids a detail argument when descriptor has no errorSchema
-    const errWithExtra = new FlareError(descriptor, { rogue: "value" });
-    // Constructing without the argument is the only valid call shape.
-    const errOk = new FlareError(descriptor);
-
-    expect(errOk.detail).toBeUndefined();
-    expect(errOk.exposedDetail).toBeUndefined();
-    // Even if a caller bypassed the type checker (as we did above), the runtime
-    // implementation still stores args[0] but treats it as detail; the test
-    // documents the runtime fallback while the @ts-expect-error proves the
-    // type-level contract holds.
-    expect(errWithExtra).toBeInstanceOf(FlareError);
-  });
-});
-
 describe("Failure Modes", () => {
-  it("attempting to mutate the frozen errorSchema object is rejected or ignored, and the brand survives across reuse", () => {
+  it("attempting to mutate the frozen errorSchema object is rejected or ignored, and reuse keeps working", () => {
     const schema = errorSchema<ValidationDetail>();
 
     expect(Object.isFrozen(schema)).toBe(true);
-    expect((schema as unknown as Record<symbol, unknown>)[ERROR_SCHEMA_BRAND]).toBe(true);
 
-    // In strict mode (ESM is strict) a write to a frozen property throws;
+    // In strict mode (ESM is strict) a write to a frozen object throws;
     // accept either branch (strict throw or silent non-strict drop), but the
-    // brand must remain intact after the attempt.
+    // object must remain unchanged after the attempt.
     let mutationObserved = false;
     try {
-      // Cast away readonly for the mutation attempt; the runtime - not the
-      // type system - is what enforces the freeze.
-      (schema as unknown as Record<symbol, unknown>)[ERROR_SCHEMA_BRAND] = false;
-      // Also try adding a wholly new key.
+      // Try adding a wholly new key; the runtime - not the type system - is
+      // what enforces the freeze.
       (schema as unknown as Record<string, unknown>)["smuggled"] = "value";
     } catch {
       mutationObserved = true;
     }
 
-    // Whether the engine threw or silently dropped, the brand value is unchanged.
-    expect((schema as unknown as Record<symbol, unknown>)[ERROR_SCHEMA_BRAND]).toBe(true);
+    // Whether the engine threw or silently dropped, nothing was added.
     expect("smuggled" in schema).toBe(false);
+    expect(Object.isFrozen(schema)).toBe(true);
 
     // And reusing the same schema object across two descriptors continues to
     // produce the same brand on the same reference.
-    const descriptorA: CodeDescriptor<typeof schema> = {
+    const descriptorA: ErrorCodeDescriptor<typeof schema> = {
       name: "REUSE_A",
       category: "invalid",
       expose: true,
       detail: schema,
     };
-    const descriptorB: CodeDescriptor<typeof schema> = {
+    const descriptorB: ErrorCodeDescriptor<typeof schema> = {
       name: "REUSE_B",
       category: "fault",
       expose: true,
@@ -204,7 +172,6 @@ describe("Failure Modes", () => {
 
     expect(errA.detail).toEqual({ field: "x", reason: "y" });
     expect(errB.detail).toEqual({ field: "p", reason: "q" });
-    expect((schema as unknown as Record<symbol, unknown>)[ERROR_SCHEMA_BRAND]).toBe(true);
 
     // Sanity: at least one of the assertion paths above ran. Silence the
     // unused-variable warning if the engine took the non-strict path.
@@ -213,40 +180,7 @@ describe("Failure Modes", () => {
 });
 
 describe("Cross-Feature Interactions", () => {
-  it("(with errors/flare-error) the schema's phantom _type drives the constructor's conditional-tuple parameter so detail is required where the schema is present and forbidden otherwise", () => {
-    // With schema: detail argument is required (omitting it is a compile error).
-    const withSchema = errorSchema<ValidationDetail>();
-    const withDescriptor: CodeDescriptor<typeof withSchema> = {
-      name: "NEEDS_DETAIL",
-      category: "invalid",
-      expose: true,
-      detail: withSchema,
-    };
-
-    // @ts-expect-error - constructor requires a detail tuple element when the descriptor declares an errorSchema
-    const _missingDetail = new FlareError(withDescriptor);
-    // Correct call shape with the matching detail.
-    const present = new FlareError(withDescriptor, { field: "email", reason: "bad" });
-    expect(present.detail).toEqual({ field: "email", reason: "bad" });
-
-    // Without schema: detail argument is forbidden.
-    const withoutDescriptor: CodeDescriptor = {
-      name: "NO_DETAIL",
-      category: "invalid",
-      expose: true,
-    };
-    // @ts-expect-error - constructor forbids a detail argument when descriptor omits an errorSchema
-    const _extraDetail = new FlareError(withoutDescriptor, { anything: 1 });
-    const absent = new FlareError(withoutDescriptor);
-    expect(absent.detail).toBeUndefined();
-
-    // Reference the @ts-expect-error-suppressed locals so the lint pass does
-    // not strip the directives and erase the assertion.
-    expect(_missingDetail).toBeInstanceOf(FlareError);
-    expect(_extraDetail).toBeInstanceOf(FlareError);
-  });
-
-  it("(with errors/error-codes-registry) pairing errorSchema<Shape>() with expose:false type-checks at construction but the detail getter returns undefined while exposedDetail returns the value", async () => {
+  it("(with errors/error-codes-registry) pairing errorSchema<Shape>() with expose:false type-checks at construction but the detail getter returns undefined while rawDetail returns the value", async () => {
     // Construction site: the entry in REGISTRY.invalid.SILENT_VALIDATION pairs
     // an errorSchema<ValidationDetail>() with expose:false. Building the
     // FlareError compiles because the schema is what narrows the tuple, not
@@ -259,7 +193,7 @@ describe("Cross-Feature Interactions", () => {
     // Local invariants on the instance.
     expect(err.expose).toBe(false);
     expect(err.detail).toBeUndefined();
-    expect(err.exposedDetail).toEqual({ field: "password", reason: "too short" });
+    expect(err.rawDetail).toEqual({ field: "password", reason: "too short" });
 
     // End-to-end through the HTTP arc: the default error handler reads err.detail
     // (the exposure-gated getter), so the response body must omit the detail

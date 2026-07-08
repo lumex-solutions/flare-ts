@@ -6,11 +6,11 @@ process.env["FLARE_MODE"] = "test";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { TestAppHandle } from "../../../../../src/testing.js";
-import { flareErrorCodes, FlareError, FlareErrorCategories, type CodeDescriptor } from "../../../../../src/errors.js";
+import { flareErrorCodes, FlareError, ErrorCategories, type ErrorCodeDescriptor } from "../../../../../src/errors.js";
 import { testHost } from "../../../helpers/test-host.js";
 
 type CategoryCase = {
-  category: keyof typeof FlareErrorCategories;
+  category: keyof typeof ErrorCategories;
   status: number;
   errorName: string;
   path: string;
@@ -33,7 +33,7 @@ function buildHost() {
   const host = testHost();
 
   for (const c of CATEGORY_CASES) {
-    const descriptor: CodeDescriptor = {
+    const descriptor: ErrorCodeDescriptor = {
       name: c.errorName,
       category: c.category,
       expose: true,
@@ -71,7 +71,7 @@ describe("Primary Behavior", () => {
 describe("Edge Cases", () => {
   it("exports exactly the ten documented category keys with their canonical HTTP statuses (snapshot)", () => {
     // Sorted snapshot so an accidental addition, removal, or status-code change
-    // anywhere in FlareErrorCategories trips this assertion. The expected map
+    // anywhere in ErrorCategories trips this assertion. The expected map
     // is the exact set from the behavioral spec.
     const expected = {
       conflict: 409,
@@ -87,8 +87,8 @@ describe("Edge Cases", () => {
     };
 
     const actualSorted: Record<string, number> = {};
-    for (const key of Object.keys(FlareErrorCategories).sort()) {
-      actualSorted[key] = FlareErrorCategories[key as keyof typeof FlareErrorCategories];
+    for (const key of Object.keys(ErrorCategories).sort()) {
+      actualSorted[key] = ErrorCategories[key as keyof typeof ErrorCategories];
     }
 
     expect(actualSorted).toEqual(expected);
@@ -97,9 +97,9 @@ describe("Edge Cases", () => {
 });
 
 describe("Failure Modes", () => {
-  it("runtime mutation of FlareErrorCategories[key] does not change flareErrorCodes' acceptance of the original keyset", () => {
-    const original = FlareErrorCategories.invalid;
-    const mutableCategories = FlareErrorCategories as Record<string, number>;
+  it("runtime mutation of ErrorCategories[key] does not change flareErrorCodes' acceptance of the original keyset", () => {
+    const original = ErrorCategories.invalid;
+    const mutableCategories = ErrorCategories as Record<string, number>;
 
     // The constant is exported as a plain (mutable) object; reassigning a
     // status value at runtime is technically possible.
@@ -144,9 +144,9 @@ describe("Cross-Feature Interactions", () => {
     ).toThrow('Unknown Flare error category "nonsense"');
   });
 
-  it("(with errors/flare-error) a thrown FlareError carries one of the documented categories and the HTTP arc responds with FlareErrorCategories[category]", async () => {
+  it("(with errors/flare-error) a thrown FlareError carries one of the documented categories and the HTTP arc responds with ErrorCategories[category]", async () => {
     for (const c of CATEGORY_CASES) {
-      const descriptor: CodeDescriptor = {
+      const descriptor: ErrorCodeDescriptor = {
         name: c.errorName,
         category: c.category,
         expose: true,
@@ -154,12 +154,12 @@ describe("Cross-Feature Interactions", () => {
       const err = new FlareError(descriptor);
 
       // The category field is itself a documented key.
-      expect(Object.keys(FlareErrorCategories)).toContain(err.category);
+      expect(Object.keys(ErrorCategories)).toContain(err.category);
 
       // And the arc-level response status matches the map's value for that key.
       const res = await app.fetch(`GET ${c.path}`);
       expect(res.status, `category=${c.category}`).toBe(
-        FlareErrorCategories[err.category],
+        ErrorCategories[err.category],
       );
     }
   });

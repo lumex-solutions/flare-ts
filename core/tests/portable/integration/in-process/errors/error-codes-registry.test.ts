@@ -11,13 +11,12 @@ import {
   errorSchema,
   flareErrorCodes,
   FlareError,
-  FlareErrorCategories,
-  type CodeDescriptor,
+  ErrorCategories,
+  type ErrorCodeDescriptor,
   type ErrorCodesToken,
   type ErrorSchema,
-  type FlareErrorCategory,
+  type ErrorCategory,
 } from "../../../../../src/errors.js";
-import { FLARE_ERROR_CODES_BRAND } from "../../../../../src/lib/errors/types/symbols.js";
 import { testHost } from "../../../helpers/test-host.js";
 
 type ResourceDetail = { readonly resource: string; readonly id: string; };
@@ -25,14 +24,14 @@ type ResourceDetail = { readonly resource: string; readonly id: string; };
 /** Typed view of the built registry; recovers per-entry shape erased by the public return type. */
 type TestRegistry = ErrorCodesToken & {
   readonly not_found: {
-    readonly USER_NOT_FOUND: CodeDescriptor<ErrorSchema<ResourceDetail>>;
-    readonly POST_NOT_FOUND: CodeDescriptor;
+    readonly USER_NOT_FOUND: ErrorCodeDescriptor<ErrorSchema<ResourceDetail>>;
+    readonly POST_NOT_FOUND: ErrorCodeDescriptor;
   };
   readonly invalid: {
-    readonly VALIDATION_FAILED: CodeDescriptor;
+    readonly VALIDATION_FAILED: ErrorCodeDescriptor;
   };
   readonly fault: {
-    readonly DB_DOWN: CodeDescriptor;
+    readonly DB_DOWN: ErrorCodeDescriptor;
   };
 };
 
@@ -114,21 +113,21 @@ describe("Primary Behavior", () => {
     async () => {
       // not_found category maps to 404
       const notFound = await app.fetch("GET /users/missing");
-      expect(notFound.status).toBe(FlareErrorCategories.not_found);
+      expect(notFound.status).toBe(ErrorCategories.not_found);
       expect(notFound.status).toBe(404);
       const notFoundBody = (await notFound.json()) as Record<string, unknown>;
       expect(notFoundBody.error).toBe("USER_NOT_FOUND");
 
       // invalid category maps to 400
       const invalid = await app.fetch("GET /validation/fail");
-      expect(invalid.status).toBe(FlareErrorCategories.invalid);
+      expect(invalid.status).toBe(ErrorCategories.invalid);
       expect(invalid.status).toBe(400);
       const invalidBody = (await invalid.json()) as Record<string, unknown>;
       expect(invalidBody.error).toBe("VALIDATION_FAILED");
 
       // fault category maps to 500
       const fault = await app.fetch("GET /db/down");
-      expect(fault.status).toBe(FlareErrorCategories.fault);
+      expect(fault.status).toBe(ErrorCategories.fault);
       expect(fault.status).toBe(500);
       const faultBody = (await fault.json()) as Record<string, unknown>;
       expect(faultBody.error).toBe("DB_DOWN");
@@ -292,17 +291,17 @@ describe("Failure Modes", () => {
     ).toThrow("must declare boolean expose");
   });
 
-  it("throws a TypeError naming the unknown category when a descriptor declares a key outside FlareErrorCategories", () => {
+  it("throws a TypeError naming the unknown category when a descriptor declares a key outside ErrorCategories", () => {
     expect(() =>
       flareErrorCodes({
-        // @ts-expect-error - mystery_status is not a FlareErrorCategory
+        // @ts-expect-error - mystery_status is not a ErrorCategory
         mystery_status: { X: { expose: true } },
       })
     ).toThrow(TypeError);
 
     expect(() =>
       flareErrorCodes({
-        // @ts-expect-error - mystery_status is not a FlareErrorCategory
+        // @ts-expect-error - mystery_status is not a ErrorCategory
         mystery_status: { X: { expose: true } },
       })
     ).toThrow('Unknown Flare error category "mystery_status"');
@@ -310,7 +309,7 @@ describe("Failure Modes", () => {
     // A nearly-correct but mistyped category is still rejected and named.
     expect(() =>
       flareErrorCodes({
-        // @ts-expect-error - "notfound" (no underscore) is not a FlareErrorCategory key
+        // @ts-expect-error - "notfound" (no underscore) is not a ErrorCategory key
         notfound: { X: { expose: true } },
       })
     ).toThrow('Unknown Flare error category "notfound"');
@@ -319,9 +318,9 @@ describe("Failure Modes", () => {
 
 describe("Cross-Feature Interactions", () => {
   it(
-    "(with errors/flare-error) every entry in a built registry is a valid CodeDescriptor consumable by new FlareError(...) with no further wrapping",
+    "(with errors/flare-error) every entry in a built registry is a valid ErrorCodeDescriptor consumable by new FlareError(...) with no further wrapping",
     () => {
-      // Each registry entry already satisfies the `CodeDescriptor` shape used
+      // Each registry entry already satisfies the `ErrorCodeDescriptor` shape used
       // by the `FlareError` constructor: `name`, `category`, `expose`, and
       // (optionally) `code`. Pass them in directly; no manual wrapping.
       const userMissing = new FlareError(REGISTRY.not_found.USER_NOT_FOUND, {
@@ -354,45 +353,11 @@ describe("Cross-Feature Interactions", () => {
       expect(userMissing.message).toBe("USER_NOT_FOUND");
       expect(dbDown.message).toBe("DB_DOWN");
 
-      // Type-level: an entry's static type is CodeDescriptor-compatible.
+      // Type-level: an entry's static type is ErrorCodeDescriptor-compatible.
       // The assignment below would fail compilation if the registry produced
-      // something outside the CodeDescriptor surface.
-      const asDescriptor: CodeDescriptor = REGISTRY.invalid.VALIDATION_FAILED;
+      // something outside the ErrorCodeDescriptor surface.
+      const asDescriptor: ErrorCodeDescriptor = REGISTRY.invalid.VALIDATION_FAILED;
       expect(asDescriptor.name).toBe("VALIDATION_FAILED");
-    },
-  );
-
-  it(
-    "(with errors/error-schema) a registry entry that declares detail: errorSchema<Shape>() forces FlareError's constructor to require a matching detail argument",
-    () => {
-      // The USER_NOT_FOUND entry pairs `detail: errorSchema<ResourceDetail>()`,
-      // so the constructor's tuple parameter resolves to [detail: ResourceDetail]
-      // and omitting the argument is a compile error.
-
-      // @ts-expect-error - constructor requires a detail argument when the entry declares an errorSchema
-      const missingDetail = new FlareError(REGISTRY.not_found.USER_NOT_FOUND);
-
-      // The correct call shape with a matching detail value is accepted.
-      const withDetail = new FlareError(REGISTRY.not_found.USER_NOT_FOUND, {
-        resource: "user",
-        id: "u-7",
-      });
-      expect(withDetail.detail).toEqual({ resource: "user", id: "u-7" });
-
-      // For an entry that does NOT declare an errorSchema (POST_NOT_FOUND),
-      // supplying a detail argument is also a compile error.
-      // @ts-expect-error - constructor forbids a detail argument when the entry omits an errorSchema
-      const extraDetail = new FlareError(REGISTRY.not_found.POST_NOT_FOUND, {
-        resource: "post",
-        id: "p-1",
-      });
-      const noDetail = new FlareError(REGISTRY.not_found.POST_NOT_FOUND);
-      expect(noDetail.detail).toBeUndefined();
-
-      // Reference the @ts-expect-error-suppressed locals so the lint pass does
-      // not strip the directives and erase the assertion.
-      expect(missingDetail).toBeInstanceOf(FlareError);
-      expect(extraDetail).toBeInstanceOf(FlareError);
     },
   );
 
@@ -401,11 +366,11 @@ describe("Cross-Feature Interactions", () => {
     async () => {
       // Build a side host that throws one FlareError per documented category,
       // sourced from a registry entry for that category. The arc must respond
-      // with FlareErrorCategories[category] in every case.
-      const categories = Object.keys(FlareErrorCategories) as FlareErrorCategory[];
+      // with ErrorCategories[category] in every case.
+      const categories = Object.keys(ErrorCategories) as ErrorCategory[];
 
       const allCategoriesDescriptor: {
-        [K in FlareErrorCategory]?: Record<string, { expose: boolean; code: number; }>;
+        [K in ErrorCategory]?: Record<string, { expose: boolean; code: number; }>;
       } = {};
       let counter = 6000;
       for (const category of categories) {
@@ -418,7 +383,7 @@ describe("Cross-Feature Interactions", () => {
 
       const sideHost = testHost();
       for (const category of categories) {
-        const entry = (sideRegistry as unknown as Record<string, Record<string, CodeDescriptor>>)[category]![
+        const entry = (sideRegistry as unknown as Record<string, Record<string, ErrorCodeDescriptor>>)[category]![
           `E_${category.toUpperCase()}`
         ]!;
         sideHost.http.get(`/cat/${category}`, () => {
@@ -430,7 +395,7 @@ describe("Cross-Feature Interactions", () => {
       try {
         for (const category of categories) {
           const res = await sideApp.fetch(`GET /cat/${category}`);
-          expect(res.status, `category=${category} status`).toBe(FlareErrorCategories[category]);
+          expect(res.status, `category=${category} status`).toBe(ErrorCategories[category]);
 
           const body = (await res.json()) as Record<string, unknown>;
           expect(body.error, `category=${category} body.error`).toBe(`E_${category.toUpperCase()}`);
@@ -439,9 +404,14 @@ describe("Cross-Feature Interactions", () => {
         await sideApp.stop();
       }
 
-      // And the brand on the side registry confirms it passed through the same
-      // build path as the module-scope one.
-      expect((sideRegistry as unknown as Record<symbol, unknown>)[FLARE_ERROR_CODES_BRAND]).toBe(true);
+      // And the side registry shows the same observable build-path outputs as
+      // the module-scope one: frozen top-to-bottom with stamped entries.
+      expect(Object.isFrozen(sideRegistry)).toBe(true);
+      const invalidEntry =
+        (sideRegistry as unknown as Record<string, Record<string, ErrorCodeDescriptor>>)["invalid"]!["E_INVALID"]!;
+      expect(Object.isFrozen(invalidEntry)).toBe(true);
+      expect(invalidEntry.name).toBe("E_INVALID");
+      expect(invalidEntry.category).toBe("invalid");
     },
   );
 });

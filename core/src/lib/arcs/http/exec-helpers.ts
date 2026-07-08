@@ -13,7 +13,7 @@ import type { ResponseLike } from "./transport/types/response.js";
 import type { Pipeline } from "./types/pipeline.js";
 import type { ErrorHandlerRegistration } from "./types/registration.js";
 import { FlareError } from "../../errors/flare-error.js";
-import { FlareErrorCategories } from "../../errors/types/types.js";
+import { ErrorCategories } from "../../errors/types.js";
 import { Logger, toErrorField } from "../../logger/logger.js";
 import { stream } from "./composition/contract/http-contract.js";
 import { METHOD_IDX_MAP } from "./routing/types/methods.js";
@@ -69,7 +69,7 @@ export function prepareRequestBody(
       logger.warn("Request body parsing failed", { error: toErrorField(err) });
 
       if (err instanceof FlareError && err.name === ContentTooLarge.name) {
-        return new FlareResponse(FlareErrorCategories[ContentTooLarge.category], {
+        return new FlareResponse(ErrorCategories[ContentTooLarge.category], {
           error: ContentTooLarge.name,
           code: ContentTooLarge.code,
           detail: err.detail as JsonValue,
@@ -142,7 +142,7 @@ export function handleControllerError(err: FlareError | Error): ResponseLike {
     const body: Record<string, JsonValue> = { error: err.name };
     if (err.code !== undefined) body.code = err.code;
     if (detail !== undefined) body.detail = detail;
-    return new FlareResponse(FlareErrorCategories[err.category], body);
+    return new FlareResponse(ErrorCategories[err.category], body);
   }
 
   return new FlareResponse(500, { error: "Internal Server Error" });

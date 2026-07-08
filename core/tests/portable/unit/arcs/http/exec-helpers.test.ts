@@ -20,9 +20,10 @@ import {
 import { SET_PARSED_BODY } from "../../../../../src/lib/arcs/http/transport/flare-http-context.js";
 import { ContentTooLarge } from "../../../../../src/lib/arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
-import { errorSchema, flareErrorCodes } from "../../../../../src/lib/errors/flare-error-codes.js";
+import { flareErrorCodes } from "../../../../../src/lib/errors/codes.js";
 import { FlareError } from "../../../../../src/lib/errors/flare-error.js";
-import { FlareErrorCategories } from "../../../../../src/lib/errors/types/types.js";
+import { errorSchema } from "../../../../../src/lib/errors/schema.js";
+import { ErrorCategories } from "../../../../../src/lib/errors/types.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";
 
 interface Recorded {
@@ -79,7 +80,7 @@ function ehReg(handler: ErrorHandlerBase, factoryThrows = false): ErrorHandlerRe
 }
 
 describe("handleControllerError", () => {
-  it("uses the FlareErrorCategories status, includes error, code (when defined), and detail (when expose=true)", () => {
+  it("uses the ErrorCategories status, includes error, code (when defined), and detail (when expose=true)", () => {
     const codes = flareErrorCodes({
       not_found: {
         ITEM_GONE: {
@@ -95,7 +96,7 @@ describe("handleControllerError", () => {
 
     expect(response).toBeInstanceOf(FlareResponse);
     const resp = response as FlareResponse;
-    expect(resp.status).toBe(FlareErrorCategories["not_found"]); // 404
+    expect(resp.status).toBe(ErrorCategories["not_found"]); // 404
     expect(resp.jsonBody).toEqual({ error: "ITEM_GONE", code: 4040, detail: { id: "abc" } });
   });
 
@@ -499,7 +500,7 @@ describe("prepareRequestBody", () => {
 
     expect(result).toBeInstanceOf(FlareResponse);
     const resp = result as FlareResponse;
-    expect(resp.status).toBe(FlareErrorCategories.too_large);
+    expect(resp.status).toBe(ErrorCategories.too_large);
     expect(resp.jsonBody).toMatchObject({
       error: "ContentTooLarge",
       detail: { maxBytes: 1024 },

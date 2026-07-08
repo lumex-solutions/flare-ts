@@ -1,7 +1,8 @@
-import type { JsonValue } from "@flare-ts/lib/schema";
-import type { ErrorCodesToken, ErrorSchema, FlareErrorCategory } from "./types/types.js";
-import { ERROR_SCHEMA_BRAND, FLARE_ERROR_CODES_BRAND } from "./types/symbols.js";
-import { FlareErrorCategories } from "./types/types.js";
+/**
+ * Registry builder that turns a declarative descriptor of error categories and named entries
+ * into a frozen, branded error-codes token.
+ */
+import { ErrorCategories, type ErrorCategory, type ErrorCodesToken, FLARE_ERROR_CODES_BRAND } from "./types.js";
 
 type FlareErrorCodesCategory<TCodes, TCategory extends string> = {
   [K in keyof TCodes & string]: TCodes[K] & {
@@ -22,20 +23,16 @@ type FlareErrorCodeEntry = {
 };
 
 /**
- * Declares the JSON shape of a FlareError detail payload as a branded marker for type-level inference.
- */
-export function errorSchema<T extends JsonValue>(): ErrorSchema<T> {
-  return Object.freeze({ [ERROR_SCHEMA_BRAND]: true }) as ErrorSchema<T>;
-}
-
-/**
- * Builds a frozen, branded error-codes token from a descriptor of categories and named entries, stamping each entry with its name and category and rejecting unknown categories, malformed entries, or duplicate numeric codes.
+ * Builds a frozen, branded error-codes token from a descriptor of categories and named entries.
  *
- * @throws {TypeError} When a category key is not a member of `FlareErrorCategories`.
+ * Each entry is stamped with its own name and category. Unknown categories, malformed entries,
+ * and duplicate numeric codes are rejected.
+ *
+ * @throws {TypeError} When a category key is not a member of `ErrorCategories`.
  * @throws {TypeError} When an entry is not a plain object, omits a boolean `expose`, or uses a non-safe-integer `code`.
  * @throws {Error} When two entries declare the same numeric `code`.
  */
-export function flareErrorCodes<const T extends { [K in FlareErrorCategory]?: Record<string, unknown>; }>(
+export function flareErrorCodes<const T extends { [K in ErrorCategory]?: Record<string, unknown>; }>(
   descriptor: T,
 ): FlareErrorCodesResult<T> {
   const result: Record<string, unknown> = { [FLARE_ERROR_CODES_BRAND]: true };
@@ -44,11 +41,14 @@ export function flareErrorCodes<const T extends { [K in FlareErrorCategory]?: Re
   for (const category in descriptor) {
     _assertFlareErrorCategory(category);
 
+    // The assertion narrows `category` to ErrorCategory but not to a key of the generic T;
+    // the for-in origin guarantees it indexes `descriptor`.
     const codes = descriptor[category as keyof typeof descriptor];
     if (!codes) continue;
 
     const stamped: Record<string, unknown> = {};
     for (const name in codes) {
+      // T's per-category value type is generic; for-in reads need a plain indexable view.
       const entry = (codes as Record<string, unknown>)[name];
       _assertFlareErrorCodeEntry(category, name, entry);
 
@@ -69,11 +69,13 @@ export function flareErrorCodes<const T extends { [K in FlareErrorCategory]?: Re
     result[category] = Object.freeze(stamped);
   }
 
+  // Built incrementally as a plain record; the loops above realize exactly the mapped shape
+  // FlareErrorCodesResult<T> describes, which the checker cannot follow through mutation.
   return Object.freeze(result) as FlareErrorCodesResult<T>;
 }
 
-function _assertFlareErrorCategory(category: string): asserts category is FlareErrorCategory {
-  if (!Object.prototype.hasOwnProperty.call(FlareErrorCategories, category)) {
+function _assertFlareErrorCategory(category: string): asserts category is ErrorCategory {
+  if (!Object.prototype.hasOwnProperty.call(ErrorCategories, category)) {
     throw new TypeError(`Unknown Flare error category "${category}"`);
   }
 }
@@ -87,6 +89,8 @@ function _assertFlareErrorCodeEntry(
     throw new TypeError(`Flare error descriptor "${category}.${name}" must be an object`);
   }
 
+  // The guard above proves `entry` is a non-null, non-array object; property reads need
+  // an indexable view before the field checks below narrow them.
   const record = entry as Record<string, unknown>;
 
   if (typeof record.expose !== "boolean") {

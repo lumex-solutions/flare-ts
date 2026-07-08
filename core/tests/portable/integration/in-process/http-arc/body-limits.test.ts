@@ -10,7 +10,7 @@ process.env["FLARE_MODE"] = "test";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { model, str } from "@flare-ts/lib/schema";
 import type { TestAppHandle } from "../../../../../src/testing.js";
-import { FlareErrorCategories } from "../../../../../src/errors.js";
+import { ErrorCategories } from "../../../../../src/errors.js";
 import { httpContract, FlareResponse } from "../../../../../src/index.js";
 import { stream } from "../../../../../src/index.js";
 import { testHost } from "../../../helpers/test-host.js";
@@ -352,16 +352,16 @@ describe("Cross-Feature Interactions", () => {
   });
 
   it(
-    "(with http-arc/error-dispatch) The 413 response status is sourced from `FlareErrorCategories[ContentTooLarge.category]`",
+    "(with http-arc/error-dispatch) The 413 response status is sourced from `ErrorCategories[ContentTooLarge.category]`",
     async () => {
       const huge = "x".repeat(512);
       const res = await app.fetch("POST /dispatch", { body: { payload: huge } });
       // The category for ContentTooLarge is `too_large`, which the registry
-      // maps to 413. Asserting via FlareErrorCategories (not the literal 413)
+      // maps to 413. Asserting via ErrorCategories (not the literal 413)
       // proves the response status is sourced from the registry rather than
       // hard-coded in the body-limits dispatch path.
-      expect(res.status).toBe(FlareErrorCategories.too_large);
-      expect(FlareErrorCategories.too_large).toBe(413);
+      expect(res.status).toBe(ErrorCategories.too_large);
+      expect(ErrorCategories.too_large).toBe(413);
     },
   );
 

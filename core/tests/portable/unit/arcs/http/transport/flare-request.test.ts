@@ -188,8 +188,8 @@ describe("buffer", () => {
       expect(err).toBeInstanceOf(FlareError);
       const fe = err as FlareError;
       expect(fe.name).toBe(ContentTooLarge.name);
-      // exposedDetail is always available regardless of `expose`.
-      expect((fe.exposedDetail as unknown as { maxBytes: number; }).maxBytes).toBe(10);
+      // rawDetail is always available regardless of `expose`.
+      expect((fe.rawDetail as unknown as { maxBytes: number; }).maxBytes).toBe(10);
     }
   });
 

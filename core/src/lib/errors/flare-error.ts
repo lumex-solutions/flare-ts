@@ -1,30 +1,41 @@
+/**
+ * The error class Flare applications throw and catch: a stable name, category, optional
+ * numeric code, and a client-exposure flag over an optional typed detail payload.
+ */
 import type { JsonValue } from "@flare-ts/lib/schema";
-import type { CodeDescriptor, ErrorSchema, FlareErrorCategory } from "./types/types.js";
+import type { ErrorSchema } from "./schema.js";
+import type { ErrorCategory, ErrorCodeDescriptor } from "./types.js";
 
 type FlareErrorDetail<TDetail extends ErrorSchema<JsonValue> | undefined> = TDetail extends ErrorSchema<infer D> ? D
   : never;
 
 /**
- * Carries a stable name, category, optional code, and client-exposure flag that
- * governs whether attached detail data may leave the server.
+ * Application error with a stable name, category, optional numeric code, and exposure flag.
+ *
+ * The `expose` flag governs whether attached detail data may leave the server.
  */
 export class FlareError<TDetail extends ErrorSchema<JsonValue> | undefined = undefined> extends Error {
   public readonly code: number | undefined;
   public override readonly name: string;
-  public readonly category: FlareErrorCategory;
+  public readonly category: ErrorCategory;
   public readonly expose: boolean;
 
   readonly #detail: FlareErrorDetail<TDetail> | undefined;
 
   /**
-   * Builds a FlareError from a code descriptor and, when the descriptor declares a detail schema, a matching detail value.
+   * Builds a FlareError from a code descriptor and a detail value when a schema is declared.
    */
-  constructor(token: CodeDescriptor<TDetail>, ...args: TDetail extends ErrorSchema<infer D> ? [detail: D] : []) {
-    super(token.name);
-    this.code = token.code;
-    this.name = token.name;
-    this.category = token.category;
-    this.expose = token.expose;
+  constructor(
+    descriptor: ErrorCodeDescriptor<TDetail>,
+    ...args: TDetail extends ErrorSchema<infer D> ? [detail: D] : []
+  ) {
+    super(descriptor.name);
+    this.code = descriptor.code;
+    this.name = descriptor.name;
+    this.category = descriptor.category;
+    this.expose = descriptor.expose;
+    // The conditional tuple erases inside the body: args[0] is the detail when TDetail
+    // declares a schema and undefined otherwise, which is exactly this field's type.
     this.#detail = args[0] as FlareErrorDetail<TDetail> | undefined;
   }
 
@@ -38,7 +49,7 @@ export class FlareError<TDetail extends ErrorSchema<JsonValue> | undefined = und
   /**
    * Returns the attached detail regardless of the `expose` flag, for server-side logging.
    */
-  get exposedDetail(): FlareErrorDetail<TDetail> | undefined {
+  get rawDetail(): FlareErrorDetail<TDetail> | undefined {
     return this.#detail;
   }
 }

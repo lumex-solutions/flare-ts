@@ -10,7 +10,7 @@ process.env["FLARE_MODE"] = "test";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
-import type { CodeDescriptor } from "../../../../../src/errors.js";
+import type { ErrorCodeDescriptor } from "../../../../../src/errors.js";
 import type { HttpErrorContext, LogRecord } from "../../../../../src/index.js";
 import type { Container } from "../../../../../src/lib/services/container.js";
 import type { TestAppHandle } from "../../../../../src/testing.js";
@@ -48,14 +48,14 @@ function makeAdapter() {
 }
 
 /** Synthetic forbidden FlareError descriptor for 403 status mapping without a framework code constant. */
-const ForbiddenCode: CodeDescriptor = {
+const ForbiddenCode: ErrorCodeDescriptor = {
   name: "Forbidden",
   category: "forbidden",
   expose: true,
   code: 4030,
 };
 
-const NotFoundCode: CodeDescriptor = {
+const NotFoundCode: ErrorCodeDescriptor = {
   name: "NotFound",
   category: "not_found",
   expose: true,
@@ -463,7 +463,7 @@ describe("Failure Modes", () => {
     });
 
     it("falls back to handleControllerError when every handler passes through or fails: FlareError uses category status envelope, plain Error yields 500 internal server error", async () => {
-      // FlareError path: status from FlareErrorCategories[err.category], body
+      // FlareError path: status from ErrorCategories[err.category], body
       // carries `error` and `code`.
       const flareRes = await app.fetch("GET /all-pass-through");
       expect(flareRes.status).toBe(404);

@@ -16,6 +16,14 @@ host extensions are coming soon.
   descriptor fields with `contract` is a type error (details under Changed).
 - `CFWExportedHandle` is renamed to `WorkerExportedHandle` on the
   `@flare-ts/core/cloudflare` entry.
+- Three error vocabulary names on `@flare-ts/core/errors` are renamed, with no aliases:
+  `FlareErrorCategories` to `ErrorCategories`, `FlareErrorCategory` to `ErrorCategory`,
+  and `CodeDescriptor` to `ErrorCodeDescriptor`. Only these three change; everything
+  else on the entry keeps its name, including the `FlareError` class and the
+  `errorSchema` / `flareErrorCodes` factories.
+- The `FlareError` accessor `exposedDetail` is renamed to `rawDetail`; the old name
+  read as the exposure-gated view, but it is the ungated one (`detail` is the gated
+  view).
 
 ### Added
 
@@ -190,7 +198,6 @@ host extensions are coming soon.
   `Promise<unknown>`: the parse result is JSON by construction, so handlers can narrow
   it without a cast. Type-level only.
 
-
 ### Removed
 
 - The `inject: [Token]` array form and the `scope.inject(token)` call, replaced by the
@@ -214,6 +221,12 @@ host extensions are coming soon.
   driver. Behavior-preserving.
 - Bundled the HTTP controller registration's five flat group fields into one optional
   `group` context, present only when a controller is registered inside an `HttpGroup`.
+  Behavior-preserving.
+- Restructured the errors module per the code standards: the registry builder lives in
+  `codes.ts`, the vocabulary in `types.ts`, and the detail-schema concern (brand, type,
+  `errorSchema`) in `schema.ts`; the standalone symbols module dissolved into them.
+  Type-surface assertions moved out of the integration suites into a dedicated types
+  suite, and integration tests no longer import internal brand symbols.
   Behavior-preserving.
 
 ## 0.2.0

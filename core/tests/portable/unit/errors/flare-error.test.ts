@@ -1,12 +1,12 @@
 /** Unit tests for FlareError construction and instance shape. */
 import { describe, it, expect } from "vitest";
-import type { CodeDescriptor, ErrorSchema } from "../../../../src/lib/errors/types/types.js";
+import type { ErrorCodeDescriptor } from "../../../../src/lib/errors/types.js";
 import { FlareError } from "../../../../src/lib/errors/flare-error.js";
-import { ERROR_SCHEMA_BRAND } from "../../../../src/lib/errors/types/symbols.js";
+import { ERROR_SCHEMA_BRAND, type ErrorSchema } from "../../../../src/lib/errors/schema.js";
 
 describe("FlareError (constructor + instance shape)", () => {
-  it("populates name, code, category, expose, and message from a CodeDescriptor", () => {
-    const descriptor: CodeDescriptor = {
+  it("populates name, code, category, expose, and message from an ErrorCodeDescriptor", () => {
+    const descriptor: ErrorCodeDescriptor = {
       name: "USER_NOT_FOUND",
       code: 4040,
       category: "not_found",
@@ -23,7 +23,7 @@ describe("FlareError (constructor + instance shape)", () => {
   });
 
   it("leaves code undefined when the descriptor omits code", () => {
-    const descriptor: CodeDescriptor = {
+    const descriptor: ErrorCodeDescriptor = {
       name: "GENERIC_INVALID",
       category: "invalid",
       expose: true,
@@ -34,12 +34,12 @@ describe("FlareError (constructor + instance shape)", () => {
     expect(error.code).toBeUndefined();
   });
 
-  it("stores the detail privately when expose is false (verifiable via exposedDetail)", () => {
+  it("stores the detail privately when expose is false (verifiable via rawDetail)", () => {
     const detailSchema = Object.freeze({ [ERROR_SCHEMA_BRAND]: true }) as ErrorSchema<{
       readonly field: string;
     }>;
 
-    const descriptor: CodeDescriptor<typeof detailSchema> = {
+    const descriptor: ErrorCodeDescriptor<typeof detailSchema> = {
       name: "VALIDATION_FAILED",
       category: "invalid",
       expose: false,
@@ -49,11 +49,11 @@ describe("FlareError (constructor + instance shape)", () => {
     const error = new FlareError(descriptor, { field: "email" });
 
     expect(error.detail).toBeUndefined();
-    expect(error.exposedDetail).toEqual({ field: "email" });
+    expect(error.rawDetail).toEqual({ field: "email" });
   });
 
-  it("accepts no detail argument when TDetail extends undefined, and detail/exposedDetail both return undefined", () => {
-    const descriptor: CodeDescriptor = {
+  it("accepts no detail argument when TDetail extends undefined, and detail/rawDetail both return undefined", () => {
+    const descriptor: ErrorCodeDescriptor = {
       name: "NO_PAYLOAD",
       category: "rejected",
       expose: true,
@@ -62,11 +62,11 @@ describe("FlareError (constructor + instance shape)", () => {
     const error = new FlareError(descriptor);
 
     expect(error.detail).toBeUndefined();
-    expect(error.exposedDetail).toBeUndefined();
+    expect(error.rawDetail).toBeUndefined();
   });
 
   it('produces an error whose message and name are empty strings when descriptor has name ""', () => {
-    const descriptor: CodeDescriptor = {
+    const descriptor: ErrorCodeDescriptor = {
       name: "",
       category: "fault",
       expose: false,
@@ -79,17 +79,17 @@ describe("FlareError (constructor + instance shape)", () => {
   });
 
   it("carries the category value verbatim across multiple categories", () => {
-    const invalidDescriptor: CodeDescriptor = {
+    const invalidDescriptor: ErrorCodeDescriptor = {
       name: "BAD_REQUEST",
       category: "invalid",
       expose: true,
     };
-    const faultDescriptor: CodeDescriptor = {
+    const faultDescriptor: ErrorCodeDescriptor = {
       name: "INTERNAL",
       category: "fault",
       expose: false,
     };
-    const notFoundDescriptor: CodeDescriptor = {
+    const notFoundDescriptor: ErrorCodeDescriptor = {
       name: "MISSING",
       category: "not_found",
       expose: true,
@@ -107,7 +107,7 @@ describe("detail exposure on the wire", () => {
       readonly reason: string;
     }>;
 
-    const descriptor: CodeDescriptor<typeof detailSchema> = {
+    const descriptor: ErrorCodeDescriptor<typeof detailSchema> = {
       name: "EXPOSED_DETAIL",
       category: "invalid",
       expose: true,
@@ -124,7 +124,7 @@ describe("detail exposure on the wire", () => {
       readonly reason: string;
     }>;
 
-    const descriptor: CodeDescriptor<typeof detailSchema> = {
+    const descriptor: ErrorCodeDescriptor<typeof detailSchema> = {
       name: "HIDDEN_DETAIL",
       category: "fault",
       expose: false,
@@ -137,12 +137,12 @@ describe("detail exposure on the wire", () => {
   });
 
   it("returns undefined when no detail was supplied regardless of expose", () => {
-    const exposedDescriptor: CodeDescriptor = {
+    const exposedDescriptor: ErrorCodeDescriptor = {
       name: "NO_DETAIL_EXPOSED",
       category: "invalid",
       expose: true,
     };
-    const hiddenDescriptor: CodeDescriptor = {
+    const hiddenDescriptor: ErrorCodeDescriptor = {
       name: "NO_DETAIL_HIDDEN",
       category: "fault",
       expose: false,
@@ -159,13 +159,13 @@ describe("stored detail regardless of expose", () => {
       readonly value: number;
     }>;
 
-    const exposedDescriptor: CodeDescriptor<typeof detailSchema> = {
+    const exposedDescriptor: ErrorCodeDescriptor<typeof detailSchema> = {
       name: "EXPOSE_TRUE",
       category: "invalid",
       expose: true,
       detail: detailSchema,
     };
-    const hiddenDescriptor: CodeDescriptor<typeof detailSchema> = {
+    const hiddenDescriptor: ErrorCodeDescriptor<typeof detailSchema> = {
       name: "EXPOSE_FALSE",
       category: "fault",
       expose: false,
@@ -175,12 +175,12 @@ describe("stored detail regardless of expose", () => {
     const exposedError = new FlareError(exposedDescriptor, { value: 1 });
     const hiddenError = new FlareError(hiddenDescriptor, { value: 2 });
 
-    expect(exposedError.exposedDetail).toEqual({ value: 1 });
-    expect(hiddenError.exposedDetail).toEqual({ value: 2 });
+    expect(exposedError.rawDetail).toEqual({ value: 1 });
+    expect(hiddenError.rawDetail).toEqual({ value: 2 });
   });
 
   it("returns undefined when no detail was supplied", () => {
-    const descriptor: CodeDescriptor = {
+    const descriptor: ErrorCodeDescriptor = {
       name: "NO_DETAIL",
       category: "invalid",
       expose: true,
@@ -188,6 +188,6 @@ describe("stored detail regardless of expose", () => {
 
     const error = new FlareError(descriptor);
 
-    expect(error.exposedDetail).toBeUndefined();
+    expect(error.rawDetail).toBeUndefined();
   });
 });

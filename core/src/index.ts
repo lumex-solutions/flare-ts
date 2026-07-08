@@ -32,7 +32,6 @@ export type {
   MiddlewareFinallyFn,
 } from "./lib/arcs/http/composition/classes/middleware-base.js";
 export { httpContract, stream } from "./lib/arcs/http/composition/contract/http-contract.js";
-export type { HttpArc } from "./lib/arcs/http/http-arc.js";
 export type { CorsConfig } from "./lib/arcs/http/composition/types/cors.js";
 export type {
   AfterMiddlewareHandler,
@@ -46,6 +45,7 @@ export type {
   RouteHandler,
   RouteOptions,
 } from "./lib/arcs/http/composition/types/handlers.js";
+export type { HttpArc } from "./lib/arcs/http/http-arc.js";
 export { FlareHttpContext } from "./lib/arcs/http/transport/flare-http-context.js";
 export type { CookieOptions } from "./lib/arcs/http/transport/flare-http-context.js";
 export { FlareRequest } from "./lib/arcs/http/transport/flare-request.js";

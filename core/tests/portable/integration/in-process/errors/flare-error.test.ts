@@ -1,6 +1,6 @@
 /**
  * Integration tests for FlareError HTTP serialisation: category-derived status,
- * expose-gated detail, and exposedDetail visibility. Uses in-process
+ * expose-gated detail, and rawDetail visibility. Uses in-process
  * `app.test()` with a custom error handler; transport framing is not the claim.
  */
 // Ensure the host enters test mode before any FlareHost is constructed.
@@ -12,16 +12,16 @@ import {
   errorSchema,
   flareErrorCodes,
   FlareError,
-  FlareErrorCategories,
-  type CodeDescriptor,
-  type FlareErrorCategory,
+  ErrorCategories,
+  type ErrorCodeDescriptor,
+  type ErrorCategory,
 } from "../../../../../src/errors.js";
 import { testHost } from "../../../helpers/test-host.js";
 
 type Recorded = {
   name: string;
   category: string;
-  exposedDetail: unknown;
+  rawDetail: unknown;
 };
 
 // Schema and code registry used by both the primary-behavior tests and the
@@ -55,7 +55,7 @@ const codes = flareErrorCodes({
 
 // Per-test recorder mutated by a `host.http.error` handler. The handler returns
 // void so the default `handleControllerError` still produces the response;
-// reading `err.exposedDetail` is the only side effect.
+// reading `err.rawDetail` is the only side effect.
 const recorded: Recorded[] = [];
 
 function buildHost() {
@@ -70,13 +70,13 @@ function buildHost() {
       recorded.push({
         name: err.name,
         category: err.category,
-        exposedDetail: err.exposedDetail,
+        rawDetail: err.rawDetail,
       });
     } else {
       recorded.push({
         name: err.name,
         category: "<non-flare>",
-        exposedDetail: undefined,
+        rawDetail: undefined,
       });
     }
     // Return nothing so dispatchErrorHandlers falls through to the default
@@ -95,8 +95,8 @@ function buildHost() {
     throw new FlareError(codes.fault.DB_DOWN, { field: "primary", attempt: 3 });
   });
 
-  // Synthetic CodeDescriptor without a detail schema produces FlareError with no detail.
-  const noDetailDescriptor: CodeDescriptor = {
+  // Synthetic ErrorCodeDescriptor without a detail schema produces FlareError with no detail.
+  const noDetailDescriptor: ErrorCodeDescriptor = {
     name: "PLAIN_REJECT",
     category: "rejected",
     expose: true,
@@ -106,8 +106,8 @@ function buildHost() {
     throw new FlareError(noDetailDescriptor);
   });
 
-  // CodeDescriptor with `code === undefined` (omitted at construction).
-  const noCodeDescriptor: CodeDescriptor = {
+  // ErrorCodeDescriptor with `code === undefined` (omitted at construction).
+  const noCodeDescriptor: ErrorCodeDescriptor = {
     name: "NO_CODE_FORBIDDEN",
     category: "forbidden",
     expose: true,
@@ -123,7 +123,7 @@ function buildHost() {
 
   // expose: true but no detail value supplied at construction. The descriptor
   // has no `detail` schema, so the constructor takes no detail argument.
-  const exposeTrueNoDetailDescriptor: CodeDescriptor = {
+  const exposeTrueNoDetailDescriptor: ErrorCodeDescriptor = {
     name: "EXPOSED_BUT_EMPTY",
     category: "conflict",
     expose: true,
@@ -135,12 +135,12 @@ function buildHost() {
 
   // One controller per category that produces a FlareError in that category.
   // Used by the error-categories cross-feature test.
-  for (const category of Object.keys(FlareErrorCategories) as FlareErrorCategory[]) {
-    const descriptor: CodeDescriptor = {
+  for (const category of Object.keys(ErrorCategories) as ErrorCategory[]) {
+    const descriptor: ErrorCodeDescriptor = {
       name: `BY_CATEGORY_${category.toUpperCase()}`,
       category,
       expose: true,
-      code: 1000 + FlareErrorCategories[category],
+      code: 1000 + ErrorCategories[category],
     };
     host.http.get(`/by-category/${category}`, () => {
       throw new FlareError(descriptor);
@@ -161,10 +161,10 @@ afterAll(async () => {
 });
 
 describe("Primary Behavior", () => {
-  it("serialises a thrown FlareError into a response with status from FlareErrorCategories[category]", async () => {
+  it("serialises a thrown FlareError into a response with status from ErrorCategories[category]", async () => {
     recorded.length = 0;
     const res = await app.fetch("GET /users/missing");
-    expect(res.status).toBe(FlareErrorCategories.not_found);
+    expect(res.status).toBe(ErrorCategories.not_found);
     expect(res.status).toBe(404);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body.error).toBe("USER_NOT_FOUND");
@@ -174,7 +174,7 @@ describe("Primary Behavior", () => {
   it("includes the typed detail payload in the body when expose is true", async () => {
     recorded.length = 0;
     const res = await app.fetch("GET /validation/exposed");
-    expect(res.status).toBe(FlareErrorCategories.invalid);
+    expect(res.status).toBe(ErrorCategories.invalid);
     expect(res.status).toBe(400);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body.error).toBe("VALIDATION_FAILED");
@@ -182,22 +182,22 @@ describe("Primary Behavior", () => {
     expect(body.detail).toEqual({ field: "email", attempt: 1 });
   });
 
-  it("omits the detail payload from the body when expose is false but the server-side log captures exposedDetail", async () => {
+  it("omits the detail payload from the body when expose is false but the server-side log captures rawDetail", async () => {
     recorded.length = 0;
     const res = await app.fetch("GET /fault/hidden");
-    expect(res.status).toBe(FlareErrorCategories.fault);
+    expect(res.status).toBe(ErrorCategories.fault);
     expect(res.status).toBe(500);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body.error).toBe("DB_DOWN");
     expect(body.code).toBe(5001);
     expect(body.detail).toBeUndefined();
 
-    // The error handler observed the raw, unredacted detail via `exposedDetail`.
+    // The error handler observed the raw, unredacted detail via `rawDetail`.
     expect(recorded).toHaveLength(1);
     expect(recorded[0]).toEqual({
       name: "DB_DOWN",
       category: "fault",
-      exposedDetail: { field: "primary", attempt: 3 },
+      rawDetail: { field: "primary", attempt: 3 },
     });
   });
 });
@@ -206,7 +206,7 @@ describe("Edge Cases", () => {
   it("round-trips a FlareError constructed without a detail argument with no body payload beyond the standard envelope", async () => {
     recorded.length = 0;
     const res = await app.fetch("GET /edge/no-detail");
-    expect(res.status).toBe(FlareErrorCategories.rejected);
+    expect(res.status).toBe(ErrorCategories.rejected);
     expect(res.status).toBe(422);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body.error).toBe("PLAIN_REJECT");
@@ -218,7 +218,7 @@ describe("Edge Cases", () => {
   it("serialises a FlareError whose descriptor has code === undefined with no code field on the response", async () => {
     recorded.length = 0;
     const res = await app.fetch("GET /edge/no-code");
-    expect(res.status).toBe(FlareErrorCategories.forbidden);
+    expect(res.status).toBe(ErrorCategories.forbidden);
     expect(res.status).toBe(403);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body.error).toBe("NO_CODE_FORBIDDEN");
@@ -239,7 +239,7 @@ describe("Edge Cases", () => {
     expect(recorded[0]).toEqual({
       name: "Error",
       category: "<non-flare>",
-      exposedDetail: undefined,
+      rawDetail: undefined,
     });
   });
 });
@@ -248,7 +248,7 @@ describe("Failure Modes", () => {
   it("omits the detail field from the body when expose is true but no detail was supplied", async () => {
     recorded.length = 0;
     const res = await app.fetch("GET /failure/expose-no-detail");
-    expect(res.status).toBe(FlareErrorCategories.conflict);
+    expect(res.status).toBe(ErrorCategories.conflict);
     expect(res.status).toBe(409);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body.error).toBe("EXPOSED_BUT_EMPTY");
@@ -267,7 +267,7 @@ describe("Cross-Feature Interactions", () => {
     expect(codes.not_found.USER_NOT_FOUND.category).toBe("not_found");
 
     const res = await app.fetch("GET /users/missing");
-    expect(res.status).toBe(FlareErrorCategories.not_found);
+    expect(res.status).toBe(ErrorCategories.not_found);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body.error).toBe(codes.not_found.USER_NOT_FOUND.name);
 
@@ -278,7 +278,7 @@ describe("Cross-Feature Interactions", () => {
   });
 
   it("(with errors/error-categories) every category produces the documented status when wrapped in a FlareError and thrown", async () => {
-    for (const [category, status] of Object.entries(FlareErrorCategories) as Array<[FlareErrorCategory, number]>) {
+    for (const [category, status] of Object.entries(ErrorCategories) as Array<[ErrorCategory, number]>) {
       recorded.length = 0;
       const res = await app.fetch(`GET /by-category/${category}`);
       expect(res.status).toBe(status);
