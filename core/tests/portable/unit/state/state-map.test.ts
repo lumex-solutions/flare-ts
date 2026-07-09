@@ -2,9 +2,9 @@
  * Unit tests for {@link StateMap} typed storage, freezing, and retrieval.
  */
 import { describe, it, expect } from "vitest";
-import type { TypedStateToken } from "../../../../src/lib/state/types/state-token.js";
+import type { TypedStateToken } from "../../../../src/lib/state/flare-state.js";
 import { flareState } from "../../../../src/lib/state/flare-state.js";
-import { StateMap } from "../../../../src/lib/state/state-map.js";
+import { StateMap } from "../../../../src/lib/state/map.js";
 
 describe("round-trip storage and retrieval", () => {
   it("Round-trip: setting a primitive value retrieves the same value.", () => {

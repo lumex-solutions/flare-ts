@@ -21,7 +21,7 @@ import type {
 } from "../../../../../../../../src/lib/arcs/ws/transport/flare-web-socket-context.js";
 import type { WsAttachment } from "../../../../../../../../src/lib/arcs/ws/transport/runtime/cloudflare/types.js";
 import type { WsAcceptOptions } from "../../../../../../../../src/lib/arcs/ws/transport/socket.js";
-import type { StateToken, TypedStateToken } from "../../../../../../../../src/lib/state/types/state-token.js";
+import type { StateToken, TypedStateToken } from "../../../../../../../../src/lib/state/flare-state.js";
 import { flareState } from "../../../../../../../../src/index.js";
 import { compileWsRoutes } from "../../../../../../../../src/lib/arcs/ws/pipeline/build.js";
 import { readAttachment } from "../../../../../../../../src/lib/arcs/ws/transport/runtime/cloudflare/attachment.js";

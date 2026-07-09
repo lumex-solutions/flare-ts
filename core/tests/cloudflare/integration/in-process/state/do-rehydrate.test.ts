@@ -6,14 +6,19 @@ import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
 import type { CloudflareApp } from "../../../../../src/cloudflare.js";
 import { composeDurableInstance, FlareDurableObject } from "../../../../../src/cloudflare.js";
-import { FlareHost, FlareHttpContext, FlareRequest, FlareResponse, flareState } from "../../../../../src/index.js";
-import { CfRequestAdapter } from "../../../../../src/lib/arcs/http/transport/runtime/cloudflare.js";
+import {
+  captureLogStore,
+  FlareHost,
+  type FlareHttpContext,
+  FlareResponse,
+  flareState,
+} from "../../../../../src/index.js";
 import {
   encodeInboundEnvelope,
   RESERVED_STATE_HEADER,
   RESERVED_TRACE_HEADER,
 } from "../../../../../src/lib/host/runtime/cloudflare/state-crossing.js";
-import { loggerALS } from "../../../../../src/lib/logger/context.js";
+import { mockContext } from "../../../../../src/testing.js";
 import { makeEnv, makeExecutionContext, makeFakeDurableState } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 
@@ -49,9 +54,9 @@ function buildDoHost(logCfg: JsonObject = {}): FlareHost {
     });
   });
 
-  // Route: captures the loggerALS context and returns parentRequestId.
+  // Route: captures the active log context and returns parentRequestId.
   room.http.get("/log-context", (ctx) => {
-    const store = loggerALS.getStore();
+    const store = captureLogStore();
     const parentRequestId = (store?.context as { parentRequestId?: string; } | undefined)
       ?.parentRequestId ?? null;
     const rawTrace = ctx.req.headers.get(RESERVED_TRACE_HEADER);
@@ -63,9 +68,7 @@ function buildDoHost(logCfg: JsonObject = {}): FlareHost {
 }
 
 function makeFrontDoorCtx(): FlareHttpContext {
-  const req = new Request("https://flare.test/");
-  const flareReq = new FlareRequest(CfRequestAdapter, "GET", "/", "front-door-req", req);
-  return new FlareHttpContext(flareReq);
+  return mockContext({ url: "/", requestId: "front-door-req" });
 }
 
 describe("DO-side inbound state rehydrate", () => {

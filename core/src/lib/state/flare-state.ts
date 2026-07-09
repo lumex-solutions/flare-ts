@@ -1,13 +1,123 @@
-import type {
-  StateGetter,
-  StateLogMapper,
-  StateTokenBuilder,
-  StateTokenDefaultedBuilder,
-  StateTokenDerivedBuilder,
-  StateTokenLoggingBuilder,
-  TypedStateToken,
-} from "./types/state-token.js";
-import { STATE_BRAND } from "./types/state-token.js";
+/**
+ * Request-scoped state: the deep-readonly view, the token vocabulary and builder-stage
+ * types, and the `flareState` factory with its internal accessor seams.
+ */
+import type { JsonValue } from "@flare-ts/lib";
+
+type WithLoggingBuilder<T, TReturn> = {
+  withLogging(mapper: StateLogMapper<T>): TReturn;
+};
+
+/**
+ * Deeply-immutable version of `T`.
+ *
+ * Recursively marks every property (and nested object property) as `readonly`.
+ * State retrieved from {@link FlareRequest.state.require} is always wrapped in
+ * `DeepReadonly` to guarantee that request-scoped state cannot be mutated after it is
+ * set.
+ *
+ * State values are stored as frozen snapshots. Keep state values as plain data:
+ * primitives, arrays, and plain objects. Store mutable resources in an injected
+ * service instead.
+ *
+ * @typeParam T - The type to make deeply readonly.
+ */
+export type DeepReadonly<T> = {
+  readonly [K in keyof T]: T[K] extends object ? DeepReadonly<T[K]> : T[K];
+};
+
+/**
+ * Opaque reference to a piece of request-scoped state.
+ *
+ * Base form of a state token; it carries no value type information.
+ * Use it wherever a collection of tokens is held without needing to access their
+ * value types: `state` arrays on controllers/middleware, compilation maps, and the
+ * internal state store.
+ *
+ * To read or write state, you need a {@link TypedStateToken}`<T>`.
+ */
+export type StateToken = {
+  /** Display name used in error messages. */
+  readonly name: string;
+};
+
+/**
+ * State token that carries the value type `T`.
+ *
+ * Created by {@link flareState} and passed to `ctx.require()`, `ctx.get()`,
+ * and `ctx.set()`. The token is a plain object: its reference identity is
+ * what makes it unique. Tokens cannot be extended; use {@link flareState} to
+ * create a new one.
+ *
+ * Assignable to {@link StateToken} wherever the value type is not needed.
+ *
+ * The `_type` field is a phantom type: it exists only at compile time to carry
+ * `T` through the token so state reads and writes stay typed.
+ *
+ * @typeParam T - The value type this token carries.
+ */
+export type TypedStateToken<T> = StateToken & {
+  readonly _type?: T;
+};
+
+/**
+ * Read-only access to request-scoped state.
+ *
+ * The face of {@link FlareRequest} that derivation functions declared with
+ * `.from()` receive.
+ */
+export type StateGetter = {
+  state: {
+    require: <T>(token: TypedStateToken<T>) => DeepReadonly<T>;
+    get: <T>(token: TypedStateToken<T>) => DeepReadonly<T> | undefined;
+  };
+};
+
+/** The mapper `.withLogging()` registers: projects a state value into log-safe fields. */
+export type StateLogMapper<T> = (value: DeepReadonly<T>) => Record<string, JsonValue | undefined>;
+
+/**
+ * Builder returned by `flareState<T>()`. Both `.withDefault()` and
+ * `.from()` may each be called at most once, in either order.
+ */
+export type StateTokenBuilder<T> = TypedStateToken<T> & {
+  withDefault(value: T): TypedStateToken<T> & StateTokenDefaultedBuilder<T>;
+  from(fn: (ctx: StateGetter) => T): TypedStateToken<T> & StateTokenDerivedBuilder<T>;
+  withLogging(mapper: StateLogMapper<T>): TypedStateToken<T> & StateTokenLoggingBuilder<T>;
+};
+
+/** Builder stage after `.withDefault()`: `.from()` and `.withLogging()` remain. */
+export type StateTokenDefaultedBuilder<T> =
+  & WithLoggingBuilder<T, TypedStateToken<T> & StateTokenDefaultedLoggingBuilder<T>>
+  & {
+    from(fn: (ctx: StateGetter) => T): TypedStateToken<T> & StateTokenDefaultedDerivedBuilder<T>;
+  };
+
+/** Builder stage after `.from()`: `.withDefault()` and `.withLogging()` remain. */
+export type StateTokenDerivedBuilder<T> =
+  & WithLoggingBuilder<T, TypedStateToken<T> & StateTokenDerivedLoggingBuilder<T>>
+  & {
+    withDefault(value: T): TypedStateToken<T> & StateTokenDefaultedDerivedBuilder<T>;
+  };
+
+/** Builder stage after `.withLogging()`: `.withDefault()` and `.from()` remain. */
+export type StateTokenLoggingBuilder<T> = {
+  withDefault(value: T): TypedStateToken<T> & StateTokenDefaultedLoggingBuilder<T>;
+  from(fn: (ctx: StateGetter) => T): TypedStateToken<T> & StateTokenDerivedLoggingBuilder<T>;
+};
+
+/** Builder stage after `.withDefault()` and `.from()`: only `.withLogging()` remains. */
+export type StateTokenDefaultedDerivedBuilder<T> = WithLoggingBuilder<T, TypedStateToken<T>>;
+
+/** Builder stage after `.withDefault()` and `.withLogging()`: only `.from()` remains. */
+export type StateTokenDefaultedLoggingBuilder<T> = {
+  from(fn: (ctx: StateGetter) => T): TypedStateToken<T>;
+};
+
+/** Builder stage after `.from()` and `.withLogging()`: only `.withDefault()` remains. */
+export type StateTokenDerivedLoggingBuilder<T> = {
+  withDefault(value: T): TypedStateToken<T>;
+};
 
 const _DEFAULT = Symbol("_default");
 const _DERIVATION = Symbol("_derivation");
@@ -17,8 +127,7 @@ const _DEFAULT_CALLED = Symbol("_defaultCalled");
 const _LOGGING_CALLED = Symbol("_loggingCalled");
 
 /** @internal Concrete shape of the plain-object token created by flareState. */
-interface InternalToken<T> {
-  readonly [STATE_BRAND]: T;
+type InternalToken<T> = {
   readonly name: string;
   [_DEFAULT]: T | undefined;
   [_DERIVATION]: ((ctx: StateGetter) => T) | undefined;
@@ -29,7 +138,7 @@ interface InternalToken<T> {
   withDefault(value: T): TypedStateToken<T> & StateTokenDefaultedBuilder<T>;
   from(fn: (ctx: StateGetter) => T): TypedStateToken<T> & StateTokenDerivedBuilder<T>;
   withLogging(mapper: StateLogMapper<T>): TypedStateToken<T> & StateTokenLoggingBuilder<T>;
-}
+};
 
 /**
  * Creates a new Flare state token.
@@ -59,8 +168,6 @@ interface InternalToken<T> {
  */
 export function flareState<T>(name?: string): StateTokenBuilder<T> {
   const token: InternalToken<T> = {
-    // Phantom brand: satisfies the type at compile time, never read at runtime.
-    [STATE_BRAND]: undefined as T,
     name: name ?? "(anonymous state)",
     [_DEFAULT]: undefined,
     [_DERIVATION]: undefined,
@@ -69,6 +176,8 @@ export function flareState<T>(name?: string): StateTokenBuilder<T> {
     [_DEFAULT_CALLED]: false,
     [_LOGGING_CALLED]: false,
 
+    // Each builder stage returns the SAME token narrowed to its remaining calls; the
+    // stage types are phantom views of one mutable object, which the casts restate.
     withDefault(value: T): TypedStateToken<T> & StateTokenDefaultedBuilder<T> {
       if (value === undefined) throw new Error(`[Flare] withDefault() value cannot be undefined.`);
       if (token[_DEFAULT_CALLED]) throw new Error(`[Flare] withDefault() can only be called once per token.`);
@@ -92,8 +201,12 @@ export function flareState<T>(name?: string): StateTokenBuilder<T> {
     },
   };
 
+  // Same phantom-view narrowing as the stage methods above.
   return token as StateTokenBuilder<T>;
 }
+
+// The three accessors below widen a public TypedStateToken to the internal shape: every
+// token reaching them was built by flareState() above, which is the only producer.
 
 /** @internal Returns the log mapper registered on a token, if any. */
 export function getTokenLogMapper<T>(token: TypedStateToken<T>): StateLogMapper<T> | undefined {

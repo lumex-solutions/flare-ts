@@ -2,11 +2,10 @@
  * Per-connection WebSocket context: identity, durable state, outbound serialization, and channel membership.
  */
 
-import type { FlareReadonly } from "../../../state/types/readonly.js";
-import type { TypedStateToken } from "../../../state/types/state-token.js";
+import type { DeepReadonly, TypedStateToken } from "../../../state/flare-state.js";
 import type { IWsBroadcastTarget, IWsChannelDomain } from "../channels/domain.js";
 import type { IFlareWebSocket } from "./socket.js";
-import { StateMap } from "../../../state/state-map.js";
+import { StateMap } from "../../../state/map.js";
 import { WS_SEND_RAW } from "../channels/domain.js";
 
 /**
@@ -17,7 +16,7 @@ import { WS_SEND_RAW } from "../channels/domain.js";
  */
 export type WebSocketState = {
   /** Reads the value for `token`, or `undefined` when unset. */
-  get<T>(token: TypedStateToken<T>): FlareReadonly<T> | undefined;
+  get<T>(token: TypedStateToken<T>): DeepReadonly<T> | undefined;
   /** Writes `value` for `token` (snapshotted; must be a primitive, array, or plain object). */
   set<T>(token: TypedStateToken<T>, value: T): void;
 };

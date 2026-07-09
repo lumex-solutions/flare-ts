@@ -1,6 +1,6 @@
 import { compileSerializer } from "@flare-ts/lib/schema";
 import type { FlareRouter } from "../../routing/flare-router.js";
-import type { StateToken } from "../../state/types/state-token.js";
+import type { StateToken } from "../../state/flare-state.js";
 import type { MiddlewareBase } from "./composition/classes/middleware-base.js";
 import type { RequestDescriptor } from "./composition/contract/http-contract.js";
 import type { CorsConfig } from "./composition/types/cors.js";

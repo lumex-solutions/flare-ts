@@ -4,7 +4,7 @@
 import { describe, it, expect } from "vitest";
 import type { MiddlewareClass } from "../../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
 import type { MiddlewareRegistration } from "../../../../../../src/lib/arcs/http/types/registration.js";
-import type { StateToken } from "../../../../../../src/lib/state/types/state-token.js";
+import type { StateToken } from "../../../../../../src/lib/state/flare-state.js";
 import type { HttpValidationContext } from "../../../../../../src/lib/validation/contexts.js";
 import { MiddlewareStateCycleValidator } from "../../../../../../src/lib/validation/validators/http/middleware-state-cycle-validator.js";
 

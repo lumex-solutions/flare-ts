@@ -92,8 +92,7 @@ export { FlareValidationError } from "./lib/validation/flare-validation-error.js
 
 // Request state
 export { flareState } from "./lib/state/flare-state.js";
-export type { FlareReadonly } from "./lib/state/types/readonly.js";
-export type { StateGetter, StateToken, TypedStateToken } from "./lib/state/types/state-token.js";
+export type { DeepReadonly, StateGetter, StateToken, TypedStateToken } from "./lib/state/flare-state.js";
 
 // Logger
 export { captureLogStore, runWithLogStore } from "./lib/logger/context.js";

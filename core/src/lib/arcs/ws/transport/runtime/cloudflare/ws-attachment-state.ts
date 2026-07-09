@@ -1,9 +1,8 @@
+import type { DeepReadonly, StateToken, TypedStateToken } from "../../../../../state/flare-state.js";
 /**
  * In-memory `ws.state` store synchronized with hibernated WebSocket socket attachments.
  */
-import type { FlareReadonly } from "../../../../../state/types/readonly.js";
-import type { StateToken, TypedStateToken } from "../../../../../state/types/state-token.js";
-import { StateMap } from "../../../../../state/state-map.js";
+import { StateMap } from "../../../../../state/map.js";
 
 /**
  * The attachment-backed `ws.state` store (the hibernation side of the public WebSocketState slice): reads/writes are in-memory (deep-frozen like the
@@ -37,7 +36,7 @@ export class WsAttachmentState {
   }
 
   /** Returns the frozen value for `token`, or undefined when unset. */
-  get<T>(token: TypedStateToken<T>): FlareReadonly<T> | undefined {
+  get<T>(token: TypedStateToken<T>): DeepReadonly<T> | undefined {
     return this.#map.get(token);
   }
   /** Stores `value` for `token` and marks the bag dirty. */

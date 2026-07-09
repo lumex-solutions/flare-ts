@@ -5,7 +5,7 @@
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { InjectMap } from "../../../services/types/inject.js";
 import type { ServiceToken } from "../../../services/types/types.js";
-import type { StateToken } from "../../../state/types/state-token.js";
+import type { StateToken } from "../../../state/flare-state.js";
 import type { WebSocketControllerClass } from "./classes/controller-base.js";
 import type { WebSocketDescriptor, WebSocketToken } from "./contract/ws-contract.js";
 import type { WsHandlerFns, WsRegistration, WsRegistrationBase } from "./types/registration.js";

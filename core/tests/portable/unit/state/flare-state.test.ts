@@ -2,22 +2,22 @@
  * Unit tests for {@link flareState} token builder and accessor helpers.
  */
 import { describe, it, expect } from "vitest";
-import type { StateGetter, TypedStateToken } from "../../../../src/lib/state/types/state-token.js";
+import type { StateGetter, TypedStateToken } from "../../../../src/lib/state/flare-state.js";
 import {
   flareState,
   getTokenDefault,
   getTokenDerivation,
   getTokenLogMapper,
 } from "../../../../src/lib/state/flare-state.js";
-import { STATE_BRAND } from "../../../../src/lib/state/types/state-token.js";
 
 describe("flareState", () => {
-  it("Returns a builder branded as a TypedStateToken (STATE_BRAND set).", () => {
+  it("Returns a token whose type carrier is purely phantom (no runtime `_type` property).", () => {
     const builder = flareState<number>("Counter");
-    // STATE_BRAND is a unique runtime symbol; it must exist as an own property.
-    expect(STATE_BRAND in (builder as object)).toBe(true);
-    // The brand carries the phantom type at runtime via `undefined as T`.
-    expect((builder as unknown as Record<symbol, unknown>)[STATE_BRAND]).toBeUndefined();
+    // The `_type` phantom exists only at compile time; the token satisfies
+    // TypedStateToken<number> with no runtime trace of the carrier.
+    expect("_type" in (builder as object)).toBe(false);
+    const typed: TypedStateToken<number> = builder;
+    expect(typed.name).toBe("Counter");
   });
 
   it('`name` defaults to `"(anonymous state)"` when omitted.', () => {

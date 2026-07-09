@@ -1,6 +1,6 @@
 import type { JsonValue } from "@flare-ts/lib/schema";
 import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
-import type { StateToken } from "../../../state/types/state-token.js";
+import type { StateToken } from "../../../state/flare-state.js";
 import type { FlareDurableObjectClass } from "./durable-object.js";
 import { PEEK_STATE } from "../../../arcs/http/transport/flare-http-context.js";
 

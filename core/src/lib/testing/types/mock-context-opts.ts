@@ -1,4 +1,4 @@
-import type { StateToken } from "../../state/types/state-token.js";
+import type { StateToken } from "../../state/flare-state.js";
 
 /**
  * Options accepted by `mockContext`.

@@ -4,7 +4,7 @@
  * Driven through the in-process `app.test()` harness so state visible to handlers
  * is the claim without binding a real port.
  * FLARE_MODE must be set before any FlareHost is constructed so the node
- * adapter's `env: process.env` live binding sees it.
+ * host enters test mode before any adapter import.
  */
 process.env["FLARE_MODE"] = "test";
 
@@ -12,9 +12,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { HttpLogContext } from "../../../../../src/lib/logger/types.js";
 import type { TestAppHandle } from "../../../../../src/testing.js";
 import { Get } from "../../../../../src/decorators.js";
-import { ControllerBase, flareState, FlareHost, FlareResponse, MiddlewareBase } from "../../../../../src/index.js";
+import { ControllerBase, flareState, FlareResponse, MiddlewareBase } from "../../../../../src/index.js";
 import { captureLogStore, runWithLogStore } from "../../../../../src/index.js";
-import { node } from "../../../../../src/node.js";
+import { testHost } from "../../../helpers/test-host.js";
 
 /** Plain token with no default: drives middleware-set / controller-read and require-on-miss failure cases. */
 const TenantState = flareState<{ tenantId: string; }>("TenantState");
@@ -79,8 +79,7 @@ describe("Primary Behavior", () => {
   let app: TestAppHandle;
 
   beforeAll(async () => {
-    process.env["FLARE_MODE"] = "test";
-    const host = new FlareHost(node);
+    const host = testHost();
 
     host.http.use(ProvideTenant);
     host.http.controller("/", TenantReadingController);
@@ -151,8 +150,7 @@ describe("Primary Behavior", () => {
     // Node/CF runtime responsibility). Wrap the fetch ourselves so the
     // middleware that sets LoggedState observes a live ALS store, then
     // assert the mapper output landed on store.state.
-    process.env["FLARE_MODE"] = "test";
-    const host = new FlareHost(node);
+    const host = testHost();
     host.http.use(ProvideLoggedState);
     host.http.get("/logged", () => new FlareResponse(200, { ok: true }));
 
@@ -232,8 +230,7 @@ describe("Edge Cases", () => {
   }
 
   beforeAll(async () => {
-    process.env["FLARE_MODE"] = "test";
-    const host = new FlareHost(node);
+    const host = testHost();
 
     host.http.use(SetMutableTenant);
     host.http.controller("/", TwinReadingController);
@@ -305,8 +302,7 @@ describe("Failure Modes", () => {
   CycleB.from((ctx) => ctx.state.require(CycleA) as string);
 
   it("ctx.state.require(token) throws when no value is resolvable", async () => {
-    process.env["FLARE_MODE"] = "test";
-    const host = new FlareHost(node);
+    const host = testHost();
     // No middleware provides TenantState in this app, and the route does not
     // declare it in `state`, so build-time verification passes but the runtime
     // require() throws.
@@ -331,8 +327,7 @@ describe("Failure Modes", () => {
   });
 
   it('circular derivation across two tokens throws "Circular state derivation detected" with both names referenced', async () => {
-    process.env["FLARE_MODE"] = "test";
-    const host = new FlareHost(node);
+    const host = testHost();
     host.http.get("/cycle", (ctx) => {
       ctx.state.require(CycleA);
       return new FlareResponse(200, { ok: true });
@@ -357,8 +352,7 @@ describe("Failure Modes", () => {
   });
 
   it('setting a class instance throws "must be primitives, arrays, or plain objects"', async () => {
-    process.env["FLARE_MODE"] = "test";
-    const host = new FlareHost(node);
+    const host = testHost();
     class NotPlain {
       constructor(public id: string) {}
     }
@@ -381,8 +375,7 @@ describe("Failure Modes", () => {
   });
 
   it('setting an object with a circular reference throws "cannot contain circular references"', async () => {
-    process.env["FLARE_MODE"] = "test";
-    const host = new FlareHost(node);
+    const host = testHost();
     type CircularShape = { id: string; self?: unknown; };
     const CircToken = flareState<CircularShape>("CircToken");
     host.http.get("/circ-set", (ctx) => {
@@ -405,7 +398,6 @@ describe("Failure Modes", () => {
   });
 
   it("controller / middleware whose required state is not provided by a preceding middleware throws at compile time", () => {
-    process.env["FLARE_MODE"] = "test";
     const MissingToken = flareState<{ x: string; }>("MissingToken");
     class NeedsMissing extends ControllerBase {
       public static override deps = [];
@@ -417,7 +409,7 @@ describe("Failure Modes", () => {
       }
     }
 
-    const host = new FlareHost(node);
+    const host = testHost();
     host.http.controller("/", NeedsMissing);
 
     // host.build() drives HttpArc[COMPILE_HTTP_ARC] which runs
@@ -431,8 +423,7 @@ describe("Failure Modes", () => {
 
 describe("Cross-Feature Interactions", () => {
   it("(with http-arc/pipeline-codegen) state written in before is visible to after and finally hooks", async () => {
-    process.env["FLARE_MODE"] = "test";
-    const host = new FlareHost(node);
+    const host = testHost();
 
     const ScopedTenant = flareState<{ tenantId: string; }>("ScopedTenant");
     const observations: { hook: "after" | "finally"; tenantId: string | undefined; }[] = [];
@@ -485,8 +476,7 @@ describe("Cross-Feature Interactions", () => {
   });
 
   it("(with http-arc/groups) state written via group middleware in a non-isolated group is visible to controllers inside the group but not outside", async () => {
-    process.env["FLARE_MODE"] = "test";
-    const host = new FlareHost(node);
+    const host = testHost();
 
     const GroupTenant = flareState<{ tenantId: string; }>("GroupTenant");
 

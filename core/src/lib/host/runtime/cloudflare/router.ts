@@ -5,7 +5,7 @@ import type { ResponseLike } from "../../../arcs/http/transport/types/response.j
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { InjectMap } from "../../../services/types/inject.js";
 import type { ServiceToken } from "../../../services/types/types.js";
-import type { StateToken } from "../../../state/types/state-token.js";
+import type { StateToken } from "../../../state/flare-state.js";
 import type { ValidationError } from "../../../validation/types.js";
 import type { FlareDurableObjectClass } from "./durable-object.js";
 import { joinRoutePath } from "../../../arcs/http/routing/path.js";

@@ -3,7 +3,7 @@ import type { Primitive, TypedPrimitive } from "@flare-ts/lib/schema";
 import type { IFlareHost } from "../../host/flare-host.js";
 import type { HostRuntimeLifecycle, LifecycleCallback } from "../../host/types/lifecycle.js";
 import type { FlareRouter } from "../../routing/flare-router.js";
-import type { StateToken } from "../../state/types/state-token.js";
+import type { StateToken } from "../../state/flare-state.js";
 import type { HttpArcInspectSnapshot, RouterInspectSnapshot } from "../../testing/types/inspect-build.js";
 import type { MiddlewareBase } from "./composition/classes/middleware-base.js";
 import type { HttpGroupFn } from "./composition/group.js";

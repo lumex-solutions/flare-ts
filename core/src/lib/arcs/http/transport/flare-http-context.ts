@@ -1,7 +1,6 @@
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { ServiceToken } from "../../../services/types/types.js";
-import type { FlareReadonly } from "../../../state/types/readonly.js";
-import type { StateToken, TypedStateToken } from "../../../state/types/state-token.js";
+import type { DeepReadonly, StateToken, TypedStateToken } from "../../../state/flare-state.js";
 import type { RequestDescriptor } from "../composition/contract/http-contract.js";
 import type { CookieSigner } from "./cookie-signer.js";
 import type { FlareRequest } from "./flare-request.js";
@@ -10,7 +9,7 @@ import type { RequestContext, TypedRequestContext } from "./types/request-contex
 import type { ResponseSerializers, Serializer } from "./types/response.js";
 import { loggerALS } from "../../../logger/context.js";
 import { getTokenDefault, getTokenDerivation, getTokenLogMapper } from "../../../state/flare-state.js";
-import { StateMap } from "../../../state/state-map.js";
+import { StateMap } from "../../../state/map.js";
 import { FlareResponse } from "./flare-response.js";
 import { encodeSseComment, encodeSseEvent, SseStream } from "./sse.js";
 
@@ -59,8 +58,8 @@ export const HANDLER_ERRORED: unique symbol = Symbol("flare.handlerErrored");
 
 interface RequestState {
   set: <T>(token: TypedStateToken<T>, value: T) => void;
-  get: <T>(token: TypedStateToken<T>) => FlareReadonly<T> | undefined;
-  require: <T>(token: TypedStateToken<T>) => FlareReadonly<T>;
+  get: <T>(token: TypedStateToken<T>) => DeepReadonly<T> | undefined;
+  require: <T>(token: TypedStateToken<T>) => DeepReadonly<T>;
 }
 
 type BaseCookieOptions = {
@@ -110,7 +109,7 @@ export class FlareHttpContext {
    * Returns the RAW stored value for a token (only-explicitly-present), bypassing `#resolve`
    * so no default/derivation is fired or written back. See {@link PEEK_STATE}.
    */
-  [PEEK_STATE]<T>(token: TypedStateToken<T>): FlareReadonly<T> | undefined {
+  [PEEK_STATE]<T>(token: TypedStateToken<T>): DeepReadonly<T> | undefined {
     return this.#stateMap?.get(token);
   }
 
@@ -130,13 +129,13 @@ export class FlareHttpContext {
 
   get state(): RequestState {
     return (this.#state ??= {
-      require: <T>(token: TypedStateToken<T>): FlareReadonly<T> => {
+      require: <T>(token: TypedStateToken<T>): DeepReadonly<T> => {
         const value = this.#resolve(token);
         if (value === undefined) throw new Error(`StateToken ${token.name} not found in FlareHttpContext state.`);
         return value;
       },
 
-      get: <T>(token: TypedStateToken<T>): FlareReadonly<T> | undefined => {
+      get: <T>(token: TypedStateToken<T>): DeepReadonly<T> | undefined => {
         return this.#resolve(token);
       },
 
@@ -301,7 +300,7 @@ export class FlareHttpContext {
     return this.#cookies ? this.#cookies[DRAIN_SET_COOKIES]() : null;
   }
 
-  #resolve<T>(token: TypedStateToken<T>): FlareReadonly<T> | undefined {
+  #resolve<T>(token: TypedStateToken<T>): DeepReadonly<T> | undefined {
     if (!this.#stateMap) this.#stateMap = new StateMap();
     const _state = this.#stateMap;
 

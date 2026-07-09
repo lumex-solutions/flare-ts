@@ -4,7 +4,7 @@ import type { RequestDescriptor } from "../../../../../../src/lib/arcs/http/comp
 import type { FlareRequest } from "../../../../../../src/lib/arcs/http/transport/flare-request.js";
 import type { RequestContext } from "../../../../../../src/lib/arcs/http/transport/types/request-context.js";
 import type { ResponseSerializers } from "../../../../../../src/lib/arcs/http/transport/types/response.js";
-import type { TypedStateToken } from "../../../../../../src/lib/state/types/state-token.js";
+import type { TypedStateToken } from "../../../../../../src/lib/state/flare-state.js";
 import {
   DRAIN_SET_COOKIES,
   FlareHttpContext,

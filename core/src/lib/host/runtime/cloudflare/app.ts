@@ -7,7 +7,7 @@ import type { FlareService } from "../../../services/composition/flare-service.j
 import type { Container } from "../../../services/container.js";
 import type { InjectMap } from "../../../services/types/inject.js";
 import type { ServiceToken } from "../../../services/types/types.js";
-import type { StateToken } from "../../../state/types/state-token.js";
+import type { StateToken } from "../../../state/flare-state.js";
 import type { FlareTestRequestInput } from "../../../testing/types/flare-test-req.js";
 import type { ValidationError } from "../../../validation/types.js";
 import type { IFlareHost } from "../../flare-host.js";

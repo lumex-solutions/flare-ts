@@ -29,6 +29,8 @@ host extensions are coming soon.
   `LogConfig`, and `FlareWebSocketsConfig` to `WebSocketsConfig`. All four are also
   now `type` aliases rather than `interface` declarations, so module augmentation on
   them (never supported behavior) no longer compiles.
+- `FlareReadonly` is renamed to `DeepReadonly`, with no alias: it is a generic
+  deep-immutability utility, not a framework-held object, and the new name says so.
 - The `CFW*` logger family is renamed to `Cf*`, with no aliases: `CFWLoggerTransport`
   to `CfLoggerTransport` and `CFWLoggerTransportClass` to `CfLoggerTransportClass` on
   the public surface; the internal `CFWLogger`, `CFWConsoleTransport`, and
@@ -239,6 +241,10 @@ host extensions are coming soon.
   Type-surface assertions moved out of the integration suites into a dedicated types
   suite, and integration tests no longer import internal brand symbols.
   Behavior-preserving.
+- Restructured the state subsystem: the token vocabulary, builder-stage types, and
+  `flareState` consolidated into one module; `StateMap` lives at `state/map.ts`; the
+  state token's phantom type carrier is now a compile-time-only `_type` field, so
+  tokens no longer carry a runtime brand symbol (nothing read it). Behavior-preserving.
 - Config test claims were rerouted to their true runtime roots (portable resolution
   claims to `portable/`, live-server timeout application to
   `node/integration/transport/`). Behavior-preserving.

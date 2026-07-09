@@ -5,13 +5,11 @@
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
 import type { FlareService, ServiceToken, StateToken } from "../../../../../src/index.js";
+import type { FlareHttpContext } from "../../../../../src/lib/arcs/http/transport/flare-http-context.js";
 import type { HandlerResult } from "../../../../../src/lib/arcs/http/transport/types/response.js";
 import type { CloudflareApp } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
 import { MiddlewareBase } from "../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
-import { FlareHttpContext } from "../../../../../src/lib/arcs/http/transport/flare-http-context.js";
-import { FlareRequest } from "../../../../../src/lib/arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
-import { CfRequestAdapter } from "../../../../../src/lib/arcs/http/transport/runtime/cloudflare.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
 import { FlareDurableObject } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
 import { DurableState } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
@@ -22,6 +20,7 @@ import {
   RESERVED_TRACE_HEADER,
 } from "../../../../../src/lib/host/runtime/cloudflare/state-crossing.js";
 import { flareState } from "../../../../../src/lib/state/flare-state.js";
+import { mockContext } from "../../../../../src/testing.js";
 import { makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 
@@ -41,9 +40,7 @@ class CrossingRoom extends FlareDurableObject {
 }
 
 function makeFakeCtx(): FlareHttpContext {
-  const req = new Request("https://do.internal/");
-  const flareReq = new FlareRequest(CfRequestAdapter, "GET", "/", "fake-req-id", req);
-  return new FlareHttpContext(flareReq);
+  return mockContext({ url: "/", requestId: "fake-req-id" });
 }
 
 function makeEchoNamespace(outboundEnvelope: string): {

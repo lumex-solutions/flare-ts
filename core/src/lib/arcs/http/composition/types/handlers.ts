@@ -4,7 +4,7 @@ import type { FlareService } from "../../../../services/composition/flare-servic
 import type { InjectMap } from "../../../../services/types/inject.js";
 import type { FlareBaseScope } from "../../../../services/types/scope.js";
 import type { ServiceToken } from "../../../../services/types/types.js";
-import type { StateToken } from "../../../../state/types/state-token.js";
+import type { StateToken } from "../../../../state/flare-state.js";
 import type { FlareHttpContext } from "../../transport/flare-http-context.js";
 import type { TypedRequestContext } from "../../transport/types/request-context.js";
 import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../../transport/types/response.js";

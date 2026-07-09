@@ -12,7 +12,7 @@
  */
 import type { FlareService } from "../../../../services/composition/flare-service.js";
 import type { ServiceToken } from "../../../../services/types/types.js";
-import type { StateToken } from "../../../../state/types/state-token.js";
+import type { StateToken } from "../../../../state/flare-state.js";
 import type { WsTypedInput } from "../../pipeline/input.js";
 import type { WebSocketControllerClass } from "../classes/controller-base.js";
 import type { WebSocketDescriptor } from "../contract/ws-contract.js";

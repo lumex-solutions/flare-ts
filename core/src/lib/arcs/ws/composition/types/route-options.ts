@@ -5,7 +5,7 @@
  * `socketContract` entry as `contract:` - never both.
  */
 import type { InjectMap } from "../../../../services/types/inject.js";
-import type { StateToken } from "../../../../state/types/state-token.js";
+import type { StateToken } from "../../../../state/flare-state.js";
 import type { WebSocketDescriptor, WebSocketToken } from "../contract/ws-contract.js";
 import type { WebSocketChannelSelector } from "./registration.js";
 

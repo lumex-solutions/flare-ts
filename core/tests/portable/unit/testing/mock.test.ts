@@ -4,7 +4,7 @@
 import { describe, it, expect } from "vitest";
 import type { FlareService } from "../../../../src/lib/services/composition/flare-service.js";
 import type { ServiceToken } from "../../../../src/lib/services/types/types.js";
-import type { StateToken } from "../../../../src/lib/state/types/state-token.js";
+import type { StateToken } from "../../../../src/lib/state/flare-state.js";
 import { FlareTestError } from "../../../../src/lib/testing/error.js";
 import { mockContainer, mockContext } from "../../../../src/lib/testing/mock.js";
 

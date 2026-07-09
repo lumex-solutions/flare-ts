@@ -7,7 +7,7 @@ import type { Injected } from "../../../services/composition/flare-base.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { Container } from "../../../services/container.js";
 import type { ServiceToken } from "../../../services/types/types.js";
-import type { StateToken } from "../../../state/types/state-token.js";
+import type { StateToken } from "../../../state/flare-state.js";
 import type { IFlareHost } from "../../flare-host.js";
 import { WsChannelRegistry } from "../../../arcs/ws/channels/registry.js";
 import { WebSocketChannels } from "../../../arcs/ws/channels/web-socket-channels.js";
