@@ -3,7 +3,8 @@
  */
 import { describe, it, expect } from "vitest";
 import type { FlareService } from "../../../../../src/lib/services/composition/flare-service.js";
-import type { FlareServiceClass, ServiceToken } from "../../../../../src/lib/services/types/types.js";
+import type { ServiceClass } from "../../../../../src/lib/services/types/service-class.js";
+import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";
 import { makeAdapter, makeServiceClass, registerMinimalPingRoute } from "./_fixtures.js";
@@ -13,7 +14,7 @@ describe("scoped and singleton service compilation during build", () => {
     const Svc = makeServiceClass("ScopedOne");
     const host = new FlareHost(makeAdapter());
     registerMinimalPingRoute(host);
-    host.scoped(Svc as FlareServiceClass<FlareService>);
+    host.scoped(Svc as ServiceClass<FlareService>);
     host.build();
     expect(host.scopedServices.length).toBe(1);
     expect(host.scopedServices.get(Svc as unknown as ServiceToken<FlareService>)).toBeDefined();

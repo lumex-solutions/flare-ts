@@ -1,5 +1,6 @@
 import type { FlareService } from "../../../services/composition/flare-service.js";
-import type { FlareServiceFactory, ServiceToken } from "../../../services/types/types.js";
+import type { ServiceFactory } from "../../../services/types/registration.js";
+import type { ServiceToken } from "../../../services/types/token.js";
 import type { ControllerClass } from "../composition/classes/controller-base.js";
 import type { ErrorHandlerClass } from "../composition/classes/error-handler-base.js";
 import type { ControllerBase, ErrorHandlerBase, MiddlewareBase } from "../composition/classes/index.js";
@@ -37,7 +38,7 @@ export type MiddlewareRegistration = {
 };
 
 export type ErrorHandlerRegistration = {
-  readonly factory: FlareServiceFactory<ErrorHandlerBase>;
+  readonly factory: ServiceFactory<ErrorHandlerBase>;
   readonly deps: readonly ServiceToken<FlareService>[];
   readonly cls: ErrorHandlerClass;
 };

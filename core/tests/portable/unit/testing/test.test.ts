@@ -12,7 +12,8 @@ import type { HostRuntimeAdapter } from "../../../../src/lib/host/types/adapter.
 import type { HostRuntimeLifecycle } from "../../../../src/lib/host/types/lifecycle.js";
 import type { LoggerTransportClass } from "../../../../src/lib/logger/types.js";
 import type { FlareService } from "../../../../src/lib/services/composition/flare-service.js";
-import type { FlareServiceClass, ServiceToken } from "../../../../src/lib/services/types/types.js";
+import type { ServiceClass } from "../../../../src/lib/services/types/service-class.js";
+import type { ServiceToken } from "../../../../src/lib/services/types/token.js";
 import type { FlareTestRequestInput } from "../../../../src/lib/testing/types/flare-test-req.js";
 import { FlareRequest } from "../../../../src/lib/arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../../../src/lib/arcs/http/transport/flare-response.js";
@@ -30,7 +31,7 @@ interface FetchHarness {
   handle: TestAppHandle;
   recorded: RecordedCall[];
   stopCount: { value: number; };
-  resetCalls: Array<{ replace?: ReadonlyMap<ServiceToken<FlareService>, FlareServiceClass>; } | undefined>;
+  resetCalls: Array<{ replace?: ReadonlyMap<ServiceToken<FlareService>, ServiceClass>; } | undefined>;
 }
 
 /** Builds a FlareRequest with a no-op adapter for short-circuited fetch tests. */
@@ -64,7 +65,7 @@ function buildHandle(opts: {
 } = {}): FetchHarness {
   const recorded: RecordedCall[] = [];
   const stopCount = { value: 0 };
-  const resetCalls: Array<{ replace?: ReadonlyMap<ServiceToken<FlareService>, FlareServiceClass>; } | undefined> = [];
+  const resetCalls: Array<{ replace?: ReadonlyMap<ServiceToken<FlareService>, ServiceClass>; } | undefined> = [];
 
   const adapter = {
     runtime: "node",
@@ -112,7 +113,7 @@ function buildHandle(opts: {
   } as unknown as HostedAppLike;
 
   const resetFn = async (
-    o?: { replace?: ReadonlyMap<ServiceToken<FlareService>, FlareServiceClass>; },
+    o?: { replace?: ReadonlyMap<ServiceToken<FlareService>, ServiceClass>; },
   ): Promise<void> => {
     resetCalls.push(o);
   };
@@ -333,7 +334,7 @@ describe("TestAppHandle.reset", () => {
 
   it("forwards reset({ replace }) verbatim to the supplied reset function", async () => {
     const { handle, resetCalls } = buildHandle();
-    const replace = new Map() as ReadonlyMap<ServiceToken<FlareService>, FlareServiceClass>;
+    const replace = new Map() as ReadonlyMap<ServiceToken<FlareService>, ServiceClass>;
     await handle.reset({ replace });
     expect(resetCalls.length).toBe(1);
     expect(resetCalls[0]?.replace).toBe(replace);

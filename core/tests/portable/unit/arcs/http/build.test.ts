@@ -15,7 +15,7 @@ import type {
 import type { HttpErrorContext } from "../../../../../src/lib/logger/types.js";
 import type { FlareService } from "../../../../../src/lib/services/composition/flare-service.js";
 import type { Container } from "../../../../../src/lib/services/container.js";
-import type { ServiceToken } from "../../../../../src/lib/services/types/types.js";
+import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
 import type { StateToken } from "../../../../../src/lib/state/flare-state.js";
 import { compileHttp } from "../../../../../src/lib/arcs/http/build.js";
 import { ControllerBase } from "../../../../../src/lib/arcs/http/composition/classes/controller-base.js";

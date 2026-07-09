@@ -3,7 +3,8 @@
  */
 import { describe, it, expect } from "vitest";
 import type { FlareService } from "../../../../../src/lib/services/composition/flare-service.js";
-import type { FlareServiceClass, ServiceToken } from "../../../../../src/lib/services/types/types.js";
+import type { ServiceClass } from "../../../../../src/lib/services/types/service-class.js";
+import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
 import { COMPILE_FOR_TEST } from "../../../../../src/lib/host/types/const.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";
@@ -50,7 +51,7 @@ describe("building the host", () => {
     const Needs = makeServiceClass("Needs", [Missing as unknown as ServiceToken<FlareService>]);
     const host = new FlareHost(makeAdapter());
     registerMinimalPingRoute(host);
-    host.scoped(Needs as FlareServiceClass<FlareService>);
+    host.scoped(Needs as ServiceClass<FlareService>);
     expect(() => host.build()).toThrow(FlareValidationError);
   });
 

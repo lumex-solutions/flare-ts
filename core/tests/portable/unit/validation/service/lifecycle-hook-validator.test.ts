@@ -9,7 +9,8 @@ import type {
   MiddlewareRegistration,
 } from "../../../../../src/lib/arcs/http/types/registration.js";
 import type { ServiceRegistration } from "../../../../../src/lib/services/types/registration.js";
-import type { FlareServiceClass, ServiceToken } from "../../../../../src/lib/services/types/types.js";
+import type { ServiceClass } from "../../../../../src/lib/services/types/service-class.js";
+import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
 import type { ServiceValidationContext } from "../../../../../src/lib/validation/service/composite.js";
 import { ControllerBase } from "../../../../../src/lib/arcs/http/composition/classes/controller-base.js";
 import { MiddlewareBase } from "../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
@@ -18,11 +19,11 @@ import { LifecycleHookValidator } from "../../../../../src/lib/validation/servic
 
 // service fixtures
 
-/** Returns a FlareServiceClass stub with optional lifecycle hooks on the prototype. */
+/** Returns a ServiceClass stub with optional lifecycle hooks on the prototype. */
 function makeServiceCls(
   name: string,
   hooks: { onStart?: boolean; onStop?: boolean; dispose?: boolean; } = {},
-): FlareServiceClass {
+): ServiceClass {
   class S extends FlareService {
     public static override deps = [];
   }
@@ -30,10 +31,10 @@ function makeServiceCls(
   if (hooks.onStop) (S.prototype as FlareService).onStop = function() {};
   if (hooks.dispose) (S.prototype as FlareService).dispose = function() {};
   Object.defineProperty(S, "name", { value: name });
-  return S as unknown as FlareServiceClass;
+  return S as unknown as ServiceClass;
 }
 
-function makeServiceReg(cls: FlareServiceClass): ServiceRegistration<FlareService> {
+function makeServiceReg(cls: ServiceClass): ServiceRegistration<FlareService> {
   return {
     factory: () => {
       throw new Error("factory should not be called");
@@ -288,8 +289,8 @@ describe("lifecycle hook placement by registration kind", () => {
     Object.defineProperty(BareMw, "name", { value: "BareMw" });
 
     const ctx = makeCtx({
-      scoped: [makeServiceReg(BareScoped as unknown as FlareServiceClass)],
-      singletons: [makeServiceReg(BareSingleton as unknown as FlareServiceClass)],
+      scoped: [makeServiceReg(BareScoped as unknown as ServiceClass)],
+      singletons: [makeServiceReg(BareSingleton as unknown as ServiceClass)],
       controllers: [makeControllerReg(BareCtrl as unknown as ControllerClass)],
       middleware: [makeMwReg(BareMw as unknown as MiddlewareClass)],
     });
@@ -313,7 +314,7 @@ describe("lifecycle hook placement by registration kind", () => {
     Object.defineProperty(ConcreteScoped, "name", { value: "ConcreteScoped" });
 
     const errs = new LifecycleHookValidator().validate(
-      makeCtx({ scoped: [makeServiceReg(ConcreteScoped as unknown as FlareServiceClass)] }),
+      makeCtx({ scoped: [makeServiceReg(ConcreteScoped as unknown as ServiceClass)] }),
     );
 
     expect(errs).toHaveLength(1);

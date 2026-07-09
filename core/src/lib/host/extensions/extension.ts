@@ -1,7 +1,7 @@
 import type { HttpArc } from "../../arcs/http/http-arc.js";
 import type { ConfigToken } from "../../config/flare-config.js";
 import type { FlareService } from "../../services/composition/flare-service.js";
-import type { FlareServiceClass } from "../../services/types/types.js";
+import type { ServiceClass } from "../../services/types/service-class.js";
 
 /**
  * Narrow composition surface handed to a host extension installer. Exactly the application-author
@@ -17,7 +17,7 @@ import type { FlareServiceClass } from "../../services/types/types.js";
  */
 export interface HostExtensionContext {
   /** Register a per-request (scoped) service in the DI container. */
-  scoped<T extends FlareService>(service: FlareServiceClass<T>): void;
+  scoped<T extends FlareService>(service: ServiceClass<T>): void;
   /** Register the config token(s) the extension reads (its `flare.json` section). */
   cfg(...tokens: ConfigToken<unknown>[]): void;
   /** The HTTP arc: register controllers, middleware, groups, and error handlers. */

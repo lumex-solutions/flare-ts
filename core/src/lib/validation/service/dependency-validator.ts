@@ -3,7 +3,7 @@
  */
 import type { FlareService } from "../../services/composition/flare-service.js";
 import type { ServiceRegistration } from "../../services/types/registration.js";
-import type { ServiceToken } from "../../services/types/types.js";
+import type { ServiceToken } from "../../services/types/token.js";
 import type { IValidator, ValidationError } from "../types.js";
 import type { ServiceValidationContext } from "./composite.js";
 

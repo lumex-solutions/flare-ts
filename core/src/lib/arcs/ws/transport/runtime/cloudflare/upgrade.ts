@@ -12,7 +12,7 @@
  * the Node transport do.
  */
 import type { FlareService } from "../../../../../services/composition/flare-service.js";
-import type { ServiceToken } from "../../../../../services/types/types.js";
+import type { ServiceToken } from "../../../../../services/types/token.js";
 import type { IWsChannelDomain } from "../../../channels/domain.js";
 import type { WebSocketArc } from "../../../ws-arc.js";
 import { UPGRADE_WS } from "../../../ws-arc.js";

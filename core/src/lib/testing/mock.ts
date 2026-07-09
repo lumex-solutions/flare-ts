@@ -1,6 +1,6 @@
 import type { RequestAdapter } from "../arcs/http/transport/types/adapter.js";
 import type { FlareService } from "../services/composition/flare-service.js";
-import type { ServiceToken } from "../services/types/types.js";
+import type { ServiceToken } from "../services/types/token.js";
 import type { MockContextOpts } from "./types/mock-context-opts.js";
 import { FlareHttpContext } from "../arcs/http/transport/flare-http-context.js";
 import { FlareRequest, SET_RAW_BODY, SET_ROUTE_PARAMS } from "../arcs/http/transport/flare-request.js";

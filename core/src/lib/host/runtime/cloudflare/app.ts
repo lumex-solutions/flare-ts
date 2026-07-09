@@ -6,7 +6,7 @@ import type { CfLoggerTransportClass } from "../../../logger/runtime/cloudflare/
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { Container } from "../../../services/container.js";
 import type { InjectMap } from "../../../services/types/inject.js";
-import type { ServiceToken } from "../../../services/types/types.js";
+import type { ServiceToken } from "../../../services/types/token.js";
 import type { StateToken } from "../../../state/flare-state.js";
 import type { FlareTestRequestInput } from "../../../testing/types/flare-test-req.js";
 import type { ValidationError } from "../../../validation/types.js";

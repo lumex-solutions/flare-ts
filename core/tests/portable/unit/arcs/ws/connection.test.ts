@@ -8,7 +8,7 @@ import type { WsConnection } from "../../../../../src/lib/arcs/ws/connection.js"
 import type { IFlareWebSocket } from "../../../../../src/lib/arcs/ws/transport/socket.js";
 import type { IFlareHost } from "../../../../../src/lib/host/flare-host.js";
 import type { FlareService } from "../../../../../src/lib/services/composition/flare-service.js";
-import type { ServiceToken } from "../../../../../src/lib/services/types/types.js";
+import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
 import { FlareWebSocketMessage } from "../../../../../src/lib/arcs/ws/transport/flare-web-socket-message.js";
 import { COMPILE_WS_ARC, UPGRADE_WS, WebSocketArc } from "../../../../../src/lib/arcs/ws/ws-arc.js";
 import { FlareRegistrationMap } from "../../../../../src/lib/services/registration-map.js";

@@ -15,7 +15,7 @@ export { FlareHost } from "./lib/host/flare-host.js";
 export { FlareBase } from "./lib/services/composition/flare-base.js";
 export { FlareService } from "./lib/services/composition/flare-service.js";
 export type { InjectedMap, InjectMap } from "./lib/services/types/inject.js";
-export type { ServiceToken } from "./lib/services/types/types.js";
+export type { ServiceToken } from "./lib/services/types/token.js";
 
 // Config
 export { flareConfig, HOST_CONFIG, LOG_CONFIG, WEBSOCKETS_CONFIG } from "./lib/config/flare-config.js";
@@ -38,9 +38,9 @@ export type {
   BeforeMiddlewareHandler,
   ErrorHandlerOptions,
   FinallyMiddlewareHandler,
-  FlareBaseScope,
   FlareErrorHandler,
   FlareHandlerScope,
+  HandlerScope,
   MiddlewareOptions,
   RouteHandler,
   RouteOptions,

@@ -3,7 +3,7 @@
  */
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { Container } from "../../../services/container.js";
-import type { ServiceToken } from "../../../services/types/types.js";
+import type { ServiceToken } from "../../../services/types/token.js";
 import { LoggerTransport } from "../../transport.js";
 
 /** Constructor type for concrete {@link CfLoggerTransport} subclasses. */

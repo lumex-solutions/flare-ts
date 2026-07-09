@@ -5,7 +5,7 @@ import { describe, it, expect } from "vitest";
 import type { JsonObject } from "@flare-ts/lib/schema";
 import type { LogRecord } from "../../../../src/lib/logger/types.js";
 import type { FlareService } from "../../../../src/lib/services/composition/flare-service.js";
-import type { ServiceToken } from "../../../../src/lib/services/types/types.js";
+import type { ServiceToken } from "../../../../src/lib/services/types/token.js";
 import { LoggerTransport } from "../../../../src/lib/logger/transport.js";
 import { Container } from "../../../../src/lib/services/container.js";
 import { FlareRegistrationMap } from "../../../../src/lib/services/registration-map.js";

@@ -5,7 +5,7 @@
 import type { JsonValue } from "@flare-ts/lib";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { Container } from "../services/container.js";
-import type { ServiceToken } from "../services/types/types.js";
+import type { ServiceToken } from "../services/types/token.js";
 import type { LogError } from "./fields.js";
 import type { LoggerTransport } from "./transport.js";
 

@@ -3,7 +3,7 @@
  * lifecycle hooks the logger drives.
  */
 import type { FlareService } from "../services/composition/flare-service.js";
-import type { ServiceToken } from "../services/types/types.js";
+import type { ServiceToken } from "../services/types/token.js";
 import type { LogRecord } from "./types.js";
 import { FlareBase } from "../services/composition/flare-base.js";
 

@@ -6,7 +6,8 @@ import type { HostRuntimeAdapter } from "../host/types/adapter.js";
 import type { HostRuntimeLifecycle } from "../host/types/lifecycle.js";
 import type { LoggerTransportClass } from "../logger/types.js";
 import type { FlareService } from "../services/composition/flare-service.js";
-import type { FlareServiceClass, ServiceToken } from "../services/types/types.js";
+import type { ServiceClass } from "../services/types/service-class.js";
+import type { ServiceToken } from "../services/types/token.js";
 import type { FlareTestReq } from "./types/flare-test-req.js";
 import { DRAIN_SET_COOKIES, FlareHttpContext } from "../arcs/http/transport/flare-http-context.js";
 import { FlareResponse } from "../arcs/http/transport/flare-response.js";
@@ -17,7 +18,7 @@ import { FlareTestError } from "./error.js";
 type HostedApp = IFlareApp & { http: HttpArc; };
 type AnyAdapter = HostRuntimeAdapter<IFlareApp, LoggerTransportClass, HostRuntimeLifecycle>;
 type ResetFn = (
-  opts?: { replace?: ReadonlyMap<ServiceToken<FlareService>, FlareServiceClass>; },
+  opts?: { replace?: ReadonlyMap<ServiceToken<FlareService>, ServiceClass>; },
 ) => Promise<void>;
 
 /**
@@ -118,7 +119,7 @@ export class TestAppHandle {
    * needing to split into separate files for each replacement set.
    */
   async reset(
-    opts?: { replace?: ReadonlyMap<ServiceToken<FlareService>, FlareServiceClass>; },
+    opts?: { replace?: ReadonlyMap<ServiceToken<FlareService>, ServiceClass>; },
   ): Promise<void> {
     await this.#resetFn(opts);
   }

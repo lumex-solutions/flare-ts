@@ -7,7 +7,7 @@ import type { Router } from "../../../routing/router.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { Container } from "../../../services/container.js";
 import type { ScopeConfig } from "../../../services/types/scope.js";
-import type { ServiceToken } from "../../../services/types/types.js";
+import type { ServiceToken } from "../../../services/types/token.js";
 import type { WebSocketControllerClass } from "../composition/classes/controller-base.js";
 import type { WebSocketHandlerScope, WebSocketMessageHandlerScope } from "../composition/types/handlers.js";
 import type { WsHandlerFns, WsRegistration } from "../composition/types/registration.js";

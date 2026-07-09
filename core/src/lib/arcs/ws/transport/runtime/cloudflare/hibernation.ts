@@ -4,7 +4,7 @@
  */
 import type { LogContext } from "../../../../../logger/types.js";
 import type { FlareService } from "../../../../../services/composition/flare-service.js";
-import type { ServiceToken } from "../../../../../services/types/types.js";
+import type { ServiceToken } from "../../../../../services/types/token.js";
 import type { WsRawInput } from "../../../pipeline/input.js";
 import type { WsController, WsPipeline } from "../../../pipeline/route.js";
 import type { WebSocketArc } from "../../../ws-arc.js";

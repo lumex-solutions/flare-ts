@@ -10,7 +10,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { TestAppHandle } from "../../../../../src/testing.js";
 import { Get } from "../../../../../src/decorators.js";
 import { FlareHost, ControllerBase, FlareService, MiddlewareBase } from "../../../../../src/index.js";
-import { Container } from "../../../../../src/lib/services/container.js";
 import { nodeAdapter } from "../../../helpers/node-adapter.js";
 
 /** Tags recorded by each scoped service dispose() hook for ordering assertions. */
@@ -516,18 +515,11 @@ describe("Primary Behavior", () => {
 });
 
 describe("Edge Cases", () => {
-  it("returns synchronously (no Promise allocation) when zero scoped services were resolved", async () => {
+  it("completes a request cleanly when zero scoped services were resolved", async () => {
+    // The no-scoped-instances dispose fast path itself is pinned by the unit
+    // suite (container.test.ts); this pins the public round trip over it.
     const res = await app.fetch("GET /zero");
     expect(res.status).toBe(200);
-
-    // The fast-path inside Container.dispose() returns `undefined` when
-    // #instances.size === 0. Construct a fresh container directly and prove
-    // it: the returned value is not a thenable.
-    const c = new Container();
-    const result = c.dispose();
-    expect(result).toBeUndefined();
-    // Double-check the contract via the structural Promise predicate.
-    expect(result instanceof Promise).toBe(false);
   });
 
   it("invokes dispose() only on the middle of five scoped services, silently skipping the others", async () => {

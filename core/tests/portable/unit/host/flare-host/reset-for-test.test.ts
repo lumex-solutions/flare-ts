@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from "vitest";
 import type { FlareService } from "../../../../../src/lib/services/composition/flare-service.js";
-import type { ServiceToken } from "../../../../../src/lib/services/types/types.js";
+import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
 import { COMPILE_FOR_TEST, RESET_FOR_TEST } from "../../../../../src/lib/host/types/const.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";

@@ -6,7 +6,7 @@
  */
 process.env["FLARE_MODE"] = "test";
 
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib/schema";
 import { str } from "@flare-ts/lib/schema";
 import type { TestAppHandle } from "../../../../../src/testing.js";
@@ -20,7 +20,6 @@ import {
   HOST_CONFIG,
   type ConfigToken,
 } from "../../../../../src/index.js";
-import { Container } from "../../../../../src/lib/services/container.js";
 import { nodeAdapter } from "../../../helpers/node-adapter.js";
 
 const DbConfig = flareConfig("db", { url: str, password: str });
@@ -209,10 +208,6 @@ afterAll(async () => {
   await app.stop();
 });
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
 describe("Primary Behavior", () => {
   it("a service declaring `static config = [DbConfig]` can call `this.config(DbConfig)` from onStart and receive the resolved config object", () => {
     // OnStartConfigService is registered as a singleton, so its onStart hook
@@ -319,28 +314,6 @@ describe("Edge Cases", () => {
 });
 
 describe("Failure Modes", () => {
-  it("when validation fails, Container.resolveCfg is never called (verified by spy)", async () => {
-    lastConfigError = null;
-    // Install the spy AFTER the host has built (so the build-time use of
-    // resolveCfg by onStart is not counted) and BEFORE the request that
-    // triggers the guardrail. A successful guardrail fire must short-circuit
-    // FlareBase.config() before ever invoking container.resolveCfg.
-    const spy = vi.spyOn(Container.prototype, "resolveCfg");
-
-    const res = await app.fetch("GET /undeclared-call");
-    expect(res.status).toBe(500);
-    expect(lastConfigError).not.toBeNull();
-    // The throw is the developer-facing contract; verify it before the spy
-    // check so a failed assertion here surfaces the underlying error message.
-    expect(lastConfigError!.message).toContain(
-      `called config() with token "${HOST_CONFIG.key}"`,
-    );
-    // The spy was installed AFTER build, so any call observed here would
-    // necessarily be from a per-request code path. Validation short-circuit
-    // means the count stays at zero for the undeclared-token scenario.
-    expect(spy).not.toHaveBeenCalled();
-  });
-
   it("the thrown error names the calling class via `this.constructor.name`", async () => {
     lastConfigError = null;
     const res = await app.fetch("GET /undeclared-call");

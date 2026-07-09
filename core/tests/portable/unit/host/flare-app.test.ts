@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import type { HttpArc } from "../../../../src/lib/arcs/http/http-arc.js";
 import type { IFlareHost } from "../../../../src/lib/host/flare-host.js";
 import type { FlareService } from "../../../../src/lib/services/composition/flare-service.js";
-import type { ServiceToken } from "../../../../src/lib/services/types/types.js";
+import type { ServiceToken } from "../../../../src/lib/services/types/token.js";
 import {
   START_HTTP_ARC,
   START_HTTP_ARC_ASYNC,

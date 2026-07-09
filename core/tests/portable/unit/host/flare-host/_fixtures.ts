@@ -11,7 +11,8 @@ import type { HostRuntimeLifecycle } from "../../../../../src/lib/host/types/lif
 import type { LoggerTransportClass } from "../../../../../src/lib/logger/types.js";
 import type { FlareService } from "../../../../../src/lib/services/composition/flare-service.js";
 import type { Container } from "../../../../../src/lib/services/container.js";
-import type { FlareServiceClass, ServiceToken } from "../../../../../src/lib/services/types/types.js";
+import type { ServiceClass } from "../../../../../src/lib/services/types/service-class.js";
+import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
 import type { FlareTestRequestInput } from "../../../../../src/lib/testing/types/flare-test-req.js";
 import { singletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
 import { FlareAppBase } from "../../../../../src/lib/host/flare-app.js";
@@ -72,12 +73,12 @@ export function makeAdapter(opts: AdapterOpts = {}): AnyAdapter {
 }
 
 /** Builds a service class for registration with explicit deps. */
-export function makeServiceClass(name: string, deps: readonly ServiceToken<FlareService>[] = []): FlareServiceClass {
+export function makeServiceClass(name: string, deps: readonly ServiceToken<FlareService>[] = []): ServiceClass {
   const cls = class extends FlareServiceBase {
     static deps = deps;
   };
   Object.defineProperty(cls, "name", { value: name });
-  return cls as unknown as FlareServiceClass;
+  return cls as unknown as ServiceClass;
 }
 
 export { registerMinimalPingRoute } from "../../../../portable/helpers/host-fixtures.js";

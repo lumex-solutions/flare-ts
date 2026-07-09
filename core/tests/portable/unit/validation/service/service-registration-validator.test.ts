@@ -9,7 +9,8 @@ import type {
   MiddlewareRegistration,
 } from "../../../../../src/lib/arcs/http/types/registration.js";
 import type { ServiceRegistration } from "../../../../../src/lib/services/types/registration.js";
-import type { FlareServiceClass, ServiceToken } from "../../../../../src/lib/services/types/types.js";
+import type { ServiceClass } from "../../../../../src/lib/services/types/service-class.js";
+import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
 import type { ServiceValidationContext } from "../../../../../src/lib/validation/service/composite.js";
 import { ControllerBase } from "../../../../../src/lib/arcs/http/composition/classes/controller-base.js";
 import { MiddlewareBase } from "../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
@@ -18,15 +19,15 @@ import { ServiceRegistrationValidator } from "../../../../../src/lib/validation/
 
 // fixtures //
 
-function makeServiceCls(name: string): FlareServiceClass {
+function makeServiceCls(name: string): ServiceClass {
   class S extends FlareService {
     public static override deps = [];
   }
   Object.defineProperty(S, "name", { value: name });
-  return S as unknown as FlareServiceClass;
+  return S as unknown as ServiceClass;
 }
 
-function makeServiceReg(cls: FlareServiceClass): ServiceRegistration<FlareService> {
+function makeServiceReg(cls: ServiceClass): ServiceRegistration<FlareService> {
   return {
     factory: () => {
       throw new Error("factory should not be called");

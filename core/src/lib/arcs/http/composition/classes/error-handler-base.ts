@@ -2,7 +2,7 @@ import type { FlareError } from "../../../../errors/flare-error.js";
 import type { HttpErrorContext } from "../../../../logger/types.js";
 import type { FlareService } from "../../../../services/composition/flare-service.js";
 import type { Container } from "../../../../services/container.js";
-import type { ServiceToken } from "../../../../services/types/types.js";
+import type { ServiceToken } from "../../../../services/types/token.js";
 import type { ResponseLike } from "../../transport/types/response.js";
 import { FlareBase } from "../../../../services/composition/flare-base.js";
 

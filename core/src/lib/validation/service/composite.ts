@@ -5,7 +5,7 @@
 import type { ControllerRegistration, MiddlewareRegistration } from "../../arcs/http/types/registration.js";
 import type { FlareService } from "../../services/composition/flare-service.js";
 import type { ServiceRegistration } from "../../services/types/registration.js";
-import type { ServiceToken } from "../../services/types/types.js";
+import type { ServiceToken } from "../../services/types/token.js";
 import { CompositeValidator } from "../composite-validator.js";
 import { CaptiveDependencyValidator } from "./captive-dependency-validator.js";
 import { DependencyValidator } from "./dependency-validator.js";

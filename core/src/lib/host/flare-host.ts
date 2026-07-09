@@ -5,7 +5,8 @@ import type { LogContext } from "../logger/types.js";
 import type { LoggerTransportClass } from "../logger/types.js";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceRegistration } from "../services/types/registration.js";
-import type { FlareServiceClass, ServiceToken } from "../services/types/types.js";
+import type { ServiceClass } from "../services/types/service-class.js";
+import type { ServiceToken } from "../services/types/token.js";
 import type { HostInspectSnapshot } from "../testing/types/inspect-build.js";
 import type { ConfigValidationContext } from "../validation/config/composite.js";
 import type { HttpValidationContext } from "../validation/http/composite.js";
@@ -165,7 +166,7 @@ export interface IFlareHost {
  */
 export interface IFlareTestHost {
   /** @internal Driven by `FlareTestApp.test()` to apply replacements, validate, and compile singletons. */
-  [COMPILE_FOR_TEST](opts?: { replace?: ReadonlyMap<ServiceToken<FlareService>, FlareServiceClass>; }): void;
+  [COMPILE_FOR_TEST](opts?: { replace?: ReadonlyMap<ServiceToken<FlareService>, ServiceClass>; }): void;
   /** @internal Driven by `TestAppHandle.reset()`. Restores registrations and clears compiled singletons. */
   [RESET_FOR_TEST](): void;
   /** @internal Snapshot for {@link inspectBuild} in test infrastructure. */
@@ -373,7 +374,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
    * @param service - The service class to register.
    * @throws If the class is missing the required static `deps` array.
    */
-  public scoped<T extends FlareService>(service: FlareServiceClass<T>): void {
+  public scoped<T extends FlareService>(service: ServiceClass<T>): void {
     this.#assertOpen("host.scoped()");
     const token = service as ServiceToken<T>;
     if (service.deps != undefined) {
@@ -456,7 +457,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
    * `replace` map can substitute classes before any constructor runs.
    */
   [COMPILE_FOR_TEST](
-    opts?: { replace?: ReadonlyMap<ServiceToken<FlareService>, FlareServiceClass>; },
+    opts?: { replace?: ReadonlyMap<ServiceToken<FlareService>, ServiceClass>; },
   ): void {
     if (!this.#testMode) {
       throw new FlareTestError(
@@ -902,7 +903,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
    * checks are delegated to `createServiceValidator()` re-running against the
    * post-replacement context inside `host.test()`.
    */
-  #applyReplacements(replace: ReadonlyMap<ServiceToken<FlareService>, FlareServiceClass>): void {
+  #applyReplacements(replace: ReadonlyMap<ServiceToken<FlareService>, ServiceClass>): void {
     // Two pass: validate every replacement first, then mutate. Keeps the
     // registrations arrays atomic: a failed replacement can be fixed and
     // retried without leaving the host in a half-mutated state. Replacements
@@ -912,7 +913,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
       arr: ServiceRegistration<FlareService>[];
       idx: number;
       token: ServiceToken<FlareService>;
-      replacement: FlareServiceClass;
+      replacement: ServiceClass;
     };
     const planned: Planned[] = [];
 
@@ -941,7 +942,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
 
     for (const { arr, idx, token, replacement } of planned) {
       arr[idx] = {
-        // FlareServiceClass models an abstract constructor; widen to concrete-new here so
+        // ServiceClass models an abstract constructor; widen to concrete-new here so
         // the factory can instantiate the replacement. Legitimate escape hatch.
         factory: (container) => new (replacement as unknown as new(c: typeof container) => FlareService)(container),
         cls: replacement,

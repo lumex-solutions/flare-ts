@@ -1,6 +1,10 @@
+/**
+ * Runtime assembly of handler scopes: reserved-key validation at registration and
+ * lazy dep getters attached per scope.
+ */
 import type { FlareService } from "./composition/flare-service.js";
 import type { InjectedMap } from "./types/inject.js";
-import type { ServiceToken } from "./types/types.js";
+import type { ServiceToken } from "./types/token.js";
 
 /** Keys the framework owns on the handler scope; an `inject` map may not use them. */
 export const RESERVED_SCOPE_KEYS: ReadonlySet<string> = new Set(["config", "input"]);
@@ -19,11 +23,12 @@ export function assertInjectKeys(inject: Readonly<Record<string, unknown>>): voi
 }
 
 /**
- * Defines lazy, memoized, enumerable getters on `scope` for each declared dependency, resolving
- * via `resolve(token)` on first access; returns the same object, now also typed with the deps.
+ * Defines lazy, memoized, enumerable getters on `scope` for each declared dependency.
  *
- * Generic over the base scope so each arc passes its own shape (HTTP's `config`/`input`, WS's
- * connection scope) and gets it back intersected with the resolved dep map - no per-arc casts.
+ * Each getter resolves via `resolve(token)` on first access; returns the same object,
+ * now also typed with the deps. Generic over the base scope so each arc passes its own
+ * shape (HTTP's `config`/`input`, WS's connection scope) and gets it back intersected
+ * with the resolved dep map - no per-arc casts.
  */
 export function attachScopeDeps<Base extends object, D extends Record<string, ServiceToken<FlareService>>>(
   scope: Base,
@@ -37,6 +42,8 @@ export function attachScopeDeps<Base extends object, D extends Record<string, Se
     hasDeps = true;
     break;
   }
+  // With no deps declared, InjectedMap<D> contributes no keys; the cast restates
+  // that the unchanged object already satisfies the (empty) intersection.
   if (!hasDeps) return scope as Base & InjectedMap<D>;
 
   const cache: Record<string, unknown> = {};

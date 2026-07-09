@@ -1,3 +1,5 @@
+import type { FlareService } from "../../../../services/composition/flare-service.js";
+import type { Container } from "../../../../services/container.js";
 /**
  * The class authoring form for WebSocket endpoints: the WS analog of {@link ControllerBase}.
  *
@@ -12,10 +14,8 @@
  * which types `message`'s payload, `this.socket.send`, and `this.input`. `static contract` carries the
  * same descriptor at runtime for validation.
  */
-import type { Injected } from "../../../../services/composition/flare-base.js";
-import type { FlareService } from "../../../../services/composition/flare-service.js";
-import type { Container } from "../../../../services/container.js";
-import type { ServiceToken } from "../../../../services/types/types.js";
+import type { Injected } from "../../../../services/types/inject.js";
+import type { ServiceToken } from "../../../../services/types/token.js";
 import type { StateToken } from "../../../../state/flare-state.js";
 import type { FlareWebSocketContext } from "../../transport/flare-web-socket-context.js";
 import type {

@@ -2,15 +2,15 @@ import type { FlareError } from "../../../../errors/flare-error.js";
 import type { HttpErrorContext } from "../../../../logger/types.js";
 import type { FlareService } from "../../../../services/composition/flare-service.js";
 import type { InjectMap } from "../../../../services/types/inject.js";
-import type { FlareBaseScope } from "../../../../services/types/scope.js";
-import type { ServiceToken } from "../../../../services/types/types.js";
+import type { HandlerScope } from "../../../../services/types/scope.js";
+import type { ServiceToken } from "../../../../services/types/token.js";
 import type { StateToken } from "../../../../state/flare-state.js";
 import type { FlareHttpContext } from "../../transport/flare-http-context.js";
 import type { TypedRequestContext } from "../../transport/types/request-context.js";
 import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../../transport/types/response.js";
 import type { RequestDescriptor, RequestToken } from "../contract/http-contract.js";
 
-export type { FlareBaseScope, ScopeConfig } from "../../../../services/types/scope.js";
+export type { HandlerScope, ScopeConfig } from "../../../../services/types/scope.js";
 
 /**
  * Per-request DI and config surface. Declared deps appear by name; `config` resolves config tokens;
@@ -20,7 +20,7 @@ export type FlareHandlerScope<
   D extends Record<string, ServiceToken<FlareService>> = {},
   C extends RequestDescriptor = {},
 > =
-  & FlareBaseScope<D>
+  & HandlerScope<D>
   & { input: TypedRequestContext<C>; };
 
 /** The {@link RequestDescriptor} field names usable as loose inline route-option keys. */
@@ -91,26 +91,26 @@ export type RouteHandler = (ctx: FlareHttpContext, scope: FlareHandlerScope) => 
  */
 export type BeforeMiddlewareHandler = (
   ctx: FlareHttpContext,
-  scope: FlareBaseScope,
+  scope: HandlerScope,
 ) => MiddlewareOverride | Promise<MiddlewareOverride>;
 
 /** `after` middleware hook signature. Scope note: see {@link BeforeMiddlewareHandler}. */
 export type AfterMiddlewareHandler = (
   ctx: FlareHttpContext,
   result: HandlerResult,
-  scope: FlareBaseScope,
+  scope: HandlerScope,
 ) => MiddlewareOverride | Promise<MiddlewareOverride>;
 
 /** `finally` middleware hook signature. Scope note: see {@link BeforeMiddlewareHandler}. */
 export type FinallyMiddlewareHandler = (
   ctx: FlareHttpContext,
   result: HandlerResult,
-  scope: FlareBaseScope,
+  scope: HandlerScope,
 ) => MiddlewareOverride | Promise<MiddlewareOverride>;
 
 /** Inline error-handler function signature. Scope note: see {@link BeforeMiddlewareHandler}. */
 export type FlareErrorHandler = (
   err: FlareError | Error,
   context: HttpErrorContext,
-  scope: FlareBaseScope,
+  scope: HandlerScope,
 ) => ResponseLike | void | Promise<ResponseLike | void>;

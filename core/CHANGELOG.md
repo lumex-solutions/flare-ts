@@ -200,12 +200,12 @@ host extensions are coming soon.
   returned by `app.export()`, on the `@flare-ts/core/cloudflare` entry).
 
 - **Middleware and error-handler scopes no longer claim a typed `input`.** The
-  function-form `before`/`after`/`finally`/`error` scope type is now `FlareBaseScope`
+  function-form `before`/`after`/`finally`/`error` scope type is now `HandlerScope`
   (declared deps + `config`). These handlers run outside any route contract, so
   `scope.input` never existed on them at runtime; the previous `FlareHandlerScope`
   signature implied one. Read raw request data from `ctx`. Route handlers are
   unchanged. A handler that annotated its scope parameter explicitly should switch the
-  annotation to `FlareBaseScope` (or drop it and let inference type it).
+  annotation to `HandlerScope` (or drop it and let inference type it).
 
 - **`FlareRequest.json()` returns `Promise<JsonValue>`** instead of
   `Promise<unknown>`: the parse result is JSON by construction, so handlers can narrow

@@ -2,7 +2,7 @@ import type { ConfigToken } from "../../../config/flare-config.js";
 import type { FlareError } from "../../../errors/flare-error.js";
 import type { HttpErrorContext } from "../../../logger/types.js";
 import type { InjectMap } from "../../../services/types/inject.js";
-import type { FlareBaseScope } from "../../../services/types/scope.js";
+import type { HandlerScope } from "../../../services/types/scope.js";
 import type { FlareHttpContext } from "../transport/flare-http-context.js";
 import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../transport/types/response.js";
 import type {
@@ -97,7 +97,7 @@ export abstract class HttpBase {
   public before(handler: BeforeMiddlewareHandler): void;
   public before<const D extends InjectMap>(
     options: MiddlewareOptions<D>,
-    handler: (ctx: FlareHttpContext, scope: FlareBaseScope<D>) => MiddlewareOverride | Promise<MiddlewareOverride>,
+    handler: (ctx: FlareHttpContext, scope: HandlerScope<D>) => MiddlewareOverride | Promise<MiddlewareOverride>,
   ): void;
 
   public before(
@@ -118,7 +118,7 @@ export abstract class HttpBase {
     handler: (
       ctx: FlareHttpContext,
       result: HandlerResult,
-      scope: FlareBaseScope<D>,
+      scope: HandlerScope<D>,
     ) => MiddlewareOverride | Promise<MiddlewareOverride>,
   ): void;
 
@@ -140,7 +140,7 @@ export abstract class HttpBase {
     handler: (
       ctx: FlareHttpContext,
       result: HandlerResult,
-      scope: FlareBaseScope<D>,
+      scope: HandlerScope<D>,
     ) => MiddlewareOverride | Promise<MiddlewareOverride>,
   ): void;
 
@@ -277,7 +277,7 @@ export abstract class HttpBase {
     handler: (
       err: FlareError | Error,
       context: HttpErrorContext,
-      scope: FlareBaseScope<D>,
+      scope: HandlerScope<D>,
     ) => ResponseLike | void | Promise<ResponseLike | void>,
   ): void;
 

@@ -1,6 +1,7 @@
 import type { HttpArc } from "../arcs/http/http-arc.js";
 import type { FlareService } from "../services/composition/flare-service.js";
-import type { FlareServiceClass, ServiceToken } from "../services/types/types.js";
+import type { ServiceClass } from "../services/types/service-class.js";
+import type { ServiceToken } from "../services/types/token.js";
 import type { TestAppHandle } from "../testing/test.js";
 import type { IFlareHost } from "./flare-host.js";
 import { START_HTTP_ARC, START_HTTP_ARC_ASYNC, STOP_HTTP_ARC, STOP_HTTP_ARC_ASYNC } from "../arcs/http/http-arc.js";
@@ -29,7 +30,7 @@ export interface IFlareApp {
 
 /** Options accepted by `app.test()`. Mirrors the `replace` map from the spec. */
 export interface AppTestOptions {
-  replace?: ReadonlyMap<ServiceToken<FlareService>, FlareServiceClass>;
+  replace?: ReadonlyMap<ServiceToken<FlareService>, ServiceClass>;
 }
 
 /**

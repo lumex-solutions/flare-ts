@@ -5,7 +5,8 @@ import { describe, it, expect } from "vitest";
 import type { FlareService } from "../../../../../src/lib/services/composition/flare-service.js";
 import type { FlareService as FlareServiceBase } from "../../../../../src/lib/services/composition/flare-service.js";
 import type { Container } from "../../../../../src/lib/services/container.js";
-import type { FlareServiceClass, ServiceToken } from "../../../../../src/lib/services/types/types.js";
+import type { ServiceClass } from "../../../../../src/lib/services/types/service-class.js";
+import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
 import { COMPILE_FOR_TEST, RESET_FOR_TEST } from "../../../../../src/lib/host/types/const.js";
 import { FlareTestError } from "../../../../../src/lib/testing/error.js";
@@ -27,8 +28,8 @@ describe("FlareHost[COMPILE_FOR_TEST]", () => {
     host.singleton(Original as never);
     host.build();
 
-    const replace = new Map<ServiceToken<FlareService>, FlareServiceClass>([
-      [Original as unknown as ServiceToken<FlareService>, ReplacementSvc as unknown as FlareServiceClass],
+    const replace = new Map<ServiceToken<FlareService>, ServiceClass>([
+      [Original as unknown as ServiceToken<FlareService>, ReplacementSvc as unknown as ServiceClass],
     ]);
 
     host[COMPILE_FOR_TEST]({ replace });
@@ -88,7 +89,7 @@ describe("FlareHost[COMPILE_FOR_TEST]", () => {
     try {
       host[COMPILE_FOR_TEST]({
         replace: new Map([
-          [Original as unknown as ServiceToken<FlareService>, BadReplacement as unknown as FlareServiceClass],
+          [Original as unknown as ServiceToken<FlareService>, BadReplacement as unknown as ServiceClass],
         ]),
       });
       throw new Error("expected FlareTestError");
@@ -116,7 +117,7 @@ describe("FlareHost[COMPILE_FOR_TEST]", () => {
 
     host[COMPILE_FOR_TEST]({
       replace: new Map([
-        [Original as unknown as ServiceToken<FlareService>, Replacement as unknown as FlareServiceClass],
+        [Original as unknown as ServiceToken<FlareService>, Replacement as unknown as ServiceClass],
       ]),
     });
     expect(host.singletonServices.get(Original as unknown as ServiceToken<FlareService>))

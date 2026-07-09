@@ -1,5 +1,6 @@
 import type { FlareService } from "../../services/composition/flare-service.js";
-import type { FlareServiceClass, ServiceToken } from "../../services/types/types.js";
+import type { ServiceClass } from "../../services/types/service-class.js";
+import type { ServiceToken } from "../../services/types/token.js";
 import type { IFlareHost } from "../flare-host.js";
 import { PROVIDE_SERVICE } from "../types/const.js";
 
@@ -11,7 +12,7 @@ export type SingletonExtension = {
    *
    * @throws If the class is missing the required static `deps` array.
    */
-  singleton<T extends FlareService>(service: FlareServiceClass<T>): void;
+  singleton<T extends FlareService>(service: ServiceClass<T>): void;
 };
 
 /**
@@ -21,7 +22,7 @@ export type SingletonExtension = {
  */
 export function singletonExtension(host: IFlareHost): SingletonExtension {
   return {
-    singleton<T extends FlareService>(service: FlareServiceClass<T>): void {
+    singleton<T extends FlareService>(service: ServiceClass<T>): void {
       const token = service as ServiceToken<T>;
       if (service.deps == undefined) {
         throw new Error(`${token.name} is missing static 'deps'.`);

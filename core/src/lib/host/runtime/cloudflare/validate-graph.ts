@@ -5,7 +5,7 @@ import type { WebSocketArc } from "../../../arcs/ws/ws-arc.js";
 import type { ConfigToken, WebSocketsConfig, OpaqueConfigToken } from "../../../config/flare-config.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { ServiceRegistration } from "../../../services/types/registration.js";
-import type { ServiceToken } from "../../../services/types/types.js";
+import type { ServiceToken } from "../../../services/types/token.js";
 import type { ConfigValidationContext } from "../../../validation/config/composite.js";
 import type { HttpValidationContext } from "../../../validation/http/composite.js";
 import type { ServiceValidationContext } from "../../../validation/service/composite.js";

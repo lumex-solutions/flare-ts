@@ -1,5 +1,5 @@
 import type { FlareService } from "../../../services/composition/flare-service.js";
-import type { ServiceToken } from "../../../services/types/types.js";
+import type { ServiceToken } from "../../../services/types/token.js";
 import type { DeepReadonly, StateToken, TypedStateToken } from "../../../state/flare-state.js";
 import type { RequestDescriptor } from "../composition/contract/http-contract.js";
 import type { CookieSigner } from "./cookie-signer.js";

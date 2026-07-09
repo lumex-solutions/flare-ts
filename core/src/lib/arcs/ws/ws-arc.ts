@@ -6,7 +6,7 @@ import type { IFlareHost } from "../../host/flare-host.js";
 import type { LogContext } from "../../logger/types.js";
 import type { Router } from "../../routing/router.js";
 import type { FlareService } from "../../services/composition/flare-service.js";
-import type { ServiceToken } from "../../services/types/types.js";
+import type { ServiceToken } from "../../services/types/token.js";
 import type { IWsChannelDomain } from "./channels/domain.js";
 import type { WsRegistration } from "./composition/types/registration.js";
 import type { WsPipeline, WsRoute } from "./pipeline/route.js";

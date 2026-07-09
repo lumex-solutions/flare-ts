@@ -3,27 +3,28 @@
  */
 import { describe, it, expect } from "vitest";
 import type { ServiceRegistration } from "../../../../../src/lib/services/types/registration.js";
-import type { FlareServiceClass, ServiceToken } from "../../../../../src/lib/services/types/types.js";
+import type { ServiceClass } from "../../../../../src/lib/services/types/service-class.js";
+import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
 import type { ServiceValidationContext } from "../../../../../src/lib/validation/service/composite.js";
 import { FlareService } from "../../../../../src/lib/services/composition/flare-service.js";
 import { DependencyValidator } from "../../../../../src/lib/validation/service/dependency-validator.js";
 
 /**
- * Returns a minimal FlareServiceClass with the supplied deps.
+ * Returns a minimal ServiceClass with the supplied deps.
  * DependencyValidator reads `cls.deps` and `token.name` only.
  */
 function makeServiceCls(
   name: string,
   deps: readonly ServiceToken<FlareService>[] = [],
-): FlareServiceClass {
+): ServiceClass {
   class S extends FlareService {
     public static override deps = deps;
   }
   Object.defineProperty(S, "name", { value: name });
-  return S as unknown as FlareServiceClass;
+  return S as unknown as ServiceClass;
 }
 
-function makeReg(cls: FlareServiceClass): ServiceRegistration<FlareService> {
+function makeReg(cls: ServiceClass): ServiceRegistration<FlareService> {
   return {
     factory: () => {
       throw new Error("factory should not be called in validator tests");

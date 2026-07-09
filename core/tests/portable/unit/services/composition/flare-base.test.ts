@@ -248,6 +248,32 @@ describe("declared config token access", () => {
     );
   });
 
+  it("throws the not-declared error and never calls container.resolveCfg when the token is not in static config", () => {
+    let resolveCalls = 0;
+    // Same counting-subclass idiom as the resolveDep guardrail test above.
+    class CountingContainer extends Container {
+      public override resolveCfg<T>(token: ConfigToken<T>): T {
+        resolveCalls++;
+        return super.resolveCfg(token);
+      }
+    }
+    const container = new CountingContainer({ get: () => undefined }, new Map(), { db: { url: "x" } });
+
+    const dbToken = makeConfigToken<{ url: string; }>("db");
+    class Undeclaring extends FlareBase {
+      public static override config = [];
+      public attempt(): unknown {
+        return this.config(dbToken);
+      }
+    }
+
+    const instance = new Undeclaring(container);
+    expect(() => instance.attempt()).toThrow(
+      `[flare] Undeclaring called config() with token "db" but "db" is not declared in Undeclaring.config. Add it to the static config array.`,
+    );
+    expect(resolveCalls).toBe(0);
+  });
+
   it("throws when the token is not present in a non-empty static config", () => {
     const dbToken = makeConfigToken<{ url: string; }>("db");
     const cacheToken = makeConfigToken<{ ttl: number; }>("cache");

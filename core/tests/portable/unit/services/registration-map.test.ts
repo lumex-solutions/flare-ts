@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { ServiceRegistration } from "../../../../src/lib/services/types/registration.js";
-import type { ServiceToken } from "../../../../src/lib/services/types/types.js";
+import type { ServiceToken } from "../../../../src/lib/services/types/token.js";
 import { FlareService } from "../../../../src/lib/services/composition/flare-service.js";
 import { Container } from "../../../../src/lib/services/container.js";
 import { FlareRegistrationMap } from "../../../../src/lib/services/registration-map.js";
