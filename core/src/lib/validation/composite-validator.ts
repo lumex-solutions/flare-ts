@@ -1,3 +1,6 @@
+/**
+ * The composite runner that drives an ordered list of validators over one shared context.
+ */
 import type { IValidator, ValidationError } from "./types.js";
 
 /**
@@ -5,7 +8,8 @@ import type { IValidator, ValidationError } from "./types.js";
  *
  * Every inner validator runs unconditionally; errors are collected, not short-circuited.
  *
- * @typeParam TContext The shape of the validation context shared by all inner validators.
+ * @typeParam TContext - The shape of the validation context shared by all inner validators.
+ * @internal
  */
 export class CompositeValidator<TContext> implements IValidator<TContext> {
   constructor(private readonly validators: IValidator<TContext>[]) {}

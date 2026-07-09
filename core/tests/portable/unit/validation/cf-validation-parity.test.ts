@@ -3,9 +3,9 @@
  */
 import { describe, it, expect } from "vitest";
 import type { IValidator } from "../../../../src/lib/validation/types.js";
-import { createConfigValidator } from "../../../../src/lib/validation/validators/config-composite-validator.js";
-import { createHttpValidator } from "../../../../src/lib/validation/validators/http-composite-validator.js";
-import { createServiceValidator } from "../../../../src/lib/validation/validators/service-composite-validator.js";
+import { createConfigValidator } from "../../../../src/lib/validation/config/composite.js";
+import { createHttpValidator } from "../../../../src/lib/validation/http/composite.js";
+import { createServiceValidator } from "../../../../src/lib/validation/service/composite.js";
 
 /**
  * Returns constructor names from the TS-only private `validators` array of a CompositeValidator.

@@ -1,3 +1,6 @@
+/**
+ * The error thrown by FlareHost.build when validation reports error-severity entries.
+ */
 import type { ValidationError } from "./types.js";
 
 /**

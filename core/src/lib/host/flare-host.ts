@@ -7,13 +7,11 @@ import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceRegistration } from "../services/types/registration.js";
 import type { FlareServiceClass, ServiceToken } from "../services/types/types.js";
 import type { HostInspectSnapshot } from "../testing/types/inspect-build.js";
-import type {
-  ConfigValidationContext,
-  HttpValidationContext,
-  ServiceValidationContext,
-  WsValidationContext,
-} from "../validation/contexts.js";
+import type { ConfigValidationContext } from "../validation/config/composite.js";
+import type { HttpValidationContext } from "../validation/http/composite.js";
+import type { ServiceValidationContext } from "../validation/service/composite.js";
 import type { ValidationError } from "../validation/types.js";
+import type { WsValidationContext } from "../validation/ws/composite.js";
 import type { ExtensionMembers, HostExtension, HostExtensionContext } from "./extensions/extension.js";
 import type { IFlareApp } from "./flare-app.js";
 import type { HostRuntimeAdapter } from "./types/adapter.js";
@@ -37,12 +35,12 @@ import { Container } from "../services/container.js";
 import { FlareRegistrationMap } from "../services/registration-map.js";
 import { FlareTestError } from "../testing/error.js";
 import { FlareTestApp } from "../testing/test.js";
+import { createConfigValidator } from "../validation/config/composite.js";
 import { FlareValidationError } from "../validation/flare-validation-error.js";
-import { createConfigValidator } from "../validation/validators/config-composite-validator.js";
-import { createHttpValidator } from "../validation/validators/http-composite-validator.js";
-import { createServiceValidator } from "../validation/validators/service-composite-validator.js";
-import { createWsValidator } from "../validation/validators/ws-composite-validator.js";
-import { WsConfigValidator } from "../validation/validators/ws/config-validator.js";
+import { createHttpValidator } from "../validation/http/composite.js";
+import { createServiceValidator } from "../validation/service/composite.js";
+import { createWsValidator } from "../validation/ws/composite.js";
+import { WsConfigValidator } from "../validation/ws/config-validator.js";
 import { Logging } from "./composition/logging.js";
 import {
   COMPILE_FOR_TEST,

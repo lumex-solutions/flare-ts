@@ -47,6 +47,13 @@ Exactly two marker idioms exist; pick by job, never invent a third, never mix th
   `SCHEMA_BRAND`).
 - **`_type?: T` optional phantom member** - inference carrier (`ConfigToken`, `ErrorSchema`).
 
+These are MARKER idioms: the member exists only to make the type checkable or inferable.
+Symbol-keyed hidden state is a different mechanism, not a third marker: real runtime data
+stored behind a symbol key to keep it off the public surface (`SCHEMA_DESCRIPTOR`,
+`COMPILED_SERIALIZER`, `UPGRADE_WS`, state's `_DEFAULT` family). Its rules come from
+declaration placement (the symbol lives with the declaration it keys), not from this
+section.
+
 ## Runtime variant pairs are nominal fences
 
 A sync/async class pair (`CfLoggerTransport` vs `LoggerTransport`, `CfLogger` vs `Logger`)

@@ -6,26 +6,24 @@ import type { ConfigToken, WebSocketsConfig, OpaqueConfigToken } from "../../../
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { ServiceRegistration } from "../../../services/types/registration.js";
 import type { ServiceToken } from "../../../services/types/types.js";
-import type {
-  ConfigValidationContext,
-  HttpValidationContext,
-  ServiceValidationContext,
-  WsValidationContext,
-} from "../../../validation/contexts.js";
+import type { ConfigValidationContext } from "../../../validation/config/composite.js";
+import type { HttpValidationContext } from "../../../validation/http/composite.js";
+import type { ServiceValidationContext } from "../../../validation/service/composite.js";
 import type { ValidationError } from "../../../validation/types.js";
+import type { WsValidationContext } from "../../../validation/ws/composite.js";
 import type { FlareDurableObjectClass } from "./durable-object.js";
 import { COMPILE_HTTP_ARC } from "../../../arcs/http/http-arc.js";
 import { WebSocketChannels } from "../../../arcs/ws/channels/web-socket-channels.js";
 import { COMPILE_WS_ARC, WS_REGISTRATIONS } from "../../../arcs/ws/ws-arc.js";
-import { createConfigValidator } from "../../../validation/validators/config-composite-validator.js";
-import { createHttpValidator } from "../../../validation/validators/http-composite-validator.js";
-import { CaptiveDependencyValidator } from "../../../validation/validators/service/captive-dep-validator.js";
-import { DependencyValidator } from "../../../validation/validators/service/dependency-validator.js";
-import { LifecycleHookValidator } from "../../../validation/validators/service/lifecycle-hook-validator.js";
-import { ServiceRegistrationValidator } from "../../../validation/validators/service/service-registration-validator.js";
-import { WsConfigValidator } from "../../../validation/validators/ws/config-validator.js";
-import { WsRouteConflictValidator } from "../../../validation/validators/ws/route-conflict-validator.js";
-import { WsRouteSyntaxValidator } from "../../../validation/validators/ws/route-syntax-validator.js";
+import { createConfigValidator } from "../../../validation/config/composite.js";
+import { createHttpValidator } from "../../../validation/http/composite.js";
+import { CaptiveDependencyValidator } from "../../../validation/service/captive-dependency-validator.js";
+import { DependencyValidator } from "../../../validation/service/dependency-validator.js";
+import { LifecycleHookValidator } from "../../../validation/service/lifecycle-hook-validator.js";
+import { ServiceRegistrationValidator } from "../../../validation/service/service-registration-validator.js";
+import { WsConfigValidator } from "../../../validation/ws/config-validator.js";
+import { WsRouteConflictValidator } from "../../../validation/ws/route-conflict-validator.js";
+import { WsRouteSyntaxValidator } from "../../../validation/ws/route-syntax-validator.js";
 import { Bindings, DurableState } from "./services.js";
 import { staticStateTokens } from "./state-crossing.js";
 
