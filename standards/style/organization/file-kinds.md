@@ -19,8 +19,8 @@ are mechanical - for any file there is exactly one legal shape, derivable withou
   function (`build.ts`, `codec.ts`, `ops.ts`, `handshake.ts`). Never exports a class.
 - **Declarations module** - types, interfaces, brands, symbols, constants: the vocabulary of a
   subsystem (`pipeline/route.ts`, `channels/domain.ts`, `contract/ws-contract.ts`). Lives under a
-  `types/` or `contract/` folder, or is the vocabulary file of its subsystem folder (see
-  [subsystems.md](subsystems.md)).
+  `types/` or `contract/` folder, or is the vocabulary file of its subsystem folder; WHICH home
+  is settled by the vocabulary ladder in [declarations.md](declarations.md).
 
 What each kind may co-export is settled per declaration kind in
 [declarations.md](declarations.md).

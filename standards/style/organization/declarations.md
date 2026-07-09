@@ -19,6 +19,26 @@ it - developers name those types, which makes them vocabulary). The class-shape 
 module's own class (`WebSocketControllerClass`) counts as that class's signature. When a signature
 type gains an independent second consumer, it has become vocabulary: move it.
 
+**The vocabulary ladder.** Which declarations module vocabulary lives in is an escalation, not a
+choice of taste:
+
+1. A signature type lives beside its owner (the rule above).
+2. Vocabulary with a single producing concern lives in that concern's declarations module
+   (`ws-contract.ts`, `flare-state.ts`, `channels/domain.ts`) - typically alongside its
+   own-vocabulary factory.
+3. Vocabulary shared across a subsystem's modules with no single owner lives in ONE
+   `<subsystem>/types.ts` (`logger/types.ts`, `errors/types.ts`). A `types.ts` is
+   function-free: factories and readers live at rungs 2 and 4 of their own ladders.
+4. When that shared vocabulary itself splits into distinct concerns, it earns a `types/`
+   folder of CONCERN-NAMED files (`composition/types/route-options.ts`,
+   `transport/types/response.ts`). Never a `types.ts` inside a `types/` folder - that is the
+   banned folder-name repetition. `types/` (like `contract/`) is the sanctioned exception to
+   the folders-by-kind ban.
+
+Descend the ladder as eagerly as you climb it: a `types/` folder down to one file dissolves to
+rung 3; a lone vocabulary file whose every importer also imports the rung-2 module folds into
+it (a standalone file is earned by consumers that use it independently).
+
 **Slice types.** A public type describing the deliberate narrow face of richer internal machinery
 (`WebSocketState` exposes only `get`/`set` of the stores behind `ws.state`). A slice is a `type`
 owned by the public surface that exposes it. The internal classes behind it never name it: no
