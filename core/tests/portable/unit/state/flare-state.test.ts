@@ -3,12 +3,8 @@
  */
 import { describe, it, expect } from "vitest";
 import type { StateGetter, TypedStateToken } from "../../../../src/lib/state/flare-state.js";
-import {
-  flareState,
-  getTokenDefault,
-  getTokenDerivation,
-  getTokenLogMapper,
-} from "../../../../src/lib/state/flare-state.js";
+import { flareState } from "../../../../src/lib/state/flare-state.js";
+import { getTokenDefault, getTokenDerivation, getTokenLogMapper } from "../../../../src/lib/state/read.js";
 
 describe("flareState", () => {
   it("Returns a token whose type carrier is purely phantom (no runtime `_type` property).", () => {

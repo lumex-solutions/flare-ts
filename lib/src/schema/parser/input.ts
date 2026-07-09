@@ -6,20 +6,6 @@ import type { JsonValue } from "../schema.js";
 
 /**
  * @internal
- * Reads a string or number value from a parsed object by key.
- * Returns `undefined` if the key is absent or its value is not a string or number.
- */
-export function tryGetValue(
-  obj: { [key: string]: JsonValue; },
-  key: string | number | symbol,
-): string | number | undefined {
-  const value = obj[String(key)];
-  if (typeof value !== "string" && typeof value !== "number") return undefined;
-  return value;
-}
-
-/**
- * @internal
  * Resolves all accepted raw input forms into a plain JSON object.
  * JSON strings and ArrayBuffers are parsed; plain objects are passed through.
  * Throws for any other JsonValue (arrays, primitives).

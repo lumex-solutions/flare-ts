@@ -25,7 +25,15 @@ type DescriptorField = Primitive | IntrospectableSchemaToken;
 type DatePrimitiveField = Primitive & { readonly _type: "date"; readonly _format?: string; };
 type ArrayPrimitiveField = Primitive & { readonly _item?: Primitive; };
 
-type JsonSchema =
+type DiscriminatedDescriptor = {
+  discriminant: string;
+  branches: Record<string, ObjectDescriptor>;
+};
+
+/**
+ * The JSON Schema fragment shape {@link toJsonSchema} produces.
+ */
+export type JsonSchema =
   | { type: "object"; properties: Record<string, JsonSchema>; required?: string[]; }
   | { type: "object"; additionalProperties: JsonSchema; }
   | { type: "array"; items: JsonSchema; }
@@ -34,11 +42,6 @@ type JsonSchema =
   | { type: "boolean"; }
   | { anyOf: JsonSchema[]; }
   | Record<string, never>;
-
-type DiscriminatedDescriptor = {
-  discriminant: string;
-  branches: Record<string, ObjectDescriptor>;
-};
 
 /**
  * A compiled function serializing a JSON value that matches its source schema token.

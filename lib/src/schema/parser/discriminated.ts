@@ -3,7 +3,7 @@
  * per-field delegation to the shared field routine.
  */
 import type { DescriptorValue, FieldError, JsonValue, SafeParseResult } from "../schema.js";
-import { resolveInput, tryGetValue } from "./input.js";
+import { resolveInput } from "./input.js";
 import { processField } from "./object.js";
 
 /**
@@ -59,4 +59,17 @@ export function discriminatedSafeParse<T, K extends keyof T>(
 
 function invalidSchemaError<T>(path: string, message: string, received: string): SafeParseResult<T> {
   return { success: false, error: { fields: [{ path, message, received }] } };
+}
+
+/**
+ * Reads a string or number value from a parsed object by key.
+ * Returns `undefined` if the key is absent or its value is not a string or number.
+ */
+function tryGetValue(
+  obj: { [key: string]: JsonValue; },
+  key: string | number | symbol,
+): string | number | undefined {
+  const value = obj[String(key)];
+  if (typeof value !== "string" && typeof value !== "number") return undefined;
+  return value;
 }

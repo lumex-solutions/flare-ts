@@ -2,7 +2,8 @@
  * Unit tests for {@link Logger}: emit levels, lifecycle, bootstrap buffer, and transport routing.
  */
 import { describe, it, expect, beforeEach } from "vitest";
-import type { LogRecord, LogStore } from "../../../../src/lib/logger/types.js";
+import type { LogStore } from "../../../../src/lib/logger/context.js";
+import type { LogRecord } from "../../../../src/lib/logger/types.js";
 import type { Container } from "../../../../src/lib/services/container.js";
 import { _log } from "../../../../src/lib/logger/bootstrap.js";
 import { loggerALS } from "../../../../src/lib/logger/context.js";

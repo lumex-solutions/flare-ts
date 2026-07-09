@@ -29,4 +29,4 @@ export type { FieldError, JsonObject, JsonValue, SafeParseResult, SchemaError } 
 
 // JSON Schema / serialization
 export { compileSerializer, toJsonSchema } from "./serializer.js";
-export type { SchemaSerializer } from "./serializer.js";
+export type { JsonSchema, SchemaSerializer } from "./serializer.js";

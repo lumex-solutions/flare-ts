@@ -6,7 +6,13 @@
 // (CF Workers via the nodejs_compat flag, a documented platform requirement for Flare).
 // eslint-disable-next-line no-restricted-imports
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { LogContext, LogStore } from "./types.js";
+import type { LogContext, LogState } from "./types.js";
+
+/** Payload of an active logger-context store entry. */
+export type LogStore = {
+  context: LogContext;
+  state?: LogState;
+};
 
 /**
  * AsyncLocalStorage that carries the active log context and state for the

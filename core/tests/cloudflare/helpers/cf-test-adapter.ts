@@ -4,7 +4,7 @@
 
 import type { JsonObject } from "@flare-ts/lib";
 import type { CloudflareAdapter } from "../../../src/lib/host/runtime/cloudflare/index.js";
-import type { CfLoggerTransportClass } from "../../../src/lib/logger/types.js";
+import type { CfLoggerTransportClass } from "../../../src/lib/logger/runtime/cloudflare/cf-transport.js";
 import { cf } from "../../../src/lib/host/runtime/cloudflare/index.js";
 
 type CfTransport = typeof cf.defaultLoggerTransports[number];

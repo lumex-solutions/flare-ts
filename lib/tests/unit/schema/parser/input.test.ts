@@ -1,44 +1,9 @@
 /**
- * Unit tests for `resolveInput`, `resolveArrayInput`, and `tryGetValue` field value lookup from parsed objects.
+ * Unit tests for `resolveInput` and `resolveArrayInput` raw-input normalization.
  */
 import { describe, expect, it } from "vitest";
 import type { JsonValue } from "../../../../src/schema/schema.js";
-import { resolveArrayInput, resolveInput, tryGetValue } from "../../../../src/schema/parser/input.js";
-
-describe("field value lookup from parsed objects", () => {
-  it("returns a string value at the given key", () => {
-    expect(tryGetValue({ a: "hello" }, "a")).toBe("hello");
-  });
-
-  it("returns a number value at the given key", () => {
-    expect(tryGetValue({ a: 42 }, "a")).toBe(42);
-  });
-
-  it("coerces a number key via String(key)", () => {
-    expect(tryGetValue({ "1": "x" }, 1)).toBe("x");
-  });
-
-  it("coerces a symbol key via String(key)", () => {
-    const sym = Symbol("foo");
-    expect(tryGetValue({ [String(sym)]: "y" }, sym)).toBe("y");
-  });
-
-  it("returns undefined when the key is absent", () => {
-    expect(tryGetValue({ a: "x" }, "missing")).toBeUndefined();
-  });
-
-  it("returns undefined for an object value", () => {
-    expect(tryGetValue({ a: { nested: true } }, "a")).toBeUndefined();
-  });
-
-  it("returns undefined for a boolean value", () => {
-    expect(tryGetValue({ a: true }, "a")).toBeUndefined();
-  });
-
-  it("returns undefined for a null value", () => {
-    expect(tryGetValue({ a: null }, "a")).toBeUndefined();
-  });
-});
+import { resolveArrayInput, resolveInput } from "../../../../src/schema/parser/input.js";
 
 describe("raw input normalization to objects", () => {
   it("passes a plain object through", () => {

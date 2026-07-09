@@ -2,7 +2,13 @@
  * Registry builder that turns a declarative descriptor of error categories and named entries
  * into a frozen, branded error-codes token.
  */
-import { ErrorCategories, type ErrorCategory, type ErrorCodesToken, FLARE_ERROR_CODES_BRAND } from "./types.js";
+import { ErrorCategories, type ErrorCategory } from "./types.js";
+
+/**
+ * Marks a value as an error-codes registry token.
+ * @internal
+ */
+export const FLARE_ERROR_CODES_BRAND: unique symbol = Symbol("flare_error_codes_brand");
 
 type FlareErrorCodesCategory<TCodes, TCategory extends string> = {
   [K in keyof TCodes & string]: TCodes[K] & {
@@ -20,6 +26,13 @@ type FlareErrorCodesResult<T> =
 type FlareErrorCodeEntry = {
   readonly expose: boolean;
   readonly code?: number;
+};
+
+/**
+ * Brand marker identifying a registry produced by `flareErrorCodes`.
+ */
+export type ErrorCodesToken = {
+  readonly [FLARE_ERROR_CODES_BRAND]: true;
 };
 
 /**

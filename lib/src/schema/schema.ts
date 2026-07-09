@@ -141,17 +141,6 @@ export type InferSchemaShape<D extends Record<string, AnyDescriptorValue>> = {
 };
 
 /**
- * Creates an optional copy of a schema token without mutating the original.
- *
- * @internal
- */
-export function makeOptionalSchemaToken<T>(token: SchemaToken<T>): SchemaToken<T> {
-  // The spread copies the symbol-keyed brand and methods; only the requiredness flag
-  // changes, which the SchemaToken type does not surface.
-  return { ...token, [SCHEMA_REQUIRED]: false } as SchemaToken<T>;
-}
-
-/**
  * Creates a schema token that parses a JSON object field-by-field using the
  * provided descriptor map.
  *
@@ -307,4 +296,11 @@ export function schema<T>(
     },
   };
   return token as SchemaToken<T>;
+}
+
+/** Creates an optional copy of a schema token without mutating the original. */
+function makeOptionalSchemaToken<T>(token: SchemaToken<T>): SchemaToken<T> {
+  // The spread copies the symbol-keyed brand and methods; only the requiredness flag
+  // changes, which the SchemaToken type does not surface.
+  return { ...token, [SCHEMA_REQUIRED]: false } as SchemaToken<T>;
 }

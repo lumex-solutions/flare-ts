@@ -1,14 +1,12 @@
 /**
- * Log vocabulary: levels, the context shapes records carry, record and store types, and
- * the constructor types host composition consumes.
+ * Log vocabulary: levels, the context shapes records carry, the record type, and the
+ * transport constructor type host composition consumes.
  */
 import type { JsonValue } from "@flare-ts/lib";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { Container } from "../services/container.js";
 import type { ServiceToken } from "../services/types/types.js";
 import type { LogError } from "./fields.js";
-import type { Logger } from "./logger.js";
-import type { CfLoggerTransport } from "./runtime/cloudflare/cf-transport.js";
 import type { LoggerTransport } from "./transport.js";
 
 /**
@@ -72,12 +70,6 @@ export type LogMeta<T extends Record<string, JsonValue> = Record<string, JsonVal
 /** Ambient state attached to every record emitted within a request scope. */
 export type LogState = Record<string, JsonValue>;
 
-/** Payload of an active logger-context store entry. */
-export type LogStore = {
-  context: LogContext;
-  state?: LogState;
-};
-
 /** Fully assembled record handed to every transport's `write` method. */
 export type LogRecord = {
   timestamp: number;
@@ -89,22 +81,9 @@ export type LogRecord = {
   error?: LogError;
 };
 
-/** Constructor type for concrete {@link Logger} subclasses. */
-export type LoggerClass = {
-  new(container: Container): Logger;
-  deps: readonly ServiceToken<FlareService>[];
-};
-
 /** Constructor type for concrete {@link LoggerTransport} subclasses. */
 export type LoggerTransportClass = {
   new(container: Container): LoggerTransport;
-  readonly transportName: string;
-  deps?: readonly ServiceToken<FlareService>[];
-};
-
-/** Constructor type for concrete {@link CfLoggerTransport} subclasses. */
-export type CfLoggerTransportClass = {
-  new(container: Container): CfLoggerTransport;
   readonly transportName: string;
   deps?: readonly ServiceToken<FlareService>[];
 };

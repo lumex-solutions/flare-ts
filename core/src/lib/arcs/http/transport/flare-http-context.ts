@@ -8,8 +8,8 @@ import type { SseEvent, SseWriter } from "./sse.js";
 import type { RequestContext, TypedRequestContext } from "./types/request-context.js";
 import type { ResponseSerializers, Serializer } from "./types/response.js";
 import { loggerALS } from "../../../logger/context.js";
-import { getTokenDefault, getTokenDerivation, getTokenLogMapper } from "../../../state/flare-state.js";
 import { StateMap } from "../../../state/map.js";
+import { getTokenDefault, getTokenDerivation, getTokenLogMapper } from "../../../state/read.js";
 import { FlareResponse } from "./flare-response.js";
 import { encodeSseComment, encodeSseEvent, SseStream } from "./sse.js";
 

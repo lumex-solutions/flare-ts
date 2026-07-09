@@ -63,6 +63,21 @@ describe("discriminated union parsing", () => {
     }
   });
 
+  it("treats a non-string, non-number discriminant value as missing", () => {
+    const result = discriminatedSafeParse<Pet, "kind">(
+      asObj({ kind: true, lives: 9 }),
+      "kind",
+      branches,
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.fields).toEqual([
+        { path: "kind", message: "Missing or invalid discriminant field", received: "" },
+      ]);
+    }
+  });
+
   it("returns 'Invalid discriminant value' with received set to the offending value", () => {
     const result = discriminatedSafeParse<Pet, "kind">(
       asObj({ kind: "fish", lives: 1 }),
@@ -78,7 +93,7 @@ describe("discriminated union parsing", () => {
     }
   });
 
-  it("accepts a numeric discriminant value (tryGetValue allows string|number)", () => {
+  it("accepts a numeric discriminant value (string and number discriminants are valid)", () => {
     type Numeric = { kind: 1; v: number; } | { kind: 2; v: number; };
     const numericBranches = {
       "1": { v: makePrimitive<number>((v) => Number(v)) },

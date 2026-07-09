@@ -10,12 +10,7 @@ import type {
   SchemaToken,
 } from "../../../../src/schema/schema.js";
 import { flatSafeParse, isSchemaRequired, processField } from "../../../../src/schema/parser/object.js";
-import {
-  makeOptionalSchemaToken,
-  SCHEMA_BRAND,
-  SCHEMA_DESCRIPTOR,
-  SCHEMA_REQUIRED,
-} from "../../../../src/schema/schema.js";
+import { SCHEMA_BRAND, SCHEMA_DESCRIPTOR, SCHEMA_REQUIRED } from "../../../../src/schema/schema.js";
 
 /** Inline stub: a SchemaToken whose safeParse delegates to a per-test function. */
 function makeStubSchema<T>(
@@ -348,9 +343,8 @@ describe("schema token requiredness", () => {
     expect(isSchemaRequired(token)).toBe(true);
   });
 
-  it("returns false for a token produced by makeOptionalSchemaToken", () => {
-    const original = makeToken<string>(true);
-    const opt = makeOptionalSchemaToken<string>(original);
+  it("returns false for a token with SCHEMA_REQUIRED = false (the shape optional() produces)", () => {
+    const opt = makeToken<string>(false);
 
     expect(isSchemaRequired(opt)).toBe(false);
   });

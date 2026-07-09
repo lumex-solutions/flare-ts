@@ -96,7 +96,8 @@ export type { DeepReadonly, StateGetter, StateToken, TypedStateToken } from "./l
 
 // Logger
 export { captureLogStore, runWithLogStore } from "./lib/logger/context.js";
+export type { LogStore } from "./lib/logger/context.js";
 export { Logger } from "./lib/logger/logger.js";
 export { CfLoggerTransport } from "./lib/logger/runtime/cloudflare/cf-transport.js";
 export { LoggerTransport } from "./lib/logger/transport.js";
-export type { HttpErrorContext, LogLevel, LogRecord, LogStore } from "./lib/logger/types.js";
+export type { HttpErrorContext, LogLevel, LogRecord } from "./lib/logger/types.js";

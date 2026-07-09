@@ -1,7 +1,7 @@
 /** Unit tests for flareErrorCodes registry branding and shape. */
 import { describe, it, expect } from "vitest";
 import { flareErrorCodes } from "../../../../src/lib/errors/codes.js";
-import { FLARE_ERROR_CODES_BRAND } from "../../../../src/lib/errors/types.js";
+import { FLARE_ERROR_CODES_BRAND } from "../../../../src/lib/errors/codes.js";
 
 describe("flareErrorCodes(descriptor)", () => {
   it("returns an ErrorCodesToken (object with FLARE_ERROR_CODES_BRAND === true) at the top level", () => {
