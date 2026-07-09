@@ -9,6 +9,10 @@
  *
  * Throws with a developer-facing message for paths that do not start with `/`, end with `/` (except
  * `/`), or contain empty segments (`//`). The inbound-request counterpart is {@link isValidInboundPath}.
+ *
+ * @param path - The route or prefix to validate.
+ * @param label - Subject noun of the thrown message (e.g. `"Group prefix"`); defaults to `"Path"`.
+ * @internal
  */
 export function assertRegistrationPath(path: string, label = "Path"): void {
   if (!path.startsWith("/")) {
@@ -27,6 +31,8 @@ export function assertRegistrationPath(path: string, label = "Path"): void {
  *
  * Rejects the same shapes blocked at route registration ({@link assertRegistrationPath}): paths that
  * do not start with `/`, end with `/` (except `/`), or contain `//`.
+ *
+ * @internal
  */
 export function isValidInboundPath(path: string): boolean {
   if (!path.startsWith("/")) return false;
@@ -37,9 +43,13 @@ export function isValidInboundPath(path: string): boolean {
 
 /**
  * Splits a raw URL into its path and query string at the first `?`, with `search` excluding the `?`
- * (and empty when there is no query). A pure structural split with NO decoding, so it carries no per-arc
+ * (and empty when there is no query).
+ *
+ * A pure structural split with NO decoding, so it carries no per-arc
  * failure policy and is safe to share across arcs - unlike param decoding, whose throw-vs-tolerate
  * contract deliberately differs by arc.
+ *
+ * @internal
  */
 export function splitPathQuery(url: string): { path: string; search: string; } {
   const qi = url.indexOf("?");
@@ -54,6 +64,8 @@ export function splitPathQuery(url: string): { path: string; search: string; } {
  * e.g. `/users/:id/posts/:postId` -> `/users/:*\/posts/:*`, `/files/*rest` -> `/files/**`. Used by the
  * HTTP duplicate-route check and the WebSocket arc's cross-arc conflict check so both canonicalise
  * paths identically.
+ *
+ * @internal
  */
 export function normaliseRoutePattern(path: string): string {
   return path

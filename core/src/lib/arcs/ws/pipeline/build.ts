@@ -3,7 +3,7 @@ import type { SchemaToken } from "@flare-ts/lib/schema";
 import { compileSerializer } from "@flare-ts/lib/schema";
 import type { ConfigToken, WebSocketsConfig } from "../../../config/flare-config.js";
 import type { LogRunner } from "../../../logger/context.js";
-import type { FlareRouter } from "../../../routing/flare-router.js";
+import type { Router } from "../../../routing/router.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { Container } from "../../../services/container.js";
 import type { ScopeConfig } from "../../../services/types/scope.js";
@@ -17,7 +17,7 @@ import type { WsController, WsControllerFactory, WsPipeline, WsRoute, WsRouteSeg
 import { WEBSOCKETS_DEFAULTS } from "../../../config/flare-config.js";
 import { _log } from "../../../logger/bootstrap.js";
 import { toErrorField } from "../../../logger/fields.js";
-import { buildFlareRouter, scoreRoute } from "../../../routing/flare-router.js";
+import { buildRouter, scoreRoute } from "../../../routing/router.js";
 import { attachScopeDeps } from "../../../services/scope.js";
 
 const COLON = 58; // ":"
@@ -54,7 +54,7 @@ type SynthesizedScope = {
  *
  * Each registration becomes a {@link WsPipeline}: parser entries flattened once, schema tokens lifted,
  * outbound serializer resolved, and the per-connection controller factory compiled (function form
- * synthesized onto the controller surface). Reuses {@link buildFlareRouter} for shared literal/`:param`
+ * synthesized onto the controller surface). Reuses {@link buildRouter} for shared literal/`:param`
  * matching; each pattern is scanned once for specificity score, param positions, and depth.
  */
 export function compileWsRoutes(
@@ -62,7 +62,7 @@ export function compileWsRoutes(
   config: WebSocketsConfig | undefined,
 ): {
   pipelines: readonly WsPipeline[];
-  router: FlareRouter | undefined;
+  router: Router | undefined;
   routes: readonly WsRoute[];
   acceptOptions: WsAcceptOptions;
 } {
@@ -118,7 +118,7 @@ export function compileWsRoutes(
     patterns[i] = scored[i]!.pipeline.pattern;
     routes[i] = { pipeline: scored[i]!.pipeline, segments: scored[i]!.segments };
   }
-  return { pipelines, router: buildFlareRouter(patterns, maxDepth), routes, acceptOptions };
+  return { pipelines, router: buildRouter(patterns, maxDepth), routes, acceptOptions };
 }
 
 function resolveAcceptOptions(config: WebSocketsConfig | undefined): WsAcceptOptions {

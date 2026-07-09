@@ -4,7 +4,7 @@
  */
 import type { IFlareHost } from "../../host/flare-host.js";
 import type { LogContext } from "../../logger/types.js";
-import type { FlareRouter } from "../../routing/flare-router.js";
+import type { Router } from "../../routing/router.js";
 import type { FlareService } from "../../services/composition/flare-service.js";
 import type { ServiceToken } from "../../services/types/types.js";
 import type { IWsChannelDomain } from "./channels/domain.js";
@@ -71,7 +71,7 @@ export class WebSocketArc extends WebSocketBase {
   // Flat compilation output, assigned in [COMPILE_WS_ARC] (mirrors the HTTP arc's #router/#pipelines/#execFns).
   // `#acceptOptionsBase` is always set once built (even with no routes), so it doubles as the "has build()
   // run?" sentinel the guard checks; `#router` is undefined when no routes are registered.
-  #router: FlareRouter | undefined;
+  #router: Router | undefined;
   #routes: readonly WsRoute[] = [];
   /** Compiled pipelines in registration order (`#pipelines[i].index === i`): the durable route-id space. */
   #pipelines: readonly WsPipeline[] = [];

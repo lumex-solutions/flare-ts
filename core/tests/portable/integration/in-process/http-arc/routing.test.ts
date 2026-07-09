@@ -256,13 +256,13 @@ describe("Failure Modes", () => {
     // 1025 distinct static routes blow past MAX_ROUTES (1024). The router
     // throws synchronously during `compileHttp`, which runs inside
     // `host.build()`. We assert against the exact message from
-    // `buildFlareRouter` so a future change of either the cap or the
+    // `buildRouter` so a future change of either the cap or the
     // message text shows up as a test break.
     for (let i = 0; i < 1025; i++) {
       host.http.get(`/r${i}`, (_ctx) => new FlareResponse(200, { i }));
     }
 
-    expect(() => host.build()).toThrow("FlareRouter: 1025 routes exceeds maximum of 1024");
+    expect(() => host.build()).toThrow("Router: 1025 routes exceeds maximum of 1024");
   });
 
   it("building a router with zero routes throws", async () => {
@@ -270,8 +270,8 @@ describe("Failure Modes", () => {
     const host = testHost();
 
     // No controllers registered: the http arc compile path still runs and
-    // calls `buildFlareRouter` with an empty route list, which throws.
-    expect(() => host.build()).toThrow("FlareRouter: no routes provided");
+    // calls `buildRouter` with an empty route list, which throws.
+    expect(() => host.build()).toThrow("Router: no routes provided");
   });
 
   it("an unrecognised method on a matched route returns 405 with the right Allow header", async () => {

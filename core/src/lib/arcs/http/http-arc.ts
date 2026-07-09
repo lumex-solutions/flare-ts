@@ -2,7 +2,7 @@ import type { ArrayTypedPrimitive, JsonValue } from "@flare-ts/lib/schema";
 import type { Primitive, TypedPrimitive } from "@flare-ts/lib/schema";
 import type { IFlareHost } from "../../host/flare-host.js";
 import type { HostRuntimeLifecycle, LifecycleCallback } from "../../host/types/lifecycle.js";
-import type { FlareRouter } from "../../routing/flare-router.js";
+import type { Router } from "../../routing/router.js";
 import type { StateToken } from "../../state/flare-state.js";
 import type { HttpArcInspectSnapshot, RouterInspectSnapshot } from "../../testing/types/inspect-build.js";
 import type { MiddlewareBase } from "./composition/classes/middleware-base.js";
@@ -56,7 +56,7 @@ const _EMPTY_MW_CACHE: MiddlewareBase[] = [];
 export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends HttpBase {
   #pipelines: Pipeline[] = [];
   #execFns: ExecFn[] = [];
-  #router?: FlareRouter;
+  #router?: Router;
   /** Pre-built once at compile time; reused every request when there are no scoped services. */
   #sharedContainer: Container | undefined;
   /** Cached at compile time; stamped onto each ctx only when a cookie secret is configured. */

@@ -1,5 +1,5 @@
 /**
- * @module flare-router
+ * @module router
  *
  * Bitset-based URL router for the Flare framework.
  *
@@ -27,13 +27,59 @@
  */
 
 /**
+ * Compiled router returned by {@link buildRouter}.
+ *
+ * @internal
+ */
+export type Router = {
+  /**
+   * Returns the index of the best-matching route, or `-1` if none match.
+   *
+   * On a successful match (return value >= 0) the segment boundary arrays
+   * {@link segStart} and {@link segEnd} are populated in-place and valid
+   * until the next call to `match`. Callers must read them synchronously:
+   * never await between `match` and consuming these arrays.
+   */
+  match(path: string): number;
+
+  /**
+   * Segment start offsets populated by the most recent successful {@link match} call.
+   *
+   * Index `i` holds the start offset (inclusive) of the i-th path segment in the matched path.
+   */
+  readonly segStart: Int16Array;
+
+  /**
+   * Segment end offsets populated by the most recent successful {@link match} call.
+   *
+   * Index `i` holds the end offset (exclusive) of the i-th path segment in the matched path.
+   */
+  readonly segEnd: Int16Array;
+
+  /** Total number of routes compiled into this router. */
+  readonly routeCount: number;
+
+  /** Number of 32-bit words per bitmask row (`ceil(routeCount / 32)`). */
+  readonly W: number;
+
+  /** Maximum number of path segments across all compiled routes. */
+  readonly maxDepth: number;
+};
+
+/** Maximum number of 32-bit words per bitmask row. */
+const MAX_WORDS = 32;
+
+/** Absolute route capacity (`MAX_WORDS * 32 = 1024`). */
+const MAX_ROUTES = MAX_WORDS * 32;
+
+/**
  * Single entry in the per-segment discriminator table.
  *
  * Each discriminator can test up to three character offsets (`c1`-`c3`) and an
  * optional full-literal comparison to narrow candidates for a given segment
  * position and length.
  */
-interface Discriminator {
+type Discriminator = {
   /** Row index into the discriminator mask table. */
   entryIndex: number;
 
@@ -55,65 +101,38 @@ interface Discriminator {
   /** Expected char code at {@link c3off}. */
   c3val: number;
 
-  /** Full literal for fallback comparison. Empty string when character probes suffice. */
+  /**
+   * Full literal for fallback comparison.
+   *
+   * Empty string when character probes suffice.
+   */
   lit: string;
-}
+};
 
 /** Mutable counter threaded through the recursive discriminator builder to allocate mask-table rows. */
-interface IndexCounter {
+type IndexCounter = {
   idx: number;
-}
+};
 
-/** Compiled router returned by {@link buildFlareRouter}. */
-export interface FlareRouter {
-  /**
-   * Returns the index of the best-matching route, or `-1` if none match.
-   *
-   * On a successful match (return value >= 0) the segment boundary arrays
-   * {@link segStart} and {@link segEnd} are populated in-place and valid
-   * until the next call to `match`. Callers must read them synchronously:
-   * never await between `match` and consuming these arrays.
-   */
-  match(path: string): number;
-
-  /**
-   * Segment start offsets populated by the most recent successful {@link match} call.
-   * Index `i` holds the start offset (inclusive) of the i-th path segment in the matched path.
-   */
-  readonly segStart: Int16Array;
-
-  /**
-   * Segment end offsets populated by the most recent successful {@link match} call.
-   * Index `i` holds the end offset (exclusive) of the i-th path segment in the matched path.
-   */
-  readonly segEnd: Int16Array;
-
-  /** Total number of routes compiled into this router. */
-  readonly routeCount: number;
-
-  /** Number of 32-bit words per bitmask row (`ceil(routeCount / 32)`). */
-  readonly W: number;
-
-  /** Maximum number of path segments across all compiled routes. */
-  readonly maxDepth: number;
-}
-
-/** Maximum number of 32-bit words per bitmask row. */
-const MAX_WORDS = 32;
-
-/** Absolute route capacity (`MAX_WORDS * 32 = 1024`). */
-const MAX_ROUTES = MAX_WORDS * 32;
-
-/** Splits an absolute path (`/a/b/c`) into segment strings (`["a", "b", "c"]`). Returns `[]` for `/`. */
+/**
+ * Splits an absolute path (`/a/b/c`) into segment strings (`["a", "b", "c"]`).
+ *
+ * Returns `[]` for `/`.
+ *
+ * @internal
+ */
 export function splitPath(path: string): string[] {
   return path.length <= 1 ? [] : path.slice(1).split("/");
 }
 
 /**
- * Scores a route pattern by specificity: the pre-sort key {@link buildFlareRouter} requires (most
- * specific first). A literal segment counts 2, a `:param` counts 1, and a `*wildcard` counts 0, so a
+ * Scores a route pattern by specificity: the pre-sort key {@link buildRouter} requires (most specific first).
+ *
+ * A literal segment counts 2, a `:param` counts 1, and a `*wildcard` counts 0, so a
  * more literal route always sorts ahead of a more wildcard one. Shared by the HTTP and WebSocket arcs
  * so the ordering rule has a single implementation.
+ *
+ * @internal
  */
 export function scoreRoute(path: string): number {
   let score = 0;
@@ -126,7 +145,7 @@ export function scoreRoute(path: string): number {
 }
 
 /**
- * Compiles an ordered array of route patterns into a {@link FlareRouter}.
+ * Compiles an ordered array of route patterns into a {@link Router}.
  *
  * Routes must be absolute paths (starting with `/`) and may contain:
  * - **Literal segments**: e.g. `/users/settings`
@@ -134,23 +153,25 @@ export function scoreRoute(path: string): number {
  * - **Wildcard suffix**: e.g. `/assets/*path`
  *
  * The array must be **pre-sorted by specificity** (most-specific first).
- * Bit position = array index = the value returned by {@link FlareRouter.match}.
+ * Bit position = array index = the value returned by {@link Router.match}.
  *
- * @param routes Pre-sorted route patterns. Length must be in `[1, 1024]`.
+ * @param routes - Pre-sorted route patterns. Length must be in `[1, 1024]`.
+ * @param maxDepth - Maximum segment count across all routes; the caller derives it by scanning every route's segments.
  * @returns A compiled router ready for path matching.
  * @throws If no routes are provided or the count exceeds {@link MAX_ROUTES}.
+ * @internal
  */
-export function buildFlareRouter(routes: string[], maxDepth: number): FlareRouter {
+export function buildRouter(routes: string[], maxDepth: number): Router {
   const N = routes.length;
-  if (N === 0) throw new Error("FlareRouter: no routes provided");
-  if (N > MAX_ROUTES) throw new Error(`FlareRouter: ${N} routes exceeds maximum of ${MAX_ROUTES}`);
+  if (N === 0) throw new Error("Router: no routes provided");
+  if (N > MAX_ROUTES) throw new Error(`Router: ${N} routes exceeds maximum of ${MAX_ROUTES}`);
 
   const W = Math.ceil(N / 32);
 
   // Bitmask tables
   // depthMask:    routes alive at a given segment depth
   // anyMask:      routes with a param / wildcard at a given segment position
-  // literalMaps:  per-position map of literal -> bitmask (consumed by discriminator builder)
+  // literalMaps:  per-position map from literal to bitmask (consumed by discriminator builder)
 
   const depthMask = new Int32Array((maxDepth + 4) * W);
   const anyMask = new Int32Array((maxDepth + 4) * W);
@@ -278,16 +299,16 @@ function prefixLength(parts: string[]): number {
  * into singletons. If up to three probes (`c1`-`c3`) are insufficient, it
  * falls back to a full-literal comparison.
  *
- * @param group       Array of `[literal, bitmask]` pairs sharing the same segment length.
- * @param len         Shared segment length of every literal in the group.
- * @param chosen      Fixed 3-slot buffer of already-selected probe offsets. Only the first
- *                    {@link chosenCount} slots are valid; remaining slots hold `-1`. Mutated
- *                    in place during recursion and restored to `-1` on backtrack.
- * @param chosenCount Number of probe offsets currently committed in {@link chosen}.
- * @param result      Accumulator for the resolved {@link Discriminator} entries.
- * @param discMasks   Flat `Int32Array` of per-entry bitmasks (`entryIndex * W`).
- * @param W           Number of 32-bit words per bitmask row.
- * @param counter     Shared row-allocation counter.
+ * @param group - Array of `[literal, bitmask]` pairs sharing the same segment length.
+ * @param len - Shared segment length of every literal in the group.
+ * @param chosen - Fixed 3-slot buffer of already-selected probe offsets. Only the first
+ *   {@link chosenCount} slots are valid; remaining slots hold `-1`. Mutated
+ *   in place during recursion and restored to `-1` on backtrack.
+ * @param chosenCount - Number of probe offsets currently committed in {@link chosen}.
+ * @param result - Accumulator for the resolved {@link Discriminator} entries.
+ * @param discMasks - Flat `Int32Array` of per-entry bitmasks (`entryIndex * W`).
+ * @param W - Number of 32-bit words per bitmask row.
+ * @param counter - Shared row-allocation counter.
  */
 function resolveDiscriminators(
   group: Array<[string, number[]]>,
@@ -390,11 +411,12 @@ function resolveDiscriminators(
 /**
  * Constructs a {@link Discriminator} from the selected character-probe offsets.
  *
- * @param entryIndex Row index into the discriminator mask table.
- * @param len        Expected segment length.
- * @param chosen     Up to three character offsets used as probes.
- * @param lit        The full literal string (used for char-code lookups and optional fallback).
- * @param needsLit   Whether a full-literal comparison is required as a fallback.
+ * @param entryIndex - Row index into the discriminator mask table.
+ * @param len - Expected segment length.
+ * @param chosen - Up to three character offsets used as probes.
+ * @param chosenCount - How many of `chosen`'s slots are populated.
+ * @param lit - The full literal string (used for char-code lookups and optional fallback).
+ * @param needsLit - Whether a full-literal comparison is required as a fallback.
  */
 function createDiscriminator(
   entryIndex: number,
@@ -521,6 +543,8 @@ function generateMatchFunction(
     "segEnd",
     "ctz32fn",
     `return function matchFlare(path) {\n${src}\n//# sourceURL=flare://router/matchFlare\n};`,
+    // new Function's call result is untyped; the cast restates the signature the
+    // assembled source above is built to satisfy.
   )(depthMask, anyMask, discMasks, discs, staticMap, segStart, segEnd, countTrailingZeros) as (
     path: string,
   ) => number;

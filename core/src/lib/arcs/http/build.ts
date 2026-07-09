@@ -1,5 +1,5 @@
 import { compileSerializer } from "@flare-ts/lib/schema";
-import type { FlareRouter } from "../../routing/flare-router.js";
+import type { Router } from "../../routing/router.js";
 import type { StateToken } from "../../state/flare-state.js";
 import type { MiddlewareBase } from "./composition/classes/middleware-base.js";
 import type { RequestDescriptor } from "./composition/contract/http-contract.js";
@@ -15,7 +15,7 @@ import type {
   MiddlewareRegistration,
 } from "./types/registration.js";
 import { descriptorsOf } from "../../contract/read.js";
-import { buildFlareRouter, scoreRoute, splitPath } from "../../routing/flare-router.js";
+import { buildRouter, scoreRoute, splitPath } from "../../routing/router.js";
 import { compileCorsPolicy } from "./cors.js";
 import { compileExecFn } from "./exec-codegen.js";
 import { CHAR_CODE_COLON, CHAR_CODE_SLASH, CHAR_CODE_STAR } from "./http-arc.js";
@@ -26,7 +26,7 @@ import { METHOD_IDX_MAP, SUPPORTED_METHODS } from "./routing/types/methods.js";
 /**
  * Compiles HTTP arc and group registrations into the runtime structures the
  * request pipeline needs: middleware factory arrays, per-route pipelines sorted
- * by specificity, a {@link FlareRouter} over the route paths, and a per-pipeline
+ * by specificity, a {@link Router} over the route paths, and a per-pipeline
  * exec function.
  *
  * @internal
@@ -38,7 +38,7 @@ export function compileHttp(
   groups: GroupRegistration[] = [],
   arcCorsConfig?: CorsConfig,
   providedAtEntry: readonly StateToken[] = [],
-): { middleware: FlareHttpFactory<MiddlewareBase>[]; pipelines: Pipeline[]; router: FlareRouter; execFns: ExecFn[]; } {
+): { middleware: FlareHttpFactory<MiddlewareBase>[]; pipelines: Pipeline[]; router: Router; execFns: ExecFn[]; } {
   const middleware = compileMiddleware(mwRegistrations);
   const pipelines = compilePipelines(
     ctrlRegistrations,
@@ -65,7 +65,7 @@ export function compileHttp(
     execFns.push(compileExecFn(pipeline, middleware, names, mwRegistrations));
   }
 
-  const router = buildFlareRouter(routes, maxDepth);
+  const router = buildRouter(routes, maxDepth);
   return { middleware, pipelines, router, execFns };
 }
 

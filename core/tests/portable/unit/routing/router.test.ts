@@ -1,8 +1,8 @@
 /**
- * Unit tests for {@link FlareRouter} path splitting, route scoring, and trie matching.
+ * Unit tests for {@link Router} path splitting, route scoring, and trie matching.
  */
 import { describe, expect, it } from "vitest";
-import { buildFlareRouter, scoreRoute, splitPath } from "../../../../src/lib/routing/flare-router.js";
+import { buildRouter, scoreRoute, splitPath } from "../../../../src/lib/routing/router.js";
 
 describe("splitPath", () => {
   it("`/` → `[]`", () => {
@@ -33,21 +33,21 @@ describe("scoreRoute", () => {
   });
 });
 
-describe("buildFlareRouter", () => {
+describe("buildRouter", () => {
   it('empty routes: throws "no routes provided"', () => {
-    expect(() => buildFlareRouter([], 0)).toThrow("FlareRouter: no routes provided");
+    expect(() => buildRouter([], 0)).toThrow("Router: no routes provided");
   });
 
   it('more than MAX_ROUTES (1025): throws "exceeds maximum of 1024"', () => {
     const routes = Array.from({ length: 1025 }, (_, i) => `/r${i}`);
-    expect(() => buildFlareRouter(routes, 1)).toThrow(
-      "FlareRouter: 1025 routes exceeds maximum of 1024",
+    expect(() => buildRouter(routes, 1)).toThrow(
+      "Router: 1025 routes exceeds maximum of 1024",
     );
   });
 
   it("static-only routes: exact match via `staticMap` returns the index", () => {
     const routes = ["/users", "/posts", "/admin/dashboard"];
-    const router = buildFlareRouter(routes, 2);
+    const router = buildRouter(routes, 2);
     expect(router.match("/users")).toBe(0);
     expect(router.match("/posts")).toBe(1);
     expect(router.match("/admin/dashboard")).toBe(2);
@@ -55,13 +55,13 @@ describe("buildFlareRouter", () => {
 
   it('param route: matches "/users/123" to "/users/:id"', () => {
     const routes = ["/users/:id"];
-    const router = buildFlareRouter(routes, 2);
+    const router = buildRouter(routes, 2);
     expect(router.match("/users/123")).toBe(0);
   });
 
   it('wildcard route: matches arbitrarily deep paths to "/assets/*path"', () => {
     const routes = ["/assets/*path"];
-    const router = buildFlareRouter(routes, 5);
+    const router = buildRouter(routes, 5);
     expect(router.match("/assets/a")).toBe(0);
     expect(router.match("/assets/a/b")).toBe(0);
     expect(router.match("/assets/a/b/c/d")).toBe(0);
@@ -71,20 +71,20 @@ describe("buildFlareRouter", () => {
     // Caller pre-sorts most-specific first: literal segment (score 2) before
     // param segment (score 1). Lowest set bit wins == lowest index wins.
     const routes = ["/users/me", "/users/:id"];
-    const router = buildFlareRouter(routes, 2);
+    const router = buildRouter(routes, 2);
     expect(router.match("/users/me")).toBe(0);
     expect(router.match("/users/123")).toBe(1);
   });
 
   it("no match: returns -1", () => {
     const routes = ["/users/:id"];
-    const router = buildFlareRouter(routes, 2);
+    const router = buildRouter(routes, 2);
     expect(router.match("/posts/123")).toBe(-1);
   });
 
   it("path exceeds maxDepth+2: returns -1", () => {
     const routes = ["/a"];
-    const router = buildFlareRouter(routes, 1);
+    const router = buildRouter(routes, 1);
     // maxDepth = 1, so depth guard rejects paths whose segment count exceeds
     // maxDepth + 2 = 3.
     expect(router.match("/a/b/c/d")).toBe(-1);
@@ -92,7 +92,7 @@ describe("buildFlareRouter", () => {
 
   it("segStart/segEnd are populated for successful matches", () => {
     const routes = ["/users/:id/posts"];
-    const router = buildFlareRouter(routes, 3);
+    const router = buildRouter(routes, 3);
     const idx = router.match("/users/42/posts");
     expect(idx).toBe(0);
     // Path: "/users/42/posts"
@@ -107,16 +107,16 @@ describe("buildFlareRouter", () => {
   });
 });
 
-describe("Internal helpers (exercised through buildFlareRouter)", () => {
+describe("Internal helpers (exercised through buildRouter)", () => {
   it("isWildcardRoute: true when last segment starts with `*`", () => {
     // Exercised by wildcard routes matching deeper paths than their prefix:
     // only an isWildcardRoute === true route is alive at depths > prefixLen.
     const routes = ["/files/*rest"];
-    const router = buildFlareRouter(routes, 4);
+    const router = buildRouter(routes, 4);
     expect(router.match("/files/a/b/c")).toBe(0);
     // A non-wildcard route of the same prefix would not be alive at deeper
     // depths, so the contrast is observable:
-    const nonWild = buildFlareRouter(["/files/list"], 4);
+    const nonWild = buildRouter(["/files/list"], 4);
     expect(nonWild.match("/files/list/extra")).toBe(-1);
   });
 
@@ -125,13 +125,13 @@ describe("Internal helpers (exercised through buildFlareRouter)", () => {
     // the literal "/api" prefix still discriminates at segment 0, and a path
     // that doesn't match the literal prefix returns -1 even though the route
     // has a wildcard.
-    const wild = buildFlareRouter(["/api/*rest"], 3);
+    const wild = buildRouter(["/api/*rest"], 3);
     expect(wild.match("/api/a/b")).toBe(0);
     expect(wild.match("/other/a/b")).toBe(-1);
 
     // For a non-wildcard, prefixLength === parts.length, so every segment is
     // discriminating and a path with extra segments doesn't match.
-    const plain = buildFlareRouter(["/api/list"], 3);
+    const plain = buildRouter(["/api/list"], 3);
     expect(plain.match("/api/list")).toBe(0);
     expect(plain.match("/api/list/extra")).toBe(-1);
   });
@@ -143,7 +143,7 @@ describe("Internal helpers (exercised through buildFlareRouter)", () => {
     // returned route index: an exact match on the i-th route returns i, which
     // is only correct if ctz of a single-bit mask returns the bit position.
     const routes = Array.from({ length: 33 }, (_, i) => `/r${i}`);
-    const router = buildFlareRouter(routes, 1);
+    const router = buildRouter(routes, 1);
     expect(router.match("/r0")).toBe(0);
     expect(router.match("/r1")).toBe(1);
     expect(router.match("/r31")).toBe(31);
@@ -159,7 +159,7 @@ describe("discriminator collisions (needsLit / partial split / fallback)", () =>
     // Forces needsLit on unprobed tail bytes. Without full-literal compare,
     // "/ab99" could false-positive against "/ab12" when early probes agree.
     const routes = ["/ab12", "/ab34"];
-    const router = buildFlareRouter(routes, 1);
+    const router = buildRouter(routes, 1);
     expect(router.match("/ab12")).toBe(0);
     expect(router.match("/ab34")).toBe(1);
     expect(router.match("/ab99")).toBe(-1);
@@ -170,7 +170,7 @@ describe("discriminator collisions (needsLit / partial split / fallback)", () =>
     // "/file", "/fill", "/fizz" share length and early chars; the resolver
     // must partial-split or fall back to full-literal compare for each.
     const routes = ["/file", "/fill", "/fizz"];
-    const router = buildFlareRouter(routes, 1);
+    const router = buildRouter(routes, 1);
     expect(router.match("/file")).toBe(0);
     expect(router.match("/fill")).toBe(1);
     expect(router.match("/fizz")).toBe(2);
@@ -184,7 +184,7 @@ describe("discriminator collisions (needsLit / partial split / fallback)", () =>
     // shares the first probe char with "me" but must not win the literal route;
     // the param route at the same depth should match instead.
     const routes = ["/users/me", "/users/:id"];
-    const router = buildFlareRouter(routes, 2);
+    const router = buildRouter(routes, 2);
     expect(router.match("/users/me")).toBe(0);
     expect(router.match("/users/123")).toBe(1);
     expect(router.match("/users/mx")).toBe(1);
@@ -200,7 +200,7 @@ describe("discriminator collisions (needsLit / partial split / fallback)", () =>
       "/ab12",
       "/ab34",
     ];
-    const router = buildFlareRouter(routes, 1);
+    const router = buildRouter(routes, 1);
     expect(router.match("/r0")).toBe(0);
     expect(router.match("/r32")).toBe(32);
     expect(router.match("/ab12")).toBe(33);

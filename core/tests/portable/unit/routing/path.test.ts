@@ -1,8 +1,13 @@
 /**
- * Unit tests for route path validation and pattern normalisation.
+ * Unit tests for route path validation, pattern normalisation, and path/query splitting.
  */
 import { describe, expect, it } from "vitest";
-import { assertRegistrationPath, isValidInboundPath, normaliseRoutePattern } from "../../../../src/lib/routing/path.js";
+import {
+  assertRegistrationPath,
+  isValidInboundPath,
+  normaliseRoutePattern,
+  splitPathQuery,
+} from "../../../../src/lib/routing/path.js";
 
 describe("assertRegistrationPath", () => {
   it("accepts root and normal paths", () => {
@@ -49,5 +54,26 @@ describe("normaliseRoutePattern", () => {
 
   it("makes two paths that differ only in param names compare equal", () => {
     expect(normaliseRoutePattern("/chat/:room")).toBe(normaliseRoutePattern("/chat/:user"));
+  });
+});
+
+describe("splitPathQuery", () => {
+  it("splits at the first ? with search excluding the ?", () => {
+    expect(splitPathQuery("/users?page=2")).toEqual({ path: "/users", search: "page=2" });
+    expect(splitPathQuery("/a?b=1?c=2")).toEqual({ path: "/a", search: "b=1?c=2" });
+  });
+
+  it("returns the whole URL as path with empty search when there is no ?", () => {
+    expect(splitPathQuery("/users")).toEqual({ path: "/users", search: "" });
+    expect(splitPathQuery("/")).toEqual({ path: "/", search: "" });
+  });
+
+  it("returns empty search for a trailing ? and empty path for a leading ?", () => {
+    expect(splitPathQuery("/users?")).toEqual({ path: "/users", search: "" });
+    expect(splitPathQuery("?x=1")).toEqual({ path: "", search: "x=1" });
+  });
+
+  it("performs no decoding: encoded characters pass through untouched", () => {
+    expect(splitPathQuery("/a%2Fb?q=%20")).toEqual({ path: "/a%2Fb", search: "q=%20" });
   });
 });
