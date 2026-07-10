@@ -445,7 +445,7 @@ function _detectSlotAsync(
   // have non-async prototype methods that return the user callback's Promise.
   // _isAsyncFn cannot detect these: they're plain functions returning Promises.
   // base.ts sets _asyncHook=true on the class when the user callback is async.
-  if ((cls as { _asyncHook?: boolean; })._asyncHook) return true;
+  if (cls._asyncHook) return true;
 
   // Cache async flags per middleware class: the result is deterministic and shared
   // across every pipeline that uses the same class, so we only inspect prototypes once.

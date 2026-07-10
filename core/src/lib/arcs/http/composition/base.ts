@@ -41,6 +41,9 @@ import { ErrorHandlerBase } from "./classes/error-handler-base.js";
 import { MiddlewareBase } from "./classes/middleware-base.js";
 import { httpContract } from "./contract/http-contract.js";
 
+/** @internal Keys the non-overloaded route-install seam on {@link HttpBase}. */
+export const INSTALL_ROUTE: unique symbol = Symbol("INSTALL_ROUTE");
+
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
 // The storage-erased bound over the heterogeneous handler signatures (route/before/after/finally/
 // error): every function type satisfies `(...args: never[]) => unknown`, and unlike `any[]` it cannot
@@ -345,7 +348,7 @@ export abstract class HttpBase {
           err,
           context,
           attachScopeDeps(
-            { config: <T>(token: ConfigToken<T>): T => this.config(token) },
+            { config: <T>(token: ConfigToken<T>): T => this.container.resolveCfg(token) },
             ownInject,
             (token) => this.inject(token),
           ),
@@ -355,6 +358,21 @@ export abstract class HttpBase {
     Object.defineProperty(BuiltErrorHandler, "name", { value: name });
 
     this.errorHandlers.push({ factory: (container) => new BuiltErrorHandler(container), deps, cls: BuiltErrorHandler });
+  }
+
+  /**
+   * @internal
+   * Non-overloaded route-install seam for framework code that dispatches verbs
+   * dynamically (e.g. Durable Object mount forwarding). The public verb methods
+   * remain the developer surface; this bypasses their per-shape overloads only.
+   */
+  [INSTALL_ROUTE](
+    path: string,
+    method: HttpMethod,
+    options: HttpRouteOptions,
+    handler: HttpRouteHandler,
+  ): void {
+    this.#syntheticController(path, method, options, handler);
   }
 
   #syntheticController(
@@ -504,14 +522,14 @@ export abstract class HttpBase {
           return (handler as HttpBeforeHandler)(
             this.ctx,
             attachScopeDeps(
-              { config: <T>(token: ConfigToken<T>): T => this.config(token) },
+              { config: <T>(token: ConfigToken<T>): T => this.container.resolveCfg(token) },
               ownInject,
               (token) => this.inject(token),
             ),
           );
         }
       };
-      if (callbackIsAsync) (BuiltMiddleware as { _asyncHook?: boolean; })._asyncHook = true;
+      if (callbackIsAsync) BuiltMiddleware._asyncHook = true;
       this.#registerSyntheticMiddleware(name, BuiltMiddleware, provides);
       return;
     }
@@ -526,14 +544,14 @@ export abstract class HttpBase {
             this.ctx,
             result,
             attachScopeDeps(
-              { config: <T>(token: ConfigToken<T>): T => this.config(token) },
+              { config: <T>(token: ConfigToken<T>): T => this.container.resolveCfg(token) },
               ownInject,
               (token) => this.inject(token),
             ),
           );
         }
       };
-      if (callbackIsAsync) (BuiltMiddleware as { _asyncHook?: boolean; })._asyncHook = true;
+      if (callbackIsAsync) BuiltMiddleware._asyncHook = true;
       this.#registerSyntheticMiddleware(name, BuiltMiddleware, provides);
       return;
     }
@@ -547,14 +565,14 @@ export abstract class HttpBase {
           this.ctx,
           result,
           attachScopeDeps(
-            { config: <T>(token: ConfigToken<T>): T => this.config(token) },
+            { config: <T>(token: ConfigToken<T>): T => this.container.resolveCfg(token) },
             ownInject,
             (token) => this.inject(token),
           ),
         );
       }
     };
-    if (callbackIsAsync) (BuiltMiddleware as { _asyncHook?: boolean; })._asyncHook = true;
+    if (callbackIsAsync) BuiltMiddleware._asyncHook = true;
     this.#registerSyntheticMiddleware(name, BuiltMiddleware, provides);
   }
 

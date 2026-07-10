@@ -1,6 +1,7 @@
 /**
  * The class-form error-handler authoring base.
  */
+import type { ConfigToken } from "../../../../config/flare-config.js";
 import type { FlareError } from "../../../../errors/flare-error.js";
 import type { HttpErrorContext } from "../../../../logger/types.js";
 import type { FlareService } from "../../../../services/composition/flare-service.js";
@@ -12,7 +13,8 @@ import { FlareBase } from "../../../../services/composition/flare-base.js";
 /** Constructor type for a class registered with {@link HttpArc.error}. */
 export type ErrorHandlerClass = {
   new(container: Container): ErrorHandlerBase;
-  deps?: ServiceToken<FlareService>[];
+  deps: ServiceToken<FlareService>[];
+  config?: readonly ConfigToken<unknown>[] | undefined;
 };
 
 /**

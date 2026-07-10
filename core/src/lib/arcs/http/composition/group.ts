@@ -132,8 +132,8 @@ export class HttpGroup extends HttpBase {
     registration: ControllerRegistration,
     middleware: readonly MiddlewareRegistration[],
     isolated: boolean,
-    errorHandlers: readonly ErrorHandlerRegistration[] = [],
-    excludeList: readonly MiddlewareClass[] = [],
+    errorHandlers: readonly ErrorHandlerRegistration[],
+    excludeList: readonly MiddlewareClass[],
     replacements: readonly MiddlewareRegistration[] = [],
   ): void {
     const combinedMw = isolated ? undefined : [...replacements, ...middleware];

@@ -2,6 +2,7 @@
  * Front-door routing to Durable Object mounts: stub resolution, mount records, and overlap validation.
  */
 import type { HttpHandlerScope } from "../../../arcs/http/composition/types/handlers.js";
+import type { HttpRouteHandler } from "../../../arcs/http/composition/types/handlers.js";
 import type { HttpArc } from "../../../arcs/http/http-arc.js";
 import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
 import type { ResponseLike } from "../../../arcs/http/transport/types/response.js";
@@ -10,8 +11,10 @@ import type { InjectMap } from "../../../services/types/inject.js";
 import type { ServiceToken } from "../../../services/types/token.js";
 import type { StateToken } from "../../../state/flare-state.js";
 import type { FlareDurableObjectClass } from "./do/durable-object.js";
+import { INSTALL_ROUTE } from "../../../arcs/http/composition/base.js";
 import { joinRoutePath } from "../../../arcs/http/routing/path.js";
 import { _getRoutes } from "../../../arcs/http/routing/route-store.js";
+import { SUPPORTED_METHODS } from "../../../arcs/http/routing/types/methods.js";
 import { FlareResponse } from "../../../arcs/http/transport/flare-response.js";
 import { Bindings } from "./bindings.js";
 import { applyInboundEnvelope, reseedOutboundState } from "./do/state-crossing.js";
@@ -40,9 +43,6 @@ export interface ResolveRecord {
    */
   readonly provides: readonly StateToken[];
 }
-
-/** The HTTP verbs the front-door arc exposes; registering one handler under all of them = "ALL". */
-const ALL_VERBS = ["get", "post", "put", "patch", "delete", "head", "options"] as const;
 
 /**
  * A single explicit mount record: one DO class, the path it is mounted at, and the binding name to
@@ -243,21 +243,14 @@ export function installExplicitMount(frontDoor: HttpArc<"sync">, record: MountRe
     return reseedOutboundState(ctx, cls, res);
   };
 
-  const wildcardHandler = makeHandler(false);
-  const bareHandler = makeHandler(true);
+  // The scope narrows to CombinedScope at runtime (the inject map guarantees bindings);
+  // the seam's handler type cannot carry the per-route inject refinement.
+  const wildcardHandler = makeHandler(false) as unknown as HttpRouteHandler;
+  const bareHandler = makeHandler(true) as unknown as HttpRouteHandler;
 
-  for (const verb of ALL_VERBS) {
-    // The arc's verb methods are overloaded per options shape; dynamic per-verb dispatch
-    // needs one call-compatible signature the overloads cannot union to.
-    const register = (
-      frontDoor[verb] as unknown as (
-        p: string,
-        opts: { inject: Record<string, ServiceToken<FlareService>>; },
-        h: (ctx: FlareHttpContext, scope: CombinedScope) => Promise<ResponseLike>,
-      ) => void
-    ).bind(frontDoor);
-    register(wildcardPath, { inject: combinedInject }, wildcardHandler);
-    register(barePath, { inject: combinedInject }, bareHandler);
+  for (const method of SUPPORTED_METHODS) {
+    frontDoor[INSTALL_ROUTE](wildcardPath, method, { inject: combinedInject }, wildcardHandler);
+    frontDoor[INSTALL_ROUTE](barePath, method, { inject: combinedInject }, bareHandler);
   }
 }
 

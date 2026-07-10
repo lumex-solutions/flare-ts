@@ -170,7 +170,7 @@ function compileMiddleware(middlewareRegistrations: MiddlewareRegistration[]): H
 function getMiddlewareIdxs(
   controller: ControllerRegistration,
   middleware: MiddlewareRegistration[],
-  providedAtEntry: readonly StateToken[] = [],
+  providedAtEntry: readonly StateToken[],
 ): {
   beforeFactoryIdxs: number[];
   afterFactoryIdxs: number[];

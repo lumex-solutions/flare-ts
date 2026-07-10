@@ -14,6 +14,8 @@ import { FlareResponse } from "../../transport/flare-response.js";
 
 export type MiddlewareClass = {
   new(container: Container, ctx: FlareHttpContext): MiddlewareBase;
+  /** @internal Marks a synthetic middleware wrapper whose user callback is async; read by exec codegen. */
+  _asyncHook?: boolean;
   deps: ServiceToken<FlareService>[];
   state: StateToken[];
   provides?: StateToken[];
@@ -28,6 +30,9 @@ export type MiddlewareClass = {
  * state tokens written for downstream handlers in the same request.
  */
 export abstract class MiddlewareBase extends FlareBase {
+  /** @internal Marks a synthetic middleware wrapper whose user callback is async; read by exec codegen. */
+  static _asyncHook?: boolean;
+
   public static override deps: ServiceToken<FlareService>[];
   public static state: StateToken[];
   /** State tokens this middleware writes for later handlers on the same request. */

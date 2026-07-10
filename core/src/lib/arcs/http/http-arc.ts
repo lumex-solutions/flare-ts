@@ -70,7 +70,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
   readonly #onStartCallbacks: Array<LifecycleCallback<TLifecycle>> = [];
   readonly #onStopCallbacks: Array<LifecycleCallback<TLifecycle>> = [];
 
-  constructor(readonly host: IFlareHost) {
+  constructor(readonly host: IFlareHost<TLifecycle>) {
     super();
   }
 

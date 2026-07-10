@@ -189,7 +189,7 @@ export class FlareRequest {
     this.#routeParams = params;
   }
 
-  async #bufferBody(maxBytes = 1024 * 1024): Promise<ArrayBuffer | null> {
+  async #bufferBody(maxBytes: number): Promise<ArrayBuffer | null> {
     const signal = this.#signal;
     const iterable = this.nativeRequest instanceof Request
       ? this.nativeRequest.body // ReadableStream: async iterable per spec

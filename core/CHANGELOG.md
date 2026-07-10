@@ -242,6 +242,10 @@ host extensions are coming soon.
 
 ### Fixed
 
+- `scope.config(token)` now works in function-form middleware and error handlers.
+  Previously it always threw a missing-static-config error; only route handlers could
+  read config through the scope.
+
 - The Cloudflare streaming-response writer aborts on a body-stream error instead of
   hanging.
 

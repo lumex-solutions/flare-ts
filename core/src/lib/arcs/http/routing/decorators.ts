@@ -139,8 +139,8 @@ export function Method(method: string, path?: string): Function {
 
 export function registerRoute(cls: ControllerClass, method: string, handlerName: string): void {
   const metaSym = Symbol.metadata ?? Symbol.for("Symbol.metadata");
-  // TODO(review): replace any - ControllerClass type does not expose Symbol.metadata indexing yet.
-  const metadata = (cls as any)[metaSym] as DecoratorMetadataObject;
+  // Symbol.metadata access: the class type does not declare the decorator metadata slot.
+  const metadata = (cls as unknown as Record<symbol, DecoratorMetadataObject>)[metaSym]!;
   const handler = cls.prototype[handlerName] as ControllerHandler;
   const routes = ROUTE_STORE.get(metadata) ?? [];
   routes.push({ method, path: "", handler });

@@ -135,7 +135,7 @@ function _appendActualHeaders(
   const allowOrigin = policy.allowOriginHeader ?? origin;
 
   if (response instanceof FlareResponse) {
-    const h = response.headers as Record<string, string>;
+    const h = response.headers;
     h["Access-Control-Allow-Origin"] = allowOrigin;
     if (policy.credentialsHeader !== null) {
       h["Access-Control-Allow-Credentials"] = policy.credentialsHeader;
