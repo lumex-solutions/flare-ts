@@ -9,7 +9,7 @@ import type { AddressInfo } from "node:net";
 import { once } from "node:events";
 import { afterEach, describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib/schema";
-import type { FlareAppNode, NodeRunHandle } from "../../../../../src/lib/host/runtime/node.js";
+import type { FlareAppNode, NodeRunHandle } from "../../../../../src/lib/host/runtime/node/node.js";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import type { LogRecord, LoggerTransportClass } from "../../../../../src/lib/logger/types.js";
 import { MiddlewareBase } from "../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";

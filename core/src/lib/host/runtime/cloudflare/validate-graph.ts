@@ -1,3 +1,6 @@
+/**
+ * The Cloudflare build validator: per-context service graphs, mounts, and channels checked at build.
+ */
 import type { JsonObject } from "@flare-ts/lib";
 import type { HttpArc } from "../../../arcs/http/http-arc.js";
 import type { ControllerRegistration, MiddlewareRegistration } from "../../../arcs/http/types/registration.js";
@@ -24,7 +27,8 @@ import { ServiceRegistrationValidator } from "../../../validation/service/servic
 import { WsConfigValidator } from "../../../validation/ws/config-validator.js";
 import { WsRouteConflictValidator } from "../../../validation/ws/route-conflict-validator.js";
 import { WsRouteSyntaxValidator } from "../../../validation/ws/route-syntax-validator.js";
-import { Bindings, DurableState } from "./services.js";
+import { Bindings } from "./bindings.js";
+import { DurableState } from "./durable-state.js";
 import { staticStateTokens } from "./state-crossing.js";
 
 /** Read-only graph the adapter hands the validator: the front door arc, the per-DO arcs, the DOs, services. */

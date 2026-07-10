@@ -1,10 +1,10 @@
 /**
  * The test-mode runtime app host.build() returns under FLARE_MODE=test.
  */
-import type { AppTestOptions } from "../host/flare-app.js";
+import type { AppTestOptions } from "../host/flare-app-base.js";
 import type { IFlareHost, IFlareTestHost } from "../host/flare-host.js";
 import type { AnyAdapter, HostedApp } from "./test-app-handle.js";
-import { FlareAppBase } from "../host/flare-app.js";
+import { FlareAppBase } from "../host/flare-app-base.js";
 import { COMPILE_FOR_TEST, RESET_FOR_TEST, SET_HOST_STATE } from "../host/types/const.js";
 import { FlareTestError } from "./flare-test-error.js";
 import { TestAppHandle } from "./test-app-handle.js";

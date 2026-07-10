@@ -1,3 +1,6 @@
+/**
+ * The singleton extension long-lived runtimes stamp: host.singleton() registration.
+ */
 import type { FlareService } from "../../services/composition/flare-service.js";
 import type { ServiceClass } from "../../services/types/service-class.js";
 import type { ServiceToken } from "../../services/types/token.js";

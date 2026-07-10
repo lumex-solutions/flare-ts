@@ -1,11 +1,16 @@
+/**
+ * The Bun runtime placeholder adapter.
+ */
+// Placeholder adapter: reads flare.json via node:fs because Bun implements the Node API
+// and no bun-native runtime folder exists yet; the restriction guards portable files.
 // eslint-disable-next-line no-restricted-imports
 import { readFileSync } from "node:fs";
-import type { LoggerTransportClass } from "../../logger/types";
-import type { SingletonExtension } from "../extensions/singleton";
-import type { HostRuntimeAdapter } from "../types/adapter";
-import { Logger } from "../../logger/logger";
-import { ConsoleTransport } from "../../logger/transports/console.js";
-import { singletonExtension } from "../extensions/singleton";
+import type { LoggerTransportClass } from "../../../logger/types";
+import type { SingletonExtension } from "../../extensions/singleton";
+import type { HostRuntimeAdapter } from "../../types/adapter";
+import { Logger } from "../../../logger/logger";
+import { ConsoleTransport } from "../../../logger/transports/console.js";
+import { singletonExtension } from "../../extensions/singleton";
 
 /**
  * Placeholder Bun runtime adapter. Reads `flare.json` and exposes `process.env`, but

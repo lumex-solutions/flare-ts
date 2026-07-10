@@ -1,3 +1,6 @@
+/**
+ * State crossing between the front door and Durable Object instances: envelope encode/decode over declared tokens.
+ */
 import type { JsonValue } from "@flare-ts/lib/schema";
 import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
 import type { StateToken } from "../../../state/flare-state.js";

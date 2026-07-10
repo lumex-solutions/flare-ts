@@ -1,3 +1,6 @@
+/**
+ * The per-context Cloudflare request handlers: front-door Worker and Durable Object instance dispatch over one shared core.
+ */
 import type { HttpArc } from "../../../arcs/http/http-arc.js";
 import type { ResponseLike } from "../../../arcs/http/transport/types/response.js";
 import type { IWsChannelDomain } from "../../../arcs/ws/channels/domain.js";
@@ -354,6 +357,8 @@ export class DurableHandler extends FlareCfHandlerBase {
 
   /** Resolves a config token from the host config, same value `scope.config(token)` returns. */
   config<T>(token: ConfigToken<T>): T {
+    // The resolved config is a plain record; the token's phantom type restates the
+    // section shape the config pass validated at build.
     return (this.host.config as Record<string, unknown>)[token.key] as T;
   }
 }

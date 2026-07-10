@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
-import { bun } from "../../../../../src/lib/host/runtime/bun.js";
+import { bun } from "../../../../../src/lib/host/runtime/bun/bun.js";
 import { ConsoleTransport } from "../../../../../src/lib/logger/transports/console.js";
 
 describe("bun adapter (module-scope constant)", () => {

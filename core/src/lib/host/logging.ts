@@ -1,4 +1,7 @@
-import type { LoggerTransportClass } from "../../logger/types.js";
+/**
+ * The host.logging composition handle: transport registration recorded for build.
+ */
+import type { LoggerTransportClass } from "../logger/types.js";
 
 /**
  * Registers additional logger transports. Registered classes fire in registration order

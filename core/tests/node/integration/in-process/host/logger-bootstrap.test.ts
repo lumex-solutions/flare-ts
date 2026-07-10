@@ -6,7 +6,7 @@ process.env.FLARE_MODE = "test";
 
 import { afterEach, describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
-import type { node } from "../../../../../src/lib/host/runtime/node.js";
+import type { node } from "../../../../../src/lib/host/runtime/node/node.js";
 import type { ConsoleTransport } from "../../../../../src/lib/logger/transports/console.js";
 import type { LogRecord } from "../../../../../src/lib/logger/types.js";
 import type { Container } from "../../../../../src/lib/services/container.js";

@@ -1,3 +1,6 @@
+/**
+ * The host extension vocabulary: the narrow install context, the descriptor, the member mapping, and defineHostExtension.
+ */
 import type { HttpArc } from "../../arcs/http/http-arc.js";
 import type { ConfigToken } from "../../config/flare-config.js";
 import type { FlareService } from "../../services/composition/flare-service.js";

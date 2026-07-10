@@ -3,7 +3,7 @@
  * symbol-keyed inspect seams.
  */
 import type { HostConfig } from "../config/flare-config.js";
-import type { IFlareApp } from "../host/flare-app.js";
+import type { IFlareApp } from "../host/flare-app-base.js";
 import type { IFlareHost, IFlareTestHost } from "../host/flare-host.js";
 import type { AppInspectSnapshot, BuildSnapshot } from "./types/inspect-build.js";
 import { INSPECT_HTTP_ARC } from "../arcs/http/http-arc.js";

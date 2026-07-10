@@ -8,7 +8,7 @@ import type { AddressInfo } from "node:net";
 import { once } from "node:events";
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib/schema";
-import type { FlareAppNode } from "../../../../../src/lib/host/runtime/node.js";
+import type { FlareAppNode } from "../../../../../src/lib/host/runtime/node/node.js";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";

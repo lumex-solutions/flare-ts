@@ -13,7 +13,7 @@ import type { RequestAdapter } from "../../../../../src/lib/arcs/http/transport/
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import type { LogRecord } from "../../../../../src/lib/logger/types.js";
 import { FlareHost, FlareHttpContext, FlareRequest, FlareResponse } from "../../../../../src/index.js";
-import { FlareAppBase } from "../../../../../src/lib/host/flare-app.js";
+import { FlareAppBase } from "../../../../../src/lib/host/flare-app-base.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";
 import { LoggerTransport } from "../../../../../src/lib/logger/transport.js";
 import { registerMinimalPingRoute } from "../../../../portable/helpers/host-fixtures.js";

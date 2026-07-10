@@ -1,3 +1,7 @@
+/**
+ * The composition root: FlareHost wires adapters, services, config, arcs, and
+ * extensions, and compiles them into a runtime app on build().
+ */
 import type { JsonObject } from "@flare-ts/lib";
 import { type DescriptorValue, schema } from "@flare-ts/lib";
 import type { OpaqueConfigToken } from "../config/flare-config.js";
@@ -14,10 +18,13 @@ import type { ServiceValidationContext } from "../validation/service/composite.j
 import type { ValidationError } from "../validation/types.js";
 import type { WsValidationContext } from "../validation/ws/composite.js";
 import type { ExtensionMembers, HostExtension, HostExtensionContext } from "./extensions/extension.js";
-import type { IFlareApp } from "./flare-app.js";
+import type { IFlareApp } from "./flare-app-base.js";
 import type { HostRuntimeAdapter } from "./types/adapter.js";
+import type { FlareApp } from "./types/app.js";
+import type { FlareConfig } from "./types/config.js";
 import type { HostRuntimeLifecycle } from "./types/lifecycle.js";
-import type { FlareApp, FlareConfig, HostRuntime, HostState } from "./types/types.js";
+import type { HostRuntime } from "./types/runtime.js";
+import type { HostState } from "./types/state.js";
 import { COMPILE_HTTP_ARC, HttpArc, INSPECT_HTTP_ARC, REEVALUATE_CONTAINER_STRATEGY } from "../arcs/http/http-arc.js";
 import { CookieSigner } from "../arcs/http/transport/cookie-signer.js";
 import { COMPILE_WS_ARC, WS_REGISTRATIONS, WebSocketArc } from "../arcs/ws/ws-arc.js";
@@ -42,7 +49,7 @@ import { createHttpValidator } from "../validation/http/composite.js";
 import { createServiceValidator } from "../validation/service/composite.js";
 import { createWsValidator } from "../validation/ws/composite.js";
 import { WsConfigValidator } from "../validation/ws/config-validator.js";
-import { Logging } from "./composition/logging.js";
+import { Logging } from "./logging.js";
 import {
   COMPILE_FOR_TEST,
   COMPILE_INSTANCE_CONTAINER,
@@ -72,6 +79,10 @@ type ExtensionOf<TAdapter> = TAdapter extends
  * plus the members installed by the host extensions passed as the second argument. The extensions array
  * is a `const` type parameter, so `host.<name>` is derived directly from the passed descriptors; a host
  * that did not opt into an extension does not have its member.
+ *
+ * This is the type behind the exported `FlareHost` VALUE. The members themselves live on the
+ * (unexported) implementation class; hover a constructed instance for their docs, or annotate
+ * with the {@link FlareHost} type alias, which carries the same adapter and extension typing.
  */
 interface FlareHostConstructor {
   new<
@@ -124,6 +135,12 @@ export interface FlareBuildContext {
 }
 
 /**
+ * The read-only view of the host's scoped-service registrations exposed by
+ * {@link FlareHost.scopedServices}: lookup, token iteration, and count, never mutation.
+ */
+export type ScopedServicesView = Pick<FlareRegistrationMap, "get" | "tokens" | "length">;
+
+/**
  * Composition root contract observed by {@link FlareAppBase} and its runtime subclasses. Concrete
  * runtimes consume a host implementation rather than depending on the {@link FlareHost} class.
  */
@@ -139,7 +156,7 @@ export interface IFlareHost {
   logger: Logger;
   /** @internal Cookie signer derived from `cookies.secret`, or `undefined` when no secret is configured. */
   cookieSigner: CookieSigner | undefined;
-  scopedServices: Pick<FlareRegistrationMap, "get" | "tokens" | "length">;
+  scopedServices: ScopedServicesView;
   singletonServices: ReadonlyMap<ServiceToken<FlareService>, FlareService>;
   [SET_HOST_STATE](state: HostState): void;
   /**
@@ -314,7 +331,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
    * Framework logger, bootstrapped during {@link build} before any user-land service is
    * instantiated.
    *
-   * @throws If accessed before {@link build} has compiled the logger.
+   * @throws {Error} If accessed before {@link build} has compiled the logger.
    */
   public get logger(): Logger {
     const logger = this.#singletons.get(Logger);
@@ -323,11 +340,13 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
         "Logger not initialized yet. Accessing the host logger before #compileLogger() has been called is not allowed.",
       );
     }
+    // #compileLogger seeded this exact key with the Logger singleton; the widened
+    // map value type cannot carry that invariant.
     return logger as Logger;
   }
 
   /** Read-only view of the per-request service registry compiled from {@link scoped} registrations. */
-  public get scopedServices(): Pick<FlareRegistrationMap, "get" | "tokens" | "length"> {
+  public get scopedServices(): ScopedServicesView {
     return this.#scoped;
   }
 
@@ -372,7 +391,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
    * completes. Use {@link singleton} for long-lived services.
    *
    * @param service - The service class to register.
-   * @throws If the class is missing the required static `deps` array.
+   * @throws {Error} If the class is missing the required static `deps` array.
    */
   public scoped<T extends FlareService>(service: ServiceClass<T>): void {
     this.#assertOpen("host.scoped()");
@@ -956,13 +975,24 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
  * Composition root of a Flare application. `new FlareHost(adapter)` returns the host plus any members
  * the adapter stamps via `extendHost`.
  */
-export const FlareHost = FlareHostBase as unknown as FlareHostConstructor; // stamped members are added at runtime by the constructor
+// The cast is type-only and the value IS the class: a class declaration cannot type its
+// own constructor as returning the instance PLUS the adapter- and extension-stamped members,
+// which the constructor genuinely installs at runtime (#stampMembers). The construct-signature
+// interface restates that runtime fact; flare-host-types.test.ts pins it.
+export const FlareHost = FlareHostBase as unknown as FlareHostConstructor;
 
-/** The host instance type for a given adapter: the base host plus the adapter's stamped extension. */
+/**
+ * The host instance type for a given adapter: the base host plus the adapter's stamped
+ * extension, plus the members of any host extensions named in `E`.
+ *
+ * `E` mirrors the constructor's second argument, so an annotation can carry extension
+ * members: `FlareHost<typeof node, [ReturnType<typeof drizzle>]>`.
+ */
 export type FlareHost<
   TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTransportClass, HostRuntimeLifecycle> = HostRuntimeAdapter<
     IFlareApp,
     LoggerTransportClass,
     HostRuntimeLifecycle
   >,
-> = FlareHostBase<TAdapter> & ExtensionOf<TAdapter>;
+  E extends readonly HostExtension[] = readonly [],
+> = FlareHostBase<TAdapter> & ExtensionOf<TAdapter> & ExtensionMembers<E>;

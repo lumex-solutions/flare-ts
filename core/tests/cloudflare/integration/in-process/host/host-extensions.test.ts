@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
 import type { FlareRequest, Logger } from "../../../../../src/index.js";
-import type { IFlareApp } from "../../../../../src/lib/host/flare-app.js";
+import type { IFlareApp } from "../../../../../src/lib/host/flare-app-base.js";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import { FlareDurableObject } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse, FlareService } from "../../../../../src/index.js";

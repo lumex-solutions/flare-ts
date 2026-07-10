@@ -1,5 +1,5 @@
 /** `@flare-ts/core/testing`: the portable testing surface (the in-process `.test()` harness, build inspection, and DI mocks). */
-export type { AppTestOptions } from "./lib/host/flare-app.js";
+export type { AppTestOptions } from "./lib/host/flare-app-base.js";
 export { FlareTestError } from "./lib/testing/flare-test-error.js";
 export { inspectBuild } from "./lib/testing/inspect-build.js";
 export { mockContainer, mockContext } from "./lib/testing/mock.js";

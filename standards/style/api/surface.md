@@ -14,6 +14,17 @@ export-site cast, the type is the defect, not the export.
 
 Test: does an IDE hover on the imported name show the concept the docs describe?
 
+Sanctioned exception - runtime-stamped constructor typing: when a constructor genuinely
+installs members at runtime whose types depend on its arguments (adapter-stamped extensions,
+a `const`-inferred extensions tuple), a class declaration cannot type its own construction
+result. The pattern is a merged const+type pair: the const casts the class to a
+construct-signature interface, the type alias mirrors the construct signature's full return
+(including every generic the constructor infers). All four guardrails are required: the cast
+is type-only and the value IS the class (instanceof intact); the cast carries a pairing note;
+the construct-signature interface's JSDoc points readers at the instance type; a types-test
+pins the stamped members compile against both the construction and the alias. `FlareHost` is
+the canonical instance.
+
 ## Concept budget
 
 Every public noun is earned. Near-synonyms are deleted, not accumulated. When explaining

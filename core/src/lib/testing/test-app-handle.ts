@@ -4,7 +4,7 @@
  */
 import type { HttpArc } from "../arcs/http/http-arc.js";
 import type { ResponseLike } from "../arcs/http/transport/types/response.js";
-import type { IFlareApp } from "../host/flare-app.js";
+import type { IFlareApp } from "../host/flare-app-base.js";
 import type { HostRuntimeAdapter } from "../host/types/adapter.js";
 import type { HostRuntimeLifecycle } from "../host/types/lifecycle.js";
 import type { LoggerTransportClass } from "../logger/types.js";

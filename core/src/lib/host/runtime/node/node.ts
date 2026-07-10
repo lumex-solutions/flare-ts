@@ -1,30 +1,33 @@
+/**
+ * The Node runtime: the node adapter and the FlareAppNode server over node:http.
+ */
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { Readable } from "node:stream";
-import type { ResponseLike } from "../../arcs/http/transport/types/response.js";
-import type { IFlareWebSocket } from "../../arcs/ws/transport/socket.js";
-import type { HostConfig, LogConfig } from "../../config/flare-config.js";
-import type { LogContext } from "../../logger/types.js";
-import type { LoggerTransportClass } from "../../logger/types.js";
-import type { TestRequestInput } from "../../testing/types/flare-test-req.js";
-import type { SingletonExtension } from "../extensions/singleton.js";
-import type { HostRuntimeAdapter } from "../types/adapter.js";
-import { FlareHttpContext } from "../../arcs/http/transport/flare-http-context.js";
-import { FlareRequest } from "../../arcs/http/transport/flare-request.js";
-import { FlareResponse } from "../../arcs/http/transport/flare-response.js";
-import { nodeRequestAdapter } from "../../arcs/http/transport/runtime/node.js";
-import { DRAIN_SET_COOKIES } from "../../arcs/http/transport/types/cookies.js";
-import { WebSocketChannels } from "../../arcs/ws/channels/web-socket-channels.js";
-import { handleNodeWsUpgrade } from "../../arcs/ws/transport/runtime/node/upgrade.js";
-import { WS_CHANNEL_REGISTRY, WS_REGISTRATIONS } from "../../arcs/ws/ws-arc.js";
-import { loggerALS } from "../../logger/context.js";
-import { Logger } from "../../logger/logger.js";
-import { ConsoleTransport } from "../../logger/transports/console.js";
-import { singletonExtension } from "../extensions/singleton.js";
-import { FlareAppBase } from "../flare-app.js";
-import { PROVIDE_SERVICE, SET_HOST_STATE } from "../types/const.js";
+import type { ResponseLike } from "../../../arcs/http/transport/types/response.js";
+import type { IFlareWebSocket } from "../../../arcs/ws/transport/socket.js";
+import type { HostConfig, LogConfig } from "../../../config/flare-config.js";
+import type { LogContext } from "../../../logger/types.js";
+import type { LoggerTransportClass } from "../../../logger/types.js";
+import type { TestRequestInput } from "../../../testing/types/flare-test-req.js";
+import type { SingletonExtension } from "../../extensions/singleton.js";
+import type { HostRuntimeAdapter } from "../../types/adapter.js";
+import { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
+import { FlareRequest } from "../../../arcs/http/transport/flare-request.js";
+import { FlareResponse } from "../../../arcs/http/transport/flare-response.js";
+import { nodeRequestAdapter } from "../../../arcs/http/transport/runtime/node.js";
+import { DRAIN_SET_COOKIES } from "../../../arcs/http/transport/types/cookies.js";
+import { WebSocketChannels } from "../../../arcs/ws/channels/web-socket-channels.js";
+import { handleNodeWsUpgrade } from "../../../arcs/ws/transport/runtime/node/upgrade.js";
+import { WS_CHANNEL_REGISTRY, WS_REGISTRATIONS } from "../../../arcs/ws/ws-arc.js";
+import { loggerALS } from "../../../logger/context.js";
+import { Logger } from "../../../logger/logger.js";
+import { ConsoleTransport } from "../../../logger/transports/console.js";
+import { singletonExtension } from "../../extensions/singleton.js";
+import { FlareAppBase } from "../../flare-app-base.js";
+import { PROVIDE_SERVICE, SET_HOST_STATE } from "../../types/const.js";
 
 // TODO: Move into a /node folder, extract types, multiple files for main pieces, etc
 
@@ -182,7 +185,7 @@ export class FlareAppNode extends FlareAppBase {
    * Starts the HTTP server, binds process signal handlers, and returns a handle for stopping the
    * application without exiting the host process.
    *
-   * @throws If invoked more than once on the same app instance.
+   * @throws {Error} If invoked more than once on the same app instance.
    */
   run(options?: NodeRunOptions): NodeRunHandle {
     if (this.#server) {

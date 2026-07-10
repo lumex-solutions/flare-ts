@@ -1,3 +1,6 @@
+/**
+ * Durable Object composition: the static base class, per-instance host composition, and the DO class vocabulary.
+ */
 import { DurableObject } from "cloudflare:workers";
 import type { IWsChannelDomain } from "../../../arcs/ws/channels/domain.js";
 import type { HibernatedEvent } from "../../../arcs/ws/transport/runtime/cloudflare/types.js";
@@ -23,8 +26,9 @@ import { _log } from "../../../logger/bootstrap.js";
 import { toErrorField } from "../../../logger/fields.js";
 import { COMPILE_INSTANCE_CONTAINER } from "../../types/const.js";
 import { arcForDurableObject, wsArcForDurableObject } from "./app.js";
+import { Bindings } from "./bindings.js";
+import { DurableState } from "./durable-state.js";
 import { DurableHandler, isWebSocketUpgrade } from "./handler.js";
-import { Bindings, DurableState } from "./services.js";
 
 /** Map of per-context seed factories handed to `[COMPILE_INSTANCE_CONTAINER]`. */
 type SeedMap = Map<ServiceToken<FlareService>, (container: Container) => FlareService>;

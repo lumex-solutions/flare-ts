@@ -13,7 +13,7 @@ import type { LogRecord } from "../../../../../src/lib/logger/types.js";
 import type { LoggerTransportClass } from "../../../../../src/lib/logger/types.js";
 import { FlareHost, FlareResponse, FlareService, Logger, LoggerTransport } from "../../../../../src/index.js";
 import { singletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
-import { FlareAppBase } from "../../../../../src/lib/host/flare-app.js";
+import { FlareAppBase } from "../../../../../src/lib/host/flare-app-base.js";
 import { node } from "../../../../../src/node.js";
 import { registerMinimalPingRoute } from "../../../../portable/helpers/host-fixtures.js";
 

@@ -1,7 +1,7 @@
 /** Unit tests for Logging transport class registration. */
 import { describe, it, expect } from "vitest";
-import type { LoggerTransportClass } from "../../../../../src/lib/logger/types.js";
-import { Logging } from "../../../../../src/lib/host/composition/logging.js";
+import type { LoggerTransportClass } from "../../../../src/lib/logger/types.js";
+import { Logging } from "../../../../src/lib/host/logging.js";
 
 /**
  * Minimal `LoggerTransportClass`-shaped stubs. `Logging` only stores the class

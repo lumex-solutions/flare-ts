@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
 import type { FlareRequest } from "../../../../../src/lib/arcs/http/transport/flare-request.js";
 import type { SingletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
-import type { IFlareApp } from "../../../../../src/lib/host/flare-app.js";
+import type { IFlareApp } from "../../../../../src/lib/host/flare-app-base.js";
 import type { IFlareHost } from "../../../../../src/lib/host/flare-host.js";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import type { Logger } from "../../../../../src/lib/logger/logger.js";
@@ -20,7 +20,7 @@ import type { Container } from "../../../../../src/lib/services/container.js";
 import type { TestRequestInput } from "../../../../../src/lib/testing/types/flare-test-req.js";
 import { FlareHost, FlareResponse, FlareService, FlareValidationError } from "../../../../../src/index.js";
 import { singletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
-import { FlareAppNode } from "../../../../../src/lib/host/runtime/node.js";
+import { FlareAppNode } from "../../../../../src/lib/host/runtime/node/node.js";
 import { node } from "../../../../../src/node.js";
 
 type CustomAdapterInit = {

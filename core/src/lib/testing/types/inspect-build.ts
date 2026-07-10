@@ -1,9 +1,11 @@
+import type { FlareConfig } from "../../host/types/config.js";
 /**
  * The build-snapshot vocabulary inspectBuild() returns; host and arcs implement the
  * per-section shapes behind their inspect seams.
  */
 import type { HostRuntimeLifecycle } from "../../host/types/lifecycle.js";
-import type { FlareConfig, HostRuntime, HostState } from "../../host/types/types.js";
+import type { HostRuntime } from "../../host/types/runtime.js";
+import type { HostState } from "../../host/types/state.js";
 
 /** Snapshot of one compiled HTTP pipeline: its route, sort score, and exec/CORS shape. */
 export type PipelineInspectSnapshot = {

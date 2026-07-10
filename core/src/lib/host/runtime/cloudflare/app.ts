@@ -1,3 +1,6 @@
+/**
+ * The Cloudflare runtime: the cf adapter, CloudflareApp's export() terminal, and Durable Object mount registration.
+ */
 import type { JsonObject } from "@flare-ts/lib";
 import type { HttpHandlerScope } from "../../../arcs/http/composition/types/handlers.js";
 import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
@@ -22,12 +25,12 @@ import { CfConsoleTransport } from "../../../logger/runtime/cloudflare/cf-consol
 import { CfLogger } from "../../../logger/runtime/cloudflare/cf-logger.js";
 import { getTokenDefault, getTokenDerivation } from "../../../state/read.js";
 import { FlareValidationError } from "../../../validation/flare-validation-error.js";
-import { FlareAppBase } from "../../flare-app.js";
+import { FlareAppBase } from "../../flare-app-base.js";
 import { COMPILE_INSTANCE_CONTAINER, REGISTER_BUILD_HOOK, SET_HOST_STATE } from "../../types/const.js";
+import { Bindings } from "./bindings.js";
 import { DO_HOST } from "./durable-object.js";
 import { buildCfTestRequest, WORKER_CHANNELS_UNSUPPORTED, WorkerHandler } from "./handler.js";
 import { installExplicitMount, mountOverlapErrors, snapshotFrontDoorPatterns } from "./router.js";
-import { Bindings } from "./services.js";
 import { registerStateTokens, staticStateTokens } from "./state-crossing.js";
 import { compileDurableArcs, compileDurableWsArcs, validateCfGraph } from "./validate-graph.js";
 

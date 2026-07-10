@@ -3,7 +3,7 @@
  * full host and are pinned by the node integration suites.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import type { IFlareApp } from "../../../../src/lib/host/flare-app.js";
+import type { IFlareApp } from "../../../../src/lib/host/flare-app-base.js";
 import type { IFlareHost, IFlareTestHost } from "../../../../src/lib/host/flare-host.js";
 import type { HostRuntimeAdapter } from "../../../../src/lib/host/types/adapter.js";
 import type { HostRuntimeLifecycle } from "../../../../src/lib/host/types/lifecycle.js";

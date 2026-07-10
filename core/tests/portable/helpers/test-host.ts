@@ -3,8 +3,8 @@
  * instances for portable integration tests. Synthetic flare.json defaults to {}.
  */
 import type { JsonObject } from "@flare-ts/lib";
-import type { ExtensionMembers, HostExtension } from "../../../src/lib/host/extensions/extension.js";
-import type { node } from "../../../src/lib/host/runtime/node.js";
+import type { HostExtension } from "../../../src/lib/host/extensions/extension.js";
+import type { node } from "../../../src/lib/host/runtime/node/node.js";
 import { FlareHost } from "../../../src/index.js";
 
 /** Injected per vitest project via `define` (see vitest.config*.ts); absent means the env decides. */
@@ -51,7 +51,7 @@ const adapterFor: (flareJson: JsonObject) => unknown = await (async () => {
 export function testHost<const E extends readonly HostExtension[] = readonly []>(
   flareJson: JsonObject = {},
   extensions?: E,
-): FlareHost<NodeAdapter> & ExtensionMembers<E> {
+): FlareHost<NodeAdapter, E> {
   // The node-adapter typing is the portable authoring surface; when the cloudflare pool resolves
   // the cf test adapter instead, the host still satisfies everything a portable suite may touch.
   return new FlareHost(adapterFor(flareJson) as NodeAdapter, extensions);

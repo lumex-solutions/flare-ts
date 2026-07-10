@@ -1,3 +1,6 @@
+/**
+ * The runtime adapter contract: what each runtime supplies to compose a host.
+ */
 import type { JsonObject } from "@flare-ts/lib/schema";
 import type { FlareRequest } from "../../arcs/http/transport/flare-request";
 import type { Logger } from "../../logger/logger";
@@ -5,10 +8,10 @@ import type { LoggerTransport } from "../../logger/transport";
 import type { LoggerTransportClass } from "../../logger/types";
 import type { Container } from "../../services/container";
 import type { TestRequestInput } from "../../testing/types/flare-test-req";
-import type { IFlareApp } from "../flare-app";
+import type { IFlareApp } from "../flare-app-base.js";
 import type { IFlareHost } from "../flare-host";
 import type { HostRuntimeLifecycle } from "./lifecycle";
-import type { HostRuntime } from "./types";
+import type { HostRuntime } from "./runtime.js";
 
 /**
  * Pluggable interface that lets a Flare host run on multiple JavaScript runtimes by supplying the

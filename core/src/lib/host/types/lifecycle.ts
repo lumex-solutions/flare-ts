@@ -1,3 +1,6 @@
+/**
+ * The lifecycle vocabulary: sync-vs-async adapter modes and lifecycle callbacks.
+ */
 /** Lifecycle flavour for a runtime: `"sync"` rejects Promise-returning hooks, `"async"` awaits them. */
 export type HostRuntimeLifecycle = "sync" | "async";
 

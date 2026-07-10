@@ -4,10 +4,10 @@
  */
 import type { JsonObject } from "@flare-ts/lib";
 import type { SingletonExtension } from "../../../src/lib/host/extensions/singleton.js";
-import type { FlareAppNode } from "../../../src/lib/host/runtime/node.js";
+import type { FlareAppNode } from "../../../src/lib/host/runtime/node/node.js";
 import type { HostRuntimeAdapter } from "../../../src/lib/host/types/adapter.js";
 import type { LoggerTransportClass } from "../../../src/lib/logger/types.js";
-import { node } from "../../../src/lib/host/runtime/node.js";
+import { node } from "../../../src/lib/host/runtime/node/node.js";
 
 /** Node runtime adapter type used by core integration tests. */
 export type NodeTestAdapter = HostRuntimeAdapter<FlareAppNode, LoggerTransportClass, "async", SingletonExtension>;

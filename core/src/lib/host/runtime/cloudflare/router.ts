@@ -1,3 +1,6 @@
+/**
+ * Front-door routing to Durable Object mounts: stub resolution, mount records, and overlap validation.
+ */
 import type { HttpHandlerScope } from "../../../arcs/http/composition/types/handlers.js";
 import type { HttpArc } from "../../../arcs/http/http-arc.js";
 import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
@@ -11,7 +14,7 @@ import type { FlareDurableObjectClass } from "./durable-object.js";
 import { joinRoutePath } from "../../../arcs/http/routing/path.js";
 import { _getRoutes } from "../../../arcs/http/routing/route-store.js";
 import { FlareResponse } from "../../../arcs/http/transport/flare-response.js";
-import { Bindings } from "./services.js";
+import { Bindings } from "./bindings.js";
 import { applyInboundEnvelope, reseedOutboundState } from "./state-crossing.js";
 
 /**
@@ -334,6 +337,8 @@ export function installExplicitMount(frontDoor: HttpArc<"sync">, record: MountRe
   const bareHandler = makeHandler(true);
 
   for (const verb of ALL_VERBS) {
+    // The arc's verb methods are overloaded per options shape; dynamic per-verb dispatch
+    // needs one call-compatible signature the overloads cannot union to.
     const register = (
       frontDoor[verb] as unknown as (
         p: string,

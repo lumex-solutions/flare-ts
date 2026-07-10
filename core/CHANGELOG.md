@@ -54,6 +54,13 @@ host extensions are coming soon.
 
 ### Added
 
+- `FlareApp`, `HostState`, and `ScopedServicesView` are exported from `@flare-ts/core`,
+  and `FlareAppNode` is exported as a type from `@flare-ts/core/node` (parity with
+  `CloudflareApp` on the cloudflare entry), so helpers can name `host.build()`'s return
+  and the host's registration view. The `FlareHost` type now accepts an extensions tuple
+  parameter (`FlareHost<typeof node, [typeof myExtension]>`) carrying extension members
+  in annotations.
+
 - `FlareCookies` (the type of `ctx.cookies`) is exported from `@flare-ts/core`, so
   helpers can type a cookies parameter explicitly.
 

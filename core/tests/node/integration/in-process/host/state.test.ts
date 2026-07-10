@@ -7,7 +7,7 @@
 process.env["FLARE_MODE"] = "test";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { HostState } from "../../../../../src/lib/host/types/types.js";
+import type { HostState } from "../../../../../src/lib/host/types/state.js";
 import type { TestAppHandle } from "../../../../../src/testing.js";
 import {
   FlareHost,

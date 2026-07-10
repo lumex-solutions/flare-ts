@@ -1,3 +1,6 @@
+/**
+ * The compiled-app base every runtime app extends: lifecycle programs over the host's service graph.
+ */
 import type { HttpArc } from "../arcs/http/http-arc.js";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceClass } from "../services/types/service-class.js";
@@ -12,10 +15,10 @@ import { Logger } from "../logger/logger.js";
  * One step of a lifecycle program: a callback to run plus the label used in the sync interpreter's
  * "returned a Promise during sync runtime lifecycle" diagnostic. See `FlareAppBase#startupProgram`.
  */
-interface LifecycleStep {
+type LifecycleStep = {
   readonly invoke: () => void | Promise<void>;
   readonly label: string;
-}
+};
 
 export interface IFlareApp {
   /** @internal Starts framework-managed app resources. */
@@ -29,9 +32,9 @@ export interface IFlareApp {
 }
 
 /** Options accepted by `app.test()`. Mirrors the `replace` map from the spec. */
-export interface AppTestOptions {
+export type AppTestOptions = {
   replace?: ReadonlyMap<ServiceToken<FlareService>, ServiceClass>;
-}
+};
 
 /**
  * Compiled application produced by {@link IFlareHost.build}. Runtime-specific subclasses

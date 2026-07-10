@@ -1,3 +1,6 @@
+/**
+ * The host's symbol-keyed seams: build, test, state, and inspection slots.
+ */
 /** @internal */
 export const SET_HOST_STATE: unique symbol = Symbol("SET_HOST_STATE");
 

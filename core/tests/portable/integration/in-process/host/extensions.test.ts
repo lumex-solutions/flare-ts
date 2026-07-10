@@ -18,7 +18,7 @@ import type { LoggerTransportClass } from "../../../../../src/lib/logger/types.j
 import { flareConfig } from "../../../../../src/index.js";
 import { defineHostExtension } from "../../../../../src/lib/host/extensions/extension.js";
 import { singletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
-import { FlareAppBase } from "../../../../../src/lib/host/flare-app.js";
+import { FlareAppBase } from "../../../../../src/lib/host/flare-app-base.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";
 import { LoggerTransport } from "../../../../../src/lib/logger/transport.js";

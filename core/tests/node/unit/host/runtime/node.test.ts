@@ -4,7 +4,7 @@
  */
 import type { IncomingMessage } from "node:http";
 import { describe, it, expect } from "vitest";
-import { node } from "../../../../../src/lib/host/runtime/node.js";
+import { node } from "../../../../../src/lib/host/runtime/node/node.js";
 import { ConsoleTransport } from "../../../../../src/lib/logger/transports/console.js";
 
 describe("node adapter (module-scope constant)", () => {

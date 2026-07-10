@@ -10,6 +10,9 @@
 export { defineHostExtension } from "./lib/host/extensions/extension.js";
 export type { ExtensionMembers, HostExtension, HostExtensionContext } from "./lib/host/extensions/extension.js";
 export { FlareHost } from "./lib/host/flare-host.js";
+export type { ScopedServicesView } from "./lib/host/flare-host.js";
+export type { FlareApp } from "./lib/host/types/app.js";
+export type { HostState } from "./lib/host/types/state.js";
 
 // Services / DI
 export { FlareBase } from "./lib/services/composition/flare-base.js";

@@ -7,7 +7,7 @@
 process.env["FLARE_MODE"] = "test";
 
 import { describe, expect, it } from "vitest";
-import type { HostState } from "../../../../../src/lib/host/types/types.js";
+import type { HostState } from "../../../../../src/lib/host/types/state.js";
 import { FlareHost, FlareResponse, FlareService } from "../../../../../src/index.js";
 import { inspectBuild, FlareTestError } from "../../../../../src/testing.js";
 import { registerMinimalPingRoute } from "../../../../portable/helpers/host-fixtures.js";

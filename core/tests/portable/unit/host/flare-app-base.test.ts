@@ -13,7 +13,7 @@ import {
   STOP_HTTP_ARC,
   STOP_HTTP_ARC_ASYNC,
 } from "../../../../src/lib/arcs/http/http-arc.js";
-import { FlareAppBase } from "../../../../src/lib/host/flare-app.js";
+import { FlareAppBase } from "../../../../src/lib/host/flare-app-base.js";
 import { Logger } from "../../../../src/lib/logger/logger.js";
 import { Container } from "../../../../src/lib/services/container.js";
 

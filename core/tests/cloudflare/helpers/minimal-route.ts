@@ -2,7 +2,7 @@
  * Registers a minimal `/ping` route so `host.build()` succeeds when tests need a compiled host without routes.
  */
 
-import type { IFlareApp } from "../../../src/lib/host/flare-app.js";
+import type { IFlareApp } from "../../../src/lib/host/flare-app-base.js";
 import type { FlareHost } from "../../../src/lib/host/flare-host.js";
 import type { HostRuntimeAdapter } from "../../../src/lib/host/types/adapter.js";
 import type { HostRuntimeLifecycle } from "../../../src/lib/host/types/lifecycle.js";

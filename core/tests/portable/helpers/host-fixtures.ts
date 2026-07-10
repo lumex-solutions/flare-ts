@@ -1,8 +1,8 @@
+import type { FlareHost } from "../../../src/index.js";
 /**
  * Shared host fixtures for portable and node integration tests.
  */
-import type { IFlareApp } from "../../../src/lib/host/flare-app.js";
-import type { FlareHost } from "../../../src/lib/host/flare-host.js";
+import type { IFlareApp } from "../../../src/lib/host/flare-app-base.js";
 import type { HostRuntimeAdapter } from "../../../src/lib/host/types/adapter.js";
 import type { HostRuntimeLifecycle } from "../../../src/lib/host/types/lifecycle.js";
 import type { LoggerTransportClass } from "../../../src/lib/logger/types.js";

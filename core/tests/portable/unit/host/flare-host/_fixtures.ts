@@ -5,7 +5,7 @@
 import type { JsonObject } from "@flare-ts/lib";
 import type { FlareRequest } from "../../../../../src/lib/arcs/http/transport/flare-request.js";
 import type { SingletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
-import type { IFlareApp } from "../../../../../src/lib/host/flare-app.js";
+import type { IFlareApp } from "../../../../../src/lib/host/flare-app-base.js";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import type { HostRuntimeLifecycle } from "../../../../../src/lib/host/types/lifecycle.js";
 import type { LoggerTransportClass } from "../../../../../src/lib/logger/types.js";
@@ -15,7 +15,7 @@ import type { ServiceClass } from "../../../../../src/lib/services/types/service
 import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
 import type { TestRequestInput } from "../../../../../src/lib/testing/types/flare-test-req.js";
 import { singletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
-import { FlareAppBase } from "../../../../../src/lib/host/flare-app.js";
+import { FlareAppBase } from "../../../../../src/lib/host/flare-app-base.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";
 import { FlareService as FlareServiceBase } from "../../../../../src/lib/services/composition/flare-service.js";
 
