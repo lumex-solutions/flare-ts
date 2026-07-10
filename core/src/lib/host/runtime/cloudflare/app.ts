@@ -28,11 +28,12 @@ import { FlareValidationError } from "../../../validation/flare-validation-error
 import { FlareAppBase } from "../../flare-app-base.js";
 import { COMPILE_INSTANCE_CONTAINER, REGISTER_BUILD_HOOK, SET_HOST_STATE } from "../../types/const.js";
 import { Bindings } from "./bindings.js";
+import { buildCfTestRequest, WORKER_CHANNELS_UNSUPPORTED } from "./cf-handler-base.js";
 import { DO_HOST } from "./durable-object.js";
-import { buildCfTestRequest, WORKER_CHANNELS_UNSUPPORTED, WorkerHandler } from "./handler.js";
 import { installExplicitMount, mountOverlapErrors, snapshotFrontDoorPatterns } from "./router.js";
 import { registerStateTokens, staticStateTokens } from "./state-crossing.js";
 import { compileDurableArcs, compileDurableWsArcs, validateCfGraph } from "./validate-graph.js";
+import { WorkerHandler } from "./worker-handler.js";
 
 /** Map of per-context seed factories handed to `[COMPILE_INSTANCE_CONTAINER]`. */
 type SeedMap = Map<ServiceToken<FlareService>, (container: Container) => FlareService>;

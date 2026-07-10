@@ -27,8 +27,9 @@ import { toErrorField } from "../../../logger/fields.js";
 import { COMPILE_INSTANCE_CONTAINER } from "../../types/const.js";
 import { arcForDurableObject, wsArcForDurableObject } from "./app.js";
 import { Bindings } from "./bindings.js";
+import { isWebSocketUpgrade } from "./cf-handler-base.js";
+import { DurableHandler } from "./durable-handler.js";
 import { DurableState } from "./durable-state.js";
-import { DurableHandler, isWebSocketUpgrade } from "./handler.js";
 
 /** Map of per-context seed factories handed to `[COMPILE_INSTANCE_CONTAINER]`. */
 type SeedMap = Map<ServiceToken<FlareService>, (container: Container) => FlareService>;
