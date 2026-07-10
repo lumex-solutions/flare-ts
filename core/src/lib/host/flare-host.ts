@@ -144,8 +144,8 @@ export type ScopedServicesView = Pick<FlareRegistrationMap, "get" | "tokens" | "
  * Composition root contract observed by {@link FlareAppBase} and its runtime subclasses. Concrete
  * runtimes consume a host implementation rather than depending on the {@link FlareHost} class.
  */
-export interface IFlareHost {
-  http: HttpArc<HostRuntimeLifecycle>;
+export interface IFlareHost<TLifecycle extends HostRuntimeLifecycle = HostRuntimeLifecycle> {
+  http: HttpArc<TLifecycle>;
   /** WebSocket authoring surface: `host.ws.route(path, opts?)` and `host.ws.controller(path, Class)`. */
   ws: WebSocketArc;
   logging: Logging;
@@ -191,7 +191,7 @@ export interface IFlareTestHost {
 }
 
 class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTransportClass, HostRuntimeLifecycle>>
-  implements IFlareHost, IFlareTestHost {
+  implements IFlareHost<AdapterLifecycle<TAdapter>>, IFlareTestHost {
   public readonly http: HttpArc<AdapterLifecycle<TAdapter>> = new HttpArc(this);
   public readonly ws: WebSocketArc = new WebSocketArc(this);
   public readonly logging: Logging<AdapterTransportClass<TAdapter>> = new Logging();
@@ -225,7 +225,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
 
   constructor(adapter: TAdapter, extensions: readonly HostExtension[] = []) {
     this.#adapter = adapter;
-    this.#testMode = adapter.env?.FLARE_MODE === "test";
+    this.#testMode = adapter.env.FLARE_MODE === "test";
     this.#configRegistrations.add(HOST_CONFIG);
     this.#configRegistrations.add(LOG_CONFIG);
     this.#configRegistrations.add(COOKIES_CONFIG);
@@ -340,8 +340,9 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
         "Logger not initialized yet. Accessing the host logger before #compileLogger() has been called is not allowed.",
       );
     }
-    // #compileLogger seeded this exact key with the Logger singleton; the widened
-    // map value type cannot carry that invariant.
+    // #compileLogger seeded this exact key with the Logger singleton; the widened map
+    // value type cannot carry that invariant. The map stays the single storage: test
+    // reset/restore re-seeds it, so a parallel typed field would desync.
     return logger as Logger;
   }
 
@@ -427,7 +428,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
     // Let the runtime adapter contribute framework services and build hooks before anything
     // compiles (e.g. registering seed services and deferring singleton compile).
     // Duck-typed so the base adapter interface stays free of runtime-specific surface.
-    const setup = (this.#adapter as { setup?: (host: IFlareHost) => void; }).setup;
+    const setup = this.#adapter.setup;
     if (setup) setup(this);
 
     const configStart = Date.now();
@@ -709,7 +710,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
     }
 
     const app = this.#testMode
-      ? new FlareTestApp(this, this.#adapter as ConstructorParameters<typeof FlareTestApp>[1])
+      ? new FlareTestApp(this, this.#adapter)
       : this.#adapter.createApp(this);
     this.#app = app;
     return app as FlareApp<TAdapter>;

@@ -49,11 +49,11 @@ export interface HostRuntimeAdapter<
    * this and copies the returned members onto itself, and the host type intersects `TExt`, so a
    * stamped member exists only on hosts whose adapter provides it.
    */
-  extendHost?(host: IFlareHost): TExt;
+  extendHost?(host: IFlareHost<TLifecycle>): TExt;
   /**
    * Runs at the very start of `host.build()`, before config/validation/compilation, so the adapter can
    * contribute framework services and build hooks (e.g. register context-bound capabilities, defer
    * singleton compilation).
    */
-  setup?(host: IFlareHost): void;
+  setup?(host: IFlareHost<TLifecycle>): void;
 }

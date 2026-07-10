@@ -154,7 +154,7 @@ export const node: HostRuntimeAdapter<FlareAppNode, LoggerTransportClass, "async
  * Compiled Flare application for Node.js. Serves requests via the built-in `node:http` server with
  * graceful shutdown on signal or fatal error.
  */
-export class FlareAppNode extends FlareAppBase {
+export class FlareAppNode extends FlareAppBase<"async"> {
   #server: Server | undefined;
 
   #activeRequests = 0;
@@ -194,6 +194,8 @@ export class FlareAppNode extends FlareAppBase {
 
     this.#bindProcessHandlers();
 
+    // Post-build narrows: run() executes after host.build() resolved the config, so the
+    // sections the optional FlareConfig fields cannot promise are present here.
     const hostCfg = this.host.config.host as HostConfig;
     const logCfg = this.host.config.log as LogConfig;
 
@@ -378,7 +380,7 @@ export class FlareAppNode extends FlareAppBase {
 
     if (response instanceof FlareResponse) {
       if (this.#emitRequestIdHeader) {
-        (response.headers as Record<string, string>)["x-request-id"] = requestId;
+        response.headers["x-request-id"] = requestId;
       }
 
       // Build the writeHead headers. Node's OutgoingHttpHeaders accepts string[] values

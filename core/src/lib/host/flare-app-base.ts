@@ -7,6 +7,7 @@ import type { ServiceClass } from "../services/types/service-class.js";
 import type { ServiceToken } from "../services/types/token.js";
 import type { TestAppHandle } from "../testing/test-app-handle.js";
 import type { IFlareHost } from "./flare-host.js";
+import type { HostRuntimeLifecycle } from "./types/lifecycle.js";
 import { START_HTTP_ARC, START_HTTP_ARC_ASYNC, STOP_HTTP_ARC, STOP_HTTP_ARC_ASYNC } from "../arcs/http/http-arc.js";
 import { _log } from "../logger/bootstrap.js";
 import { Logger } from "../logger/logger.js";
@@ -41,12 +42,13 @@ export type AppTestOptions = {
  * ({@link FlareAppNode}, {@link FlareAppCF}) extend this with the entrypoint method appropriate
  * to their host.
  */
-export abstract class FlareAppBase implements IFlareApp {
-  constructor(protected readonly host: IFlareHost) {
+export abstract class FlareAppBase<TLifecycle extends HostRuntimeLifecycle = HostRuntimeLifecycle>
+  implements IFlareApp {
+  constructor(protected readonly host: IFlareHost<TLifecycle>) {
     this.http = host.http;
   }
 
-  protected readonly http: HttpArc;
+  protected readonly http: HttpArc<TLifecycle>;
   // TODO: add `workers` and `flows` arc fields when those arcs ship.
 
   /**

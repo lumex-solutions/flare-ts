@@ -2,7 +2,6 @@
  * The Cloudflare runtime: the cf adapter, FlareAppCF's export() terminal, and Durable Object mount registration.
  */
 import type { JsonObject } from "@flare-ts/lib";
-import type { HttpArc } from "../../../arcs/http/http-arc.js";
 import type { CfLoggerTransportClass } from "../../../logger/runtime/cloudflare/cf-transport.js";
 import type { TestRequestInput } from "../../../testing/types/flare-test-req.js";
 import type { ValidationError } from "../../../validation/types.js";
@@ -46,7 +45,7 @@ export type CloudflareAdapter =
  *
  * - {@link export}: the Worker fetch handler (the module default export).
  */
-export class FlareAppCF extends FlareAppBase {
+export class FlareAppCF extends FlareAppBase<"sync"> {
   /**
    * Starts the shared graph and returns the Worker fetch handler, seeded with the isolate env on first request.
    */
@@ -72,7 +71,7 @@ export class FlareAppCF extends FlareAppBase {
             const container = this.host[COMPILE_INSTANCE_CONTAINER](seed);
             // host.ws is the Worker-hosted WebSocket arc (plain-Worker connections, e.g. a proxy/echo
             // endpoint); the handler intercepts matching upgrades before HTTP routing.
-            handler = new WorkerHandler(this.host, container, this.http as HttpArc<"sync">, this.host.ws);
+            handler = new WorkerHandler(this.host, container, this.http, this.host.ws);
           } catch (error) {
             initFailure = { error };
             throw error;
@@ -125,8 +124,7 @@ export const cf: CloudflareAdapter = {
     // then installs the mount routes.
     host[REGISTER_BUILD_HOOK](() => {
       if (mounts.length === 0) return;
-      // The CF adapter's lifecycle is pinned "sync"; IFlareHost.http cannot carry that.
-      const frontDoor = host.http as HttpArc<"sync">;
+      const frontDoor = host.http;
 
       // Attach each DO's registered resolver to its mount records:
       //   - resolve-kind (literal trailing): required; the validator errors when absent.
@@ -186,7 +184,7 @@ export const cf: CloudflareAdapter = {
         // HTTP arc validation.
         const arcedDurables = allDurables.filter((d) => !zeroRoute.has(d.cls));
         const graph: CfValidationGraph = {
-          frontDoor: host.http as HttpArc<"sync">,
+          frontDoor: host.http,
           frontDoorWs: host.ws,
           durables: allDurables,
           scoped: [...buildCtx.scopedRegistrations],
