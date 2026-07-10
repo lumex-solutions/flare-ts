@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
-import type { CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { DurableState, FlareDurableObject } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse } from "../../../../../src/index.js";
 import { makeEnv, makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
@@ -18,7 +18,7 @@ function cfJson(host: JsonObject = {}): JsonObject {
   };
 }
 
-describe("CloudflareApp multi-DO coexistence and HAZARD A regression guard", () => {
+describe("FlareAppCF multi-DO coexistence and HAZARD A regression guard", () => {
   it(
     "regression: one host can register a DO and take .export() - DO registration before build does not prevent export terminal",
     async () => {
@@ -35,7 +35,7 @@ describe("CloudflareApp multi-DO coexistence and HAZARD A regression guard", () 
 
       // .export() must not throw even though a DO is registered on the same host; a throw here
       // fails the test directly with its own stack.
-      const handle = (host.build() as CloudflareApp).export();
+      const handle = (host.build() as FlareAppCF).export();
 
       // HAZARD A regression guard: a front-door request to a route that does NOT inject
       // DurableState must return 200. If the worker's first-request init were to eagerly

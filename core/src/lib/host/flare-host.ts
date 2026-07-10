@@ -740,12 +740,12 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
       defaultTokens: this.#defaultConfigSet,
       resolvedConfig: this.#config,
       classConfigDeclarations: [
-        // TODO: narrow these `as any` casts. `r.cls` should be typed to expose the optional
+        // The structural class types declare the optional static config array directly.
         // `static config?: readonly ConfigToken<unknown>[]` declared on FlareBase.
-        ...this.#scopedRegistrations.map((r) => (r.cls as any).config),
-        ...this.#singletonRegistrations.map((r) => (r.cls as any).config),
-        ...allControllers.map((r) => (r.cls as any).config),
-        ...allMiddleware.map((r) => (r.cls as any).config),
+        ...this.#scopedRegistrations.map((r) => r.cls.config),
+        ...this.#singletonRegistrations.map((r) => r.cls.config),
+        ...allControllers.map((r) => r.cls.config),
+        ...allMiddleware.map((r) => r.cls.config),
       ],
     };
 

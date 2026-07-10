@@ -1,19 +1,19 @@
 /**
  * Regression tests for per-DO arc resolution when the runtime constructs a wrapper subclass of the
- * registered Durable Object class. Asserts DO_HOST inheritance, arcForDurableObject prototype-chain
+ * registered Durable Object class. Asserts DO_HOST inheritance, durableRegistration prototype-chain
  * lookup, and composeDurableInstance dispatch without constructing the real workerd DO base.
  */
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
-import { arcForDurableObject } from "../../../../../src/lib/host/runtime/cloudflare/app.js";
-import { DO_HOST } from "../../../../../src/lib/host/runtime/cloudflare/durable-object.js";
+import { DO_HOST } from "../../../../../src/lib/host/runtime/cloudflare/do/durable-object.js";
 import {
   composeDurableInstance,
   DurableState,
   FlareDurableObject,
 } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
+import { durableRegistration } from "../../../../../src/lib/host/runtime/cloudflare/registration.js";
 import { makeEnv, makeFakeDurableState } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 
@@ -51,10 +51,10 @@ describe("per-DO arc resolution through a subclass (runtime do-wrapper)", () => 
 
     class WrappedRoom extends Room {}
 
-    const arc = arcForDurableObject(Room);
+    const arc = durableRegistration(Room)?.arc;
     expect(arc).toBeTruthy();
     // The subclass is NOT a WeakMap key, but it must resolve to the ancestor's arc, not undefined.
-    expect(arcForDurableObject(WrappedRoom)).toBe(arc);
+    expect(durableRegistration(WrappedRoom)?.arc).toBe(arc);
   });
 
   it("composeDurableInstance through a subclass dispatches the ancestor's per-DO arc", async () => {
@@ -93,8 +93,8 @@ describe("per-DO arc resolution through a subclass (runtime do-wrapper)", () => 
     derivedHandle.http.get("/d", () => new FlareResponse(200));
     host.build();
 
-    const baseArc = arcForDurableObject(Base);
-    const derivedArc = arcForDurableObject(Derived);
+    const baseArc = durableRegistration(Base)?.arc;
+    const derivedArc = durableRegistration(Derived)?.arc;
     expect(baseArc).toBeTruthy();
     expect(derivedArc).toBeTruthy();
     // Each registered class keeps its own arc; the walk stops at the most-derived registration.
@@ -115,6 +115,6 @@ describe("per-DO arc resolution through a subclass (runtime do-wrapper)", () => 
     class Unrelated extends FlareDurableObject {
       static override deps = [DurableState];
     }
-    expect(arcForDurableObject(Unrelated)).toBeUndefined();
+    expect(durableRegistration(Unrelated)?.arc).toBeUndefined();
   });
 });

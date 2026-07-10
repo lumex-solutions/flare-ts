@@ -3,7 +3,7 @@
  * Covers event-stream framing through workerd and producer shutdown on client disconnect.
  */
 import { describe, expect, it } from "vitest";
-import type { CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { FlareHost } from "../../../../../src/index.js";
 import { makeEnv, makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
@@ -25,7 +25,7 @@ describe("ctx.sse over the Cloudflare runtime", () => {
         await sse.send({ data: { count: 2 } });
       }));
 
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(
       new Request("https://flare.test/events"),
       makeEnv(),
@@ -49,7 +49,7 @@ describe("ctx.sse over the Cloudflare runtime", () => {
         });
       }));
 
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const controller = new AbortController();
     const res = await handle.fetch(
       new Request("https://flare.test/until-abort", { signal: controller.signal }),

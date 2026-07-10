@@ -1,11 +1,11 @@
 /**
- * Production-path tests exercise CloudflareApp.export()/fetch() directly. Uses cfProdAdapter so
- * adapter.env omits FLARE_MODE and host.build() returns the live CloudflareApp. Routes register
+ * Production-path tests exercise FlareAppCF.export()/fetch() directly. Uses cfProdAdapter so
+ * adapter.env omits FLARE_MODE and host.build() returns the live FlareAppCF. Routes register
  * via host.http.* against the .export() terminal.
  */
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib/schema";
-import type { CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import type { FlareHttpContext } from "../../../../../src/index.js";
 import { buildCf, cf } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse } from "../../../../../src/index.js";
@@ -36,8 +36,8 @@ describe("cf adapter (module-scope constant)", () => {
     expect(cf.flareJsonFile).not.toBe(cf.flareJsonFile);
   });
 
-  it("createApp(host) returns a CloudflareApp bound to host (exposes the export terminal)", async () => {
-    // CloudflareApp is a type-only export, so assert behaviorally rather than
+  it("createApp(host) returns a FlareAppCF bound to host (exposes the export terminal)", async () => {
+    // FlareAppCF is a type-only export, so assert behaviorally rather than
     // via `instanceof`: the app createApp hands back must expose a working
     // export terminal that routes through the host it was bound to. Durable
     // Objects are registered via host.durableObject(Class), not an app terminal.
@@ -140,11 +140,11 @@ describe("buildCfTestRequest (exercised via cf.createTestRequest)", () => {
   });
 });
 
-describe("CloudflareApp constructor (request-id header + timing config)", () => {
+describe("FlareAppCF constructor (request-id header + timing config)", () => {
   it("requestIdHeader === true => x-request-id present on response (observed via export().fetch())", async () => {
     const host = new FlareHost(cfProdAdapter(cfJson({ requestIdHeader: true, requestTiming: true })));
     host.http.get("/x", () => new FlareResponse(200, "ok"));
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/x"), makeEnv(), makeExecutionContext());
     expect(res.headers.get("x-request-id")).not.toBeNull();
   });
@@ -152,7 +152,7 @@ describe("CloudflareApp constructor (request-id header + timing config)", () => 
   it("undefined/falsy config values: requestIdHeader false => no x-request-id header on response", async () => {
     const host = new FlareHost(cfProdAdapter(cfJson({ requestIdHeader: false })));
     host.http.get("/y", () => new FlareResponse(200, "ok"));
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/y"), makeEnv(), makeExecutionContext());
     expect(res.headers.get("x-request-id")).toBeNull();
   });
@@ -164,7 +164,7 @@ describe("CloudflareApp constructor (request-id header + timing config)", () => 
       captured = ctx;
       return new FlareResponse(200, "ok");
     });
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(new Request("http://flare.test/z"), makeEnv(), makeExecutionContext());
     expect(captured!.req.startTime).toBeUndefined();
   });
@@ -176,17 +176,17 @@ describe("CloudflareApp constructor (request-id header + timing config)", () => 
       captured = ctx;
       return new FlareResponse(200, "ok");
     });
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(new Request("http://flare.test/t"), makeEnv(), makeExecutionContext());
     expect(typeof captured!.req.startTime).toBe("number");
   });
 });
 
-describe("CloudflareApp.export()", () => {
+describe("FlareAppCF.export()", () => {
   it("invokes start() (drives http arc), sets host state to 'ready', returns { fetch }", () => {
     const host = new FlareHost(cfProdAdapter(cfJson()));
     host.http.get("/x", () => new FlareResponse(200, "ok"));
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
 
     // export() walks the http arc via [START_HTTP_ARC] and flips host state to
     // ready before handing back the export-shaped fetch handle.
@@ -196,7 +196,7 @@ describe("CloudflareApp.export()", () => {
   it("returned fetch dispatches Request -> Response via the http arc", async () => {
     const host = new FlareHost(cfProdAdapter(cfJson()));
     host.http.get("/x", () => new FlareResponse(201, "created"));
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/x"), makeEnv(), makeExecutionContext());
     expect(res.status).toBe(201);
     expect(await res.text()).toBe("created");
@@ -211,7 +211,7 @@ describe("request handling through export().fetch", () => {
       observedCtx = ctx;
       return new FlareResponse(200, "hello world");
     });
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(
       new Request("http://flare.test/api/v1/x?q=2", { method: "POST" }),
       makeEnv(),
@@ -228,7 +228,7 @@ describe("request handling through export().fetch", () => {
   it("synchronous response returned without awaiting (Promise unwrap skipped when value is non-Promise)", async () => {
     const host = new FlareHost(cfProdAdapter(cfJson()));
     host.http.get("/sync", () => new FlareResponse(204));
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/sync"), makeEnv(), makeExecutionContext());
     expect(res.status).toBe(204);
   });
@@ -240,7 +240,7 @@ describe("request handling through export().fetch", () => {
       observed = ctx.req.startTime;
       return new FlareResponse(200, "x");
     });
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(new Request("http://flare.test/"), makeEnv(), makeExecutionContext());
     expect(typeof observed).toBe("number");
   });
@@ -250,7 +250,7 @@ describe("request handling through export().fetch", () => {
     host.http.get("/err", () => {
       throw new Error("boom");
     });
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/err"), makeEnv(), makeExecutionContext());
     expect(res.status).toBe(500);
     expect(res.headers.get("content-type")).toBe("application/json");
@@ -268,7 +268,7 @@ describe("response construction through export().fetch", () => {
           headers: { "x-custom": "abc", "Content-Type": "text/plain" },
         }),
     );
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/teapot"), makeEnv(), makeExecutionContext());
     expect(res.status).toBe(418);
     expect(res.headers.get("x-custom")).toBe("abc");
@@ -282,7 +282,7 @@ describe("response construction through export().fetch", () => {
     }
     const host = new FlareHost(cfProdAdapter(cfJson()));
     host.http.get("/stream", () => new FlareResponse(200, gen()));
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/stream"), makeEnv(), makeExecutionContext());
     expect(res.status).toBe(200);
     // Read the full body to drain the TransformStream wire-up.
@@ -296,7 +296,7 @@ describe("response construction through export().fetch", () => {
     const window = new Uint8Array(big.buffer, 3, 4); // [3,4,5,6]
     const host = new FlareHost(cfProdAdapter(cfJson()));
     host.http.get("/u8", () => new FlareResponse(200, window));
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/u8"), makeEnv(), makeExecutionContext());
     const out = new Uint8Array(await res.arrayBuffer());
     expect(Array.from(out)).toEqual([3, 4, 5, 6]);
@@ -309,7 +309,7 @@ describe("response construction through export().fetch", () => {
       ctx.cookies.set("b", "2");
       return new FlareResponse(200, "ok");
     });
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/cookies"), makeEnv(), makeExecutionContext());
 
     // Headers.getSetCookie returns the multi-value list (one entry per Set-Cookie).
@@ -322,7 +322,7 @@ describe("response construction through export().fetch", () => {
   it("when requestIdHeader is enabled, x-request-id is added to FlareResponse-backed responses", async () => {
     const host = new FlareHost(cfProdAdapter(cfJson({ requestIdHeader: true })));
     host.http.get("/rid", () => new FlareResponse(200, "ok"));
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/rid"), makeEnv(), makeExecutionContext());
     const rid = res.headers.get("x-request-id");
     expect(rid).not.toBeNull();
@@ -333,7 +333,7 @@ describe("response construction through export().fetch", () => {
     const raw = new Response("raw", { status: 202, headers: { "x-raw": "1" } });
     const host = new FlareHost(cfProdAdapter(cfJson({ requestIdHeader: false })));
     host.http.get("/raw", () => raw);
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/raw"), makeEnv(), makeExecutionContext());
     // The CF runtime returns the input Response object unchanged on this branch.
     expect(res).toBe(raw);
@@ -346,7 +346,7 @@ describe("response construction through export().fetch", () => {
     const raw = new Response("raw", { status: 200, headers: { "x-raw": "1" } });
     const host = new FlareHost(cfProdAdapter(cfJson({ requestIdHeader: true })));
     host.http.get("/raw2", () => raw);
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/raw2"), makeEnv(), makeExecutionContext());
     expect(res).not.toBe(raw); // a new Response with merged headers
     expect(res.status).toBe(200);
@@ -361,7 +361,7 @@ describe("response construction through export().fetch", () => {
       ctx.cookies.set("cs", "v");
       return raw;
     });
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/raw3"), makeEnv(), makeExecutionContext());
     const setCookies = (res.headers as unknown as { getSetCookie: () => string[]; }).getSetCookie();
     expect(setCookies.length).toBe(1);
@@ -369,13 +369,13 @@ describe("response construction through export().fetch", () => {
   });
 });
 
-describe("CloudflareApp error response (exercised via export().fetch with a throwing handler)", () => {
+describe("FlareAppCF error response (exercised via export().fetch with a throwing handler)", () => {
   it('a throwing route handler returns Response(500) with application/json body {"error":"Internal Server Error"}', async () => {
     const host = new FlareHost(cfProdAdapter(cfJson({}, { level: "fatal", format: "json" })));
     host.http.get("/err", () => {
       throw new Error("kaboom");
     });
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/err"), makeEnv(), makeExecutionContext());
     expect(res.status).toBe(500);
     expect(res.headers.get("content-type")).toBe("application/json");
@@ -387,7 +387,7 @@ describe("CloudflareApp error response (exercised via export().fetch with a thro
     host.http.get("/err2", () => {
       throw new Error("bad");
     });
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/err2"), makeEnv(), makeExecutionContext());
     expect(res.status).toBe(500);
     expect(res.headers.get("x-request-id")).not.toBeNull();
@@ -398,7 +398,7 @@ describe("CloudflareApp error response (exercised via export().fetch with a thro
     host.http.get("/err3", () => {
       throw new Error("bad");
     });
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/err3"), makeEnv(), makeExecutionContext());
     expect(res.status).toBe(500);
     expect(res.headers.get("x-request-id")).toBeNull();
@@ -411,7 +411,7 @@ describe("request-id nonce memoization across consecutive requests", () => {
     host.http.get("/a", () => new FlareResponse(200, "ok"));
     host.http.get("/b", () => new FlareResponse(200, "ok"));
     host.http.get("/c", () => new FlareResponse(200, "ok"));
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
 
     const r1 = await handle.fetch(new Request("http://flare.test/a"), makeEnv(), makeExecutionContext());
     const r2 = await handle.fetch(new Request("http://flare.test/b"), makeEnv(), makeExecutionContext());
@@ -434,11 +434,11 @@ describe("request-id nonce memoization across consecutive requests", () => {
     expect(Number(seq3)).toBe(Number(seq2) + 1);
   });
 
-  it("a fresh CloudflareApp instance derives a different nonce", async () => {
+  it("a fresh FlareAppCF instance derives a different nonce", async () => {
     const buildAndFetch = async (): Promise<string> => {
       const host = new FlareHost(cfProdAdapter(cfJson({ requestIdHeader: true })));
       host.http.get("/a", () => new FlareResponse(200, "x"));
-      const handle = (host.build() as CloudflareApp).export();
+      const handle = (host.build() as FlareAppCF).export();
       const res = await handle.fetch(new Request("http://flare.test/a"), makeEnv(), makeExecutionContext());
       return res.headers.get("x-request-id")!.split("-")[0]!;
     };

@@ -14,7 +14,7 @@ import type { HttpValidationContext } from "../../../validation/http/composite.j
 import type { ServiceValidationContext } from "../../../validation/service/composite.js";
 import type { ValidationError } from "../../../validation/types.js";
 import type { WsValidationContext } from "../../../validation/ws/composite.js";
-import type { FlareDurableObjectClass } from "./durable-object.js";
+import type { FlareDurableObjectClass } from "./do/durable-object.js";
 import { COMPILE_HTTP_ARC } from "../../../arcs/http/http-arc.js";
 import { WebSocketChannels } from "../../../arcs/ws/channels/web-socket-channels.js";
 import { COMPILE_WS_ARC, WS_REGISTRATIONS } from "../../../arcs/ws/ws-arc.js";
@@ -28,11 +28,11 @@ import { WsConfigValidator } from "../../../validation/ws/config-validator.js";
 import { WsRouteConflictValidator } from "../../../validation/ws/route-conflict-validator.js";
 import { WsRouteSyntaxValidator } from "../../../validation/ws/route-syntax-validator.js";
 import { Bindings } from "./bindings.js";
-import { DurableState } from "./durable-state.js";
-import { staticStateTokens } from "./state-crossing.js";
+import { DurableState } from "./do/durable-state.js";
+import { staticStateTokens } from "./do/state-crossing.js";
 
 /** Read-only graph the adapter hands the validator: the front door arc, the per-DO arcs, the DOs, services. */
-export interface CfValidationGraph {
+export type CfValidationGraph = {
   /** The shared front-door arc (host.http). */
   readonly frontDoor: HttpArc<"sync">;
   /** The Worker-hosted WebSocket arc (host.ws). */
@@ -53,7 +53,7 @@ export interface CfValidationGraph {
   readonly defaultConfigTokens: ReadonlySet<OpaqueConfigToken>;
   /** The fully resolved config object. */
   readonly resolvedConfig: Readonly<JsonObject>;
-}
+};
 
 /**
  * Compiles each per-DO arc after validation (the host only compiles host.http).
@@ -190,17 +190,17 @@ function arcMiddleware(arc: HttpArc<"sync">): MiddlewareRegistration[] {
 }
 
 /** Gathers `classConfigDeclarations` from every registration across the whole app (all arcs + services). */
-function configClassDeclarations(graph: CfValidationGraph): ReadonlyArray<ConfigToken<unknown>[] | undefined> {
+function configClassDeclarations(graph: CfValidationGraph): ReadonlyArray<readonly ConfigToken<unknown>[] | undefined> {
   const arcs = [graph.frontDoor, ...graph.durables.map((d) => d.arc)];
   const controllers = arcs.flatMap((arc) => arcControllers(arc));
   const middleware = arcs.flatMap((arc) => arcMiddleware(arc));
-  // TODO: narrow these `as any` casts. `r.cls` should be typed to expose the optional
+  // The structural class types declare the optional static config array directly.
   // `static config?: readonly ConfigToken<unknown>[]` from FlareBase.
   return [
-    ...graph.scoped.map((r) => (r.cls as any).config),
-    ...graph.singletons.map((r) => (r.cls as any).config),
-    ...controllers.map((r) => (r.cls as any).config),
-    ...middleware.map((r) => (r.cls as any).config),
+    ...graph.scoped.map((r) => r.cls.config),
+    ...graph.singletons.map((r) => r.cls.config),
+    ...controllers.map((r) => r.cls.config),
+    ...middleware.map((r) => r.cls.config),
   ];
 }
 

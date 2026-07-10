@@ -12,13 +12,12 @@ import { FlareRequest } from "../../../../../../src/lib/arcs/http/transport/flar
 import { FlareResponse } from "../../../../../../src/lib/arcs/http/transport/flare-response.js";
 import { CfRequestAdapter } from "../../../../../../src/lib/arcs/http/transport/runtime/cloudflare.js";
 import { FlareHost } from "../../../../../../src/lib/host/flare-host.js";
-import { DurableState, FlareDurableObject } from "../../../../../../src/lib/host/runtime/cloudflare/index.js";
+import { durable } from "../../../../../../src/lib/host/runtime/cloudflare/do/addressing.js";
 import {
   applyInboundEnvelope,
   decodeStateEnvelope,
   encodeInboundEnvelope,
   encodeOutboundEnvelope,
-  forwardDurable,
   keyForToken,
   RESERVED_STATE_HEADER,
   RESERVED_TRACE_HEADER,
@@ -26,7 +25,8 @@ import {
   sanitizeForwardHeaders,
   staticStateTokens,
   tokenForKey,
-} from "../../../../../../src/lib/host/runtime/cloudflare/state-crossing.js";
+} from "../../../../../../src/lib/host/runtime/cloudflare/do/state-crossing.js";
+import { DurableState, FlareDurableObject } from "../../../../../../src/lib/host/runtime/cloudflare/index.js";
 import { flareState } from "../../../../../../src/lib/state/flare-state.js";
 import { cfProdAdapter } from "../../../../helpers/cf-test-adapter.js";
 
@@ -395,7 +395,7 @@ function makeFakeNamespace(): {
   return { ns, calls };
 }
 
-describe("forwardDurable", () => {
+describe("durable(...).forward", () => {
   it("carries an inbound token set on ctx to the fake DO", async () => {
     const { ns, calls } = makeFakeNamespace();
 
@@ -404,7 +404,7 @@ describe("forwardDurable", () => {
 
     const req = new Request("https://flare.test/room/room-1/info");
 
-    await forwardDurable(ctx, ns, "room-1", FwdRoom, req);
+    await durable(ns as DurableObjectNamespace, "room-1").forward(ctx, FwdRoom, req);
 
     expect(calls).toHaveLength(1);
     // Assert inbound header is present and decodes to the expected TokenA value.
@@ -422,7 +422,7 @@ describe("forwardDurable", () => {
 
     const req = new Request("https://flare.test/room/room-1/info");
 
-    await forwardDurable(ctx, ns, "room-1", FwdRoom, req);
+    await durable(ns as DurableObjectNamespace, "room-1").forward(ctx, FwdRoom, req);
 
     // TokenB was set by the fake DO outbound and must now be readable on ctx.
     expect(ctx.state.require(TokenB)).toBe("outbound-from-do");
@@ -436,7 +436,7 @@ describe("forwardDurable", () => {
 
     const req = new Request("https://flare.test/room/room-1/info");
 
-    await forwardDurable(ctx, ns, "room-1", FwdRoom, req);
+    await durable(ns as DurableObjectNamespace, "room-1").forward(ctx, FwdRoom, req);
 
     expect(calls[0]!.name).toBe("room-1");
   });
@@ -448,7 +448,7 @@ describe("forwardDurable", () => {
     ctx.state.set(TokenA, { userId: "u-3" });
 
     const req = new Request("https://flare.test/room/room-1/info");
-    const res = await forwardDurable(ctx, ns, "room-1", FwdRoom, req);
+    const res = await durable(ns as DurableObjectNamespace, "room-1").forward(ctx, FwdRoom, req);
 
     expect(res.headers.get(RESERVED_STATE_HEADER)).toBeNull();
   });

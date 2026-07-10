@@ -32,17 +32,35 @@
  * state-free raw tunnel.
  *
  * To carry DO state across the boundary, use the blessed seams (`DurableHandle.mount` and
- * `forwardDurable`), which sanitize the reserved headers and then encode the framework-owned
- * state tokens from `ctx` onto the forwarded request:
+ * the stub's own `forward`), which sanitize the reserved headers and then encode the
+ * framework-owned state tokens from `ctx` onto the forwarded request:
  *
  * ```ts
- * // State-carrying path: forwardDurable sanitizes reserved headers and encodes only the
+ * // State-carrying path: forward() sanitizes reserved headers and encodes only the
  * // framework-owned state tokens from ctx onto the forwarded request.
- * await forwardDurable(ctx, env.ROOM_DO, RoomDO, name, ctx.req.nativeRequest);
+ * await durable(env.ROOM_DO, name).forward(ctx, RoomDO);
  * ```
  */
 
-import { sanitizeForwardHeaders } from "./state-crossing.js";
+import type { FlareHttpContext } from "../../../../arcs/http/transport/flare-http-context.js";
+import type { FlareDurableObjectClass } from "./durable-object.js";
+import { applyInboundEnvelope, reseedOutboundState, sanitizeForwardHeaders } from "./state-crossing.js";
+
+/**
+ * The stub `durable()` returns: the native stub with a raw-tunnel `fetch` plus the
+ * state-carrying `forward`.
+ */
+export type DurableStub<T extends Rpc.DurableObjectBranded | undefined> = DurableObjectStub<T> & {
+  /**
+   * Forwards a request to this instance WITH state crossing: sanitizes the reserved
+   * headers, encodes the framework-owned state tokens from `ctx`, dispatches, and
+   * re-seeds outbound state from the response.
+   *
+   * `req` defaults to the current native request. Contrast `fetch`, the state-free
+   * raw tunnel.
+   */
+  forward(ctx: FlareHttpContext, cls: FlareDurableObjectClass, req?: Request): Promise<Response>;
+};
 
 /** Options for `durable(...)` placement. Extends the base get-options with `jurisdiction`. */
 export type DurableAddressingOpts =
@@ -56,16 +74,28 @@ export type DurableAddressingOpts =
  *
  * This makes `durable(...).fetch()` a state-free raw tunnel by construction: a client-forged state
  * envelope on a forwarded raw request can never reach the DO, so a developer cannot accidentally
- * inject DO `static state` by forwarding `ctx.req.nativeRequest`. State-carrying forwards must go
- * through `forwardDurable`, which encodes the framework-owned tokens after sanitizing.
+ * inject DO `static state` by forwarding `ctx.req.nativeRequest`. State-carrying forwards go
+ * through the stub's own `forward`, which encodes the framework-owned tokens after sanitizing.
  *
  * @internal Exported only for unit testing the proxy behavior in isolation.
  */
 export function wrapStub<T extends Rpc.DurableObjectBranded | undefined>(
   stub: DurableObjectStub<T>,
-): DurableObjectStub<T> {
+): DurableStub<T> {
   return new Proxy(stub, {
     get(target, prop) {
+      if (prop === "forward") {
+        // State-carrying path: encode on the RAW target so the envelope survives
+        // (routing through the wrapped fetch would strip it after encoding).
+        // Mirrors installExplicitMount's forward block (router.ts): same apply/fetch/reseed
+        // sequence, kept inline on both request paths rather than behind a shared frame.
+        return async (ctx: FlareHttpContext, cls: FlareDurableObjectClass, req?: Request): Promise<Response> => {
+          const forwarded = new Request(req ?? (ctx.req.nativeRequest as Request));
+          applyInboundEnvelope(ctx, cls, forwarded);
+          const res = await target.fetch(forwarded);
+          return reseedOutboundState(ctx, cls, res);
+        };
+      }
       if (prop === "fetch") {
         return (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
           const req = new Request(input as RequestInfo, init);
@@ -76,7 +106,7 @@ export function wrapStub<T extends Rpc.DurableObjectBranded | undefined>(
       // Preserve RPC method closures and disposal symbols by reading off the real stub.
       return Reflect.get(target, prop, target);
     },
-  }) as DurableObjectStub<T>;
+  }) as DurableStub<T>;
 }
 
 /**
@@ -98,7 +128,7 @@ export function durable<T extends Rpc.DurableObjectBranded | undefined>(
   namespace: DurableObjectNamespace<T>,
   name: string,
   opts?: DurableAddressingOpts,
-): DurableObjectStub<T> {
+): DurableStub<T> {
   let stub: DurableObjectStub<T>;
   if (opts?.jurisdiction !== undefined) {
     const { jurisdiction, ...rest } = opts;

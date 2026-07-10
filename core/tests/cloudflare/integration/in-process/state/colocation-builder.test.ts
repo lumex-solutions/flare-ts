@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
-import type { CloudflareApp } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
+import type { FlareAppCF } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
 import { DurableState, FlareDurableObject } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
@@ -53,7 +53,7 @@ describe("builder form produces identical registration to handle form", () => {
     });
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(
       new Request("https://flare.test/rooms/abc/hello"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -88,8 +88,8 @@ describe("builder form produces identical registration to handle form", () => {
     const { ns: nsA, calls: callsA } = fakeNamespace();
     const { ns: nsB, calls: callsB } = fakeNamespace();
 
-    const handleA = (hostA.build() as CloudflareApp).export();
-    const handleB = (hostB.build() as CloudflareApp).export();
+    const handleA = (hostA.build() as FlareAppCF).export();
+    const handleB = (hostB.build() as FlareAppCF).export();
 
     const req = new Request("https://flare.test/rooms/xyz/ping");
 
@@ -125,7 +125,7 @@ describe("builder form still returns the handle", () => {
     room.mount("/rooms/:name");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
 
     await handle.fetch(
       new Request("https://flare.test/rooms/r1/from-builder"),
@@ -157,7 +157,7 @@ describe("builder form: resolve inside the builder satisfies MOUNT_REQUIRES_RESO
     });
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(
       new Request("https://flare.test/api/me"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -223,7 +223,7 @@ describe("two-argument durableObject registration without a builder", () => {
     room.mount("/rooms/:name");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(
       new Request("https://flare.test/rooms/r1/status"),
       { Room: ns } as unknown as Cloudflare.Env,

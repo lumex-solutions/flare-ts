@@ -69,7 +69,7 @@ describe("DO-side parentRequestId equals the front-door requestId (real binding)
   });
 });
 
-describe("forwardDurable real-binding round-trip (real CF binding)", () => {
+describe("durable().forward real-binding round-trip (real CF binding)", () => {
   it("forwardDurable carries SessionState to the DO and re-seeds EchoState back to the front-door", async () => {
     // The resolve gate runs first (sets SessionState from x-session-user), then the
     // front-door route calls forwardDurable to /whoami on the same DO instance.
@@ -90,7 +90,7 @@ describe("forwardDurable real-binding round-trip (real CF binding)", () => {
     expect(echo.echo).toBe("fwd-alice");
   });
 
-  it("forwardDurable via front-door route /_fwd/:name/whoami crosses SessionState in and EchoState out", async () => {
+  it("durable().forward via front-door route /_fwd/:name/whoami crosses SessionState in and EchoState out", async () => {
     // The fixture /_fwd route sets SessionState from x-session-user before calling
     // forwardDurable, so the full inbound state envelope is built and forwarded to the DO.
     // The DO /whoami reads SessionState, sets EchoState outbound, and returns { user }.

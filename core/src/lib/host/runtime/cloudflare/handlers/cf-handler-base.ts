@@ -2,25 +2,25 @@
  * The shared Cloudflare request-handler core: request build, HTTP arc dispatch, WS
  * upgrade routing, and response build, with hooks the per-context handlers override.
  */
-import type { HttpArc } from "../../../arcs/http/http-arc.js";
-import type { ResponseLike } from "../../../arcs/http/transport/types/response.js";
-import type { IWsChannelDomain } from "../../../arcs/ws/channels/domain.js";
-import type { WebSocketArc } from "../../../arcs/ws/ws-arc.js";
-import type { HostConfig } from "../../../config/flare-config.js";
-import type { LogContext } from "../../../logger/types.js";
-import type { FlareService } from "../../../services/composition/flare-service.js";
-import type { Container } from "../../../services/container.js";
-import type { ServiceToken } from "../../../services/types/token.js";
-import type { TestRequestInput } from "../../../testing/types/flare-test-req.js";
-import type { IFlareHost } from "../../flare-host.js";
-import { FlareHttpContext, INSTANCE_SINGLETONS } from "../../../arcs/http/transport/flare-http-context.js";
-import { FlareRequest } from "../../../arcs/http/transport/flare-request.js";
-import { FlareResponse } from "../../../arcs/http/transport/flare-response.js";
-import { CfRequestAdapter } from "../../../arcs/http/transport/runtime/cloudflare.js";
-import { DRAIN_SET_COOKIES } from "../../../arcs/http/transport/types/cookies.js";
-import { handleCfWsUpgrade } from "../../../arcs/ws/transport/runtime/cloudflare/upgrade.js";
-import { loggerALS } from "../../../logger/context.js";
-import { RESERVED_STATE_HEADER } from "./state-crossing.js";
+import type { HttpArc } from "../../../../arcs/http/http-arc.js";
+import type { ResponseLike } from "../../../../arcs/http/transport/types/response.js";
+import type { IWsChannelDomain } from "../../../../arcs/ws/channels/domain.js";
+import type { WebSocketArc } from "../../../../arcs/ws/ws-arc.js";
+import type { HostConfig } from "../../../../config/flare-config.js";
+import type { LogContext } from "../../../../logger/types.js";
+import type { FlareService } from "../../../../services/composition/flare-service.js";
+import type { Container } from "../../../../services/container.js";
+import type { ServiceToken } from "../../../../services/types/token.js";
+import type { TestRequestInput } from "../../../../testing/types/flare-test-req.js";
+import type { IFlareHost } from "../../../flare-host.js";
+import { FlareHttpContext, INSTANCE_SINGLETONS } from "../../../../arcs/http/transport/flare-http-context.js";
+import { FlareRequest } from "../../../../arcs/http/transport/flare-request.js";
+import { FlareResponse } from "../../../../arcs/http/transport/flare-response.js";
+import { CfRequestAdapter } from "../../../../arcs/http/transport/runtime/cloudflare.js";
+import { DRAIN_SET_COOKIES } from "../../../../arcs/http/transport/types/cookies.js";
+import { handleCfWsUpgrade } from "../../../../arcs/ws/transport/runtime/cloudflare/upgrade.js";
+import { loggerALS } from "../../../../logger/context.js";
+import { RESERVED_STATE_HEADER } from "../do/state-crossing.js";
 
 /**
  * Channel backend for the plain-Worker context, where channels are unsupported: workerd pins each
@@ -57,7 +57,7 @@ export const WORKER_CHANNELS_UNSUPPORTED: IWsChannelDomain = {
  * the DO subclass overrides; the Worker subclass uses their no-op defaults, so DO-only behavior can
  * never run in the front-door context.
  *
- * @internal Exported for {@link CloudflareApp} and white-box tests; not part of the public surface.
+ * @internal Exported for {@link FlareAppCF} and white-box tests; not part of the public surface.
  */
 export abstract class CfHandlerBase {
   #emitRequestIdHeader = true;
@@ -71,7 +71,7 @@ export abstract class CfHandlerBase {
     protected readonly container: Container,
     protected readonly arc: HttpArc<"sync"> | null,
     /** This context's WebSocket arc: `host.ws` in the Worker, the per-DO arc in a Durable Object. */
-    protected readonly wsArc: WebSocketArc | null = null,
+    protected readonly wsArc: WebSocketArc | null,
   ) {
     const hostCfg = this.host.config.host as HostConfig;
     this.#emitRequestIdHeader = hostCfg.requestIdHeader === true;
@@ -203,10 +203,10 @@ export abstract class CfHandlerBase {
 
     if (response instanceof FlareResponse) {
       if (this.#emitRequestIdHeader) {
-        (response.headers as Record<string, string>)["x-request-id"] = requestId;
+        response.headers["x-request-id"] = requestId;
       }
       if (outboundEnvelope !== undefined) {
-        (response.headers as Record<string, string>)[RESERVED_STATE_HEADER] = outboundEnvelope;
+        response.headers[RESERVED_STATE_HEADER] = outboundEnvelope;
       }
 
       if (response.bodyStream) {

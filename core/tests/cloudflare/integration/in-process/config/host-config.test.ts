@@ -1,10 +1,10 @@
 /**
- * Production-path tests exercise CloudflareApp.export()/fetch() directly. Use
+ * Production-path tests exercise FlareAppCF.export()/fetch() directly. Use
  * cfProdAdapter so adapter.env omits FLARE_MODE and host.build() returns the
- * live CloudflareApp rather than the test-mode shim.
+ * live FlareAppCF rather than the test-mode shim.
  */
 import { describe, expect, it } from "vitest";
-import type { CloudflareApp } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
+import type { FlareAppCF } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
 import { makeEnv, makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
@@ -18,7 +18,7 @@ describe("Primary Behavior", () => {
     }));
     host.http.get("/ping", () => new FlareResponse(200, { ok: true }));
 
-    const app = host.build() as CloudflareApp;
+    const app = host.build() as FlareAppCF;
     const handle = app.export();
     const res = await handle.fetch(new Request("https://flare.test/ping"), makeEnv(), makeExecutionContext());
     expect(res.status).toBe(200);
@@ -35,7 +35,7 @@ describe("Edge Cases", () => {
     host.http.get("/ping", () => new FlareResponse(200, { ok: true }));
     host.http.get("/raw", () => new Response("hi", { status: 200 }));
 
-    const app = host.build() as CloudflareApp;
+    const app = host.build() as FlareAppCF;
     const handle = app.export();
     const flareRes = await handle.fetch(new Request("https://flare.test/ping"), makeEnv(), makeExecutionContext());
     const rawRes = await handle.fetch(new Request("https://flare.test/raw"), makeEnv(), makeExecutionContext());
@@ -55,7 +55,7 @@ describe("Edge Cases", () => {
       trueObservedStart = ctx.req.startTime;
       return new FlareResponse(200, { ok: true });
     });
-    const trueApp = trueHost.build() as CloudflareApp;
+    const trueApp = trueHost.build() as FlareAppCF;
     const trueHandle = trueApp.export();
     const t0 = Date.now();
     const trueRes = await trueHandle.fetch(new Request("https://flare.test/now"), makeEnv(), makeExecutionContext());
@@ -72,7 +72,7 @@ describe("Edge Cases", () => {
       falseObservedStart = ctx.req.startTime;
       return new FlareResponse(200, { ok: true });
     });
-    const falseApp = falseHost.build() as CloudflareApp;
+    const falseApp = falseHost.build() as FlareAppCF;
     const falseHandle = falseApp.export();
     const falseRes = await falseHandle.fetch(new Request("https://flare.test/now"), makeEnv(), makeExecutionContext());
     expect(falseRes.status).toBe(200);

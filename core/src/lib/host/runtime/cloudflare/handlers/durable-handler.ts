@@ -2,26 +2,26 @@
  * The Durable Object instance request handler: state crossing and per-instance
  * service resolution over the shared handler core.
  */
-import type { HttpArc } from "../../../arcs/http/http-arc.js";
-import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
-import type { IWsChannelDomain } from "../../../arcs/ws/channels/domain.js";
-import type { WebSocketArc } from "../../../arcs/ws/ws-arc.js";
-import type { ConfigToken } from "../../../config/flare-config.js";
-import type { FlareService } from "../../../services/composition/flare-service.js";
-import type { Container } from "../../../services/container.js";
-import type { Injected } from "../../../services/types/inject.js";
-import type { ServiceToken } from "../../../services/types/token.js";
-import type { IFlareHost } from "../../flare-host.js";
-import type { FlareDurableObjectClass } from "./durable-object.js";
-import { HANDLER_ERRORED } from "../../../arcs/http/transport/flare-http-context.js";
-import { HibernationChannelIndex } from "../../../arcs/ws/transport/runtime/cloudflare/hibernation-channel-index.js";
-import { CfHandlerBase } from "./cf-handler-base.js";
+import type { HttpArc } from "../../../../arcs/http/http-arc.js";
+import type { FlareHttpContext } from "../../../../arcs/http/transport/flare-http-context.js";
+import type { IWsChannelDomain } from "../../../../arcs/ws/channels/domain.js";
+import type { WebSocketArc } from "../../../../arcs/ws/ws-arc.js";
+import type { ConfigToken } from "../../../../config/flare-config.js";
+import type { FlareService } from "../../../../services/composition/flare-service.js";
+import type { Container } from "../../../../services/container.js";
+import type { Injected } from "../../../../services/types/inject.js";
+import type { ServiceToken } from "../../../../services/types/token.js";
+import type { IFlareHost } from "../../../flare-host.js";
+import type { FlareDurableObjectClass } from "../do/durable-object.js";
+import { HANDLER_ERRORED } from "../../../../arcs/http/transport/flare-http-context.js";
+import { HibernationChannelIndex } from "../../../../arcs/ws/transport/runtime/cloudflare/hibernation-channel-index.js";
 import {
   decodeStateEnvelope,
   encodeOutboundEnvelope,
   RESERVED_STATE_HEADER,
   RESERVED_TRACE_HEADER,
-} from "./state-crossing.js";
+} from "../do/state-crossing.js";
+import { CfHandlerBase } from "./cf-handler-base.js";
 
 /**
  * Durable Object instance handler: adds state crossing (strip inbound reserved headers, decode inbound
@@ -104,8 +104,7 @@ export class DurableHandler extends CfHandlerBase {
 
   /** Resolves a config token from the host config, same value `scope.config(token)` returns. */
   config<T>(token: ConfigToken<T>): T {
-    // The resolved config is a plain record; the token's phantom type restates the
-    // section shape the config pass validated at build.
-    return (this.host.config as Record<string, unknown>)[token.key] as T;
+    // The token's phantom type restates the section shape the config pass validated at build.
+    return this.host.config[token.key] as T;
   }
 }

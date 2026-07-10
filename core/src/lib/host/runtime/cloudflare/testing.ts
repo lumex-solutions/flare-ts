@@ -23,7 +23,7 @@
  *
  * @param bindings - Key/value bindings to expose as the environment.
  */
-export function makeEnv<T extends Record<string, unknown>>(bindings: T = {} as T): Cloudflare.Env {
+export function makeEnv(bindings: Record<string, unknown> = {}): Cloudflare.Env {
   return bindings as unknown as Cloudflare.Env;
 }
 

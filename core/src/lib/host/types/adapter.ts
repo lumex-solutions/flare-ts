@@ -4,7 +4,6 @@
 import type { JsonObject } from "@flare-ts/lib/schema";
 import type { FlareRequest } from "../../arcs/http/transport/flare-request";
 import type { Logger } from "../../logger/logger";
-import type { LoggerTransport } from "../../logger/transport";
 import type { LoggerTransportClass } from "../../logger/types";
 import type { Container } from "../../services/container";
 import type { TestRequestInput } from "../../testing/types/flare-test-req";
@@ -42,7 +41,7 @@ export interface HostRuntimeAdapter<
   /** Builds the runtime-specific app instance bound to the host. */
   createApp: (host: IFlareHost) => TApp;
   /** Builds the runtime-specific logger from the resolved transports and bootstrap container. */
-  createLogger: (transports: LoggerTransport[], container: Container) => Logger;
+  createLogger: (transports: InstanceType<TTransportClass>[], container: Container) => Logger;
   /** Synthesizes a {@link FlareRequest} from a {@link TestRequestInput} for in-process tests. */
   createTestRequest: (input: TestRequestInput) => FlareRequest;
   /**

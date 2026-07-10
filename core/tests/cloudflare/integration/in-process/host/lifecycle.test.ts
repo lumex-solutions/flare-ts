@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
-import type { CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import { cf } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse, type LogRecord } from "../../../../../src/index.js";
@@ -22,7 +22,7 @@ class SilentCFWTransport extends CfLoggerTransport {
   override write(_record: LogRecord): void {}
 }
 
-function buildSyncAdapter(): HostRuntimeAdapter<CloudflareApp, typeof SilentCFWTransport, "sync"> {
+function buildSyncAdapter(): HostRuntimeAdapter<FlareAppCF, typeof SilentCFWTransport, "sync"> {
   return {
     runtime: "cloudflare",
     lifecycle: "sync",
@@ -63,7 +63,7 @@ describe("Primary Behavior", () => {
         }
       }
 
-      const adapter: HostRuntimeAdapter<CloudflareApp, typeof RecordingTransport, "sync"> = {
+      const adapter: HostRuntimeAdapter<FlareAppCF, typeof RecordingTransport, "sync"> = {
         runtime: "cloudflare",
         lifecycle: "sync",
         get flareJsonFile(): JsonObject {
@@ -161,7 +161,7 @@ describe("Cross-Feature Interactions", () => {
       // Sanity: build alone does not flip state; only export() does.
       expect(host.state).toBe("starting");
 
-      const handle = (app as CloudflareApp).export();
+      const handle = (app as FlareAppCF).export();
       expect(handle).not.toBeNull();
       // Synchronous transition: by the time export() has returned,
       // the http arc start has fully run (proven by the arc callback having

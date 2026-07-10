@@ -1,10 +1,10 @@
 /**
  * Integration suite for the HTTP arc lifecycle on the production Cloudflare adapter path. Pins that
- * `host.build()` returns a real CloudflareApp whose sync lifecycle walks the HTTP arc and enforces
+ * `host.build()` returns a real FlareAppCF whose sync lifecycle walks the HTTP arc and enforces
  * the Promise-returning callback rule under the workerd pool.
  */
 import { describe, expect, it } from "vitest";
-import type { CloudflareAdapter, CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { CloudflareAdapter, FlareAppCF } from "../../../../../src/cloudflare.js";
 import type { LogRecord } from "../../../../../src/index.js";
 import { CfLoggerTransport, FlareHost } from "../../../../../src/index.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
@@ -17,7 +17,7 @@ class SilentCFWTransport extends CfLoggerTransport {
 }
 
 // Production-path CF adapter (env has no FLARE_MODE, so not test mode),
-// `host.build()` returns a real `CloudflareApp` whose `start()` / `stop()`
+// `host.build()` returns a real `FlareAppCF` whose `start()` / `stop()`
 // walk the http arc and enforce the sync-lifecycle Promise rule. The single
 // CF adapter is `lifecycle: "sync"`, so a Promise-returning lifecycle callback
 // must abort. Override the default transports with a silent one to keep the
@@ -40,7 +40,7 @@ describe("Primary Behavior", () => {
       // call type-checkable against the sync `LifecycleCallback` signature.
       host.http.onStart(() => Promise.resolve() as never);
 
-      const app = host.build() as CloudflareApp;
+      const app = host.build() as FlareAppCF;
       // app.start() (sync overload) walks the arc via [START_HTTP_ARC], which
       // detects the returned Promise and aborts before any singleton walk.
       expect(() => app.start()).toThrow(
@@ -63,7 +63,7 @@ describe("Failure Modes", () => {
       // stop path then hits the Promise-returning onStop and throws verbatim.
       host.http.onStop(() => Promise.resolve() as never);
 
-      const app = host.build() as CloudflareApp;
+      const app = host.build() as FlareAppCF;
       app.start(); // no onStart callbacks registered
       expect(() => app.stop()).toThrow(
         "[flare] Sync runtime lifecycle callback returned a Promise.",

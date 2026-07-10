@@ -1,7 +1,7 @@
-import type { DeepReadonly, StateToken, TypedStateToken } from "../../../../../state/flare-state.js";
 /**
  * In-memory `ws.state` store synchronized with hibernated WebSocket socket attachments.
  */
+import type { DeepReadonly, StateToken, TypedStateToken } from "../../../../../state/flare-state.js";
 import { StateMap } from "../../../../../state/map.js";
 
 /**

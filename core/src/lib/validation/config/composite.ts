@@ -23,7 +23,7 @@ export type ConfigValidationContext = {
   /** The fully resolved config object produced by #compileConfig. */
   readonly resolvedConfig: Readonly<JsonObject>;
   /** Declared config arrays from every registered class (controllers, services, middleware). */
-  readonly classConfigDeclarations: ReadonlyArray<ConfigToken<unknown>[] | undefined>;
+  readonly classConfigDeclarations: ReadonlyArray<readonly ConfigToken<unknown>[] | undefined>;
 };
 
 /**

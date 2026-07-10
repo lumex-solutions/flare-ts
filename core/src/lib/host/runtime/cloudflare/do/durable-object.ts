@@ -2,37 +2,43 @@
  * Durable Object composition: the static base class, per-instance host composition, and the DO class vocabulary.
  */
 import { DurableObject } from "cloudflare:workers";
-import type { IWsChannelDomain } from "../../../arcs/ws/channels/domain.js";
-import type { HibernatedEvent } from "../../../arcs/ws/transport/runtime/cloudflare/types.js";
-import type { WebSocketArc } from "../../../arcs/ws/ws-arc.js";
-import type { ConfigToken } from "../../../config/flare-config.js";
-import type { FlareService } from "../../../services/composition/flare-service.js";
-import type { Container } from "../../../services/container.js";
-import type { Injected } from "../../../services/types/inject.js";
-import type { ServiceToken } from "../../../services/types/token.js";
-import type { StateToken } from "../../../state/flare-state.js";
-import type { IFlareHost } from "../../flare-host.js";
-import { WsChannelRegistry } from "../../../arcs/ws/channels/registry.js";
-import { WebSocketChannels } from "../../../arcs/ws/channels/web-socket-channels.js";
-import { HibernationChannelIndex } from "../../../arcs/ws/transport/runtime/cloudflare/hibernation-channel-index.js";
+import type { IWsChannelDomain } from "../../../../arcs/ws/channels/domain.js";
+import type { HibernatedEvent } from "../../../../arcs/ws/transport/runtime/cloudflare/types.js";
+import type { WebSocketArc } from "../../../../arcs/ws/ws-arc.js";
+import type { ConfigToken } from "../../../../config/flare-config.js";
+import type { FlareService } from "../../../../services/composition/flare-service.js";
+import type { Container } from "../../../../services/container.js";
+import type { Injected } from "../../../../services/types/inject.js";
+import type { ServiceToken } from "../../../../services/types/token.js";
+import type { StateToken } from "../../../../state/flare-state.js";
+import type { IFlareHost } from "../../../flare-host.js";
+import { WsChannelRegistry } from "../../../../arcs/ws/channels/registry.js";
+import { WebSocketChannels } from "../../../../arcs/ws/channels/web-socket-channels.js";
+import { HibernationChannelIndex } from "../../../../arcs/ws/transport/runtime/cloudflare/hibernation-channel-index.js";
 import {
   deliverHibernatedEvent,
   hibernationUpgrade,
-} from "../../../arcs/ws/transport/runtime/cloudflare/hibernation.js";
-import { pickSubprotocol } from "../../../arcs/ws/transport/subprotocol.js";
-import { WS_CHANNEL_REGISTRY } from "../../../arcs/ws/ws-arc.js";
-import { WEBSOCKETS_CONFIG } from "../../../config/flare-config.js";
-import { _log } from "../../../logger/bootstrap.js";
-import { toErrorField } from "../../../logger/fields.js";
-import { COMPILE_INSTANCE_CONTAINER } from "../../types/const.js";
-import { arcForDurableObject, wsArcForDurableObject } from "./app.js";
-import { Bindings } from "./bindings.js";
-import { isWebSocketUpgrade } from "./cf-handler-base.js";
-import { DurableHandler } from "./durable-handler.js";
+} from "../../../../arcs/ws/transport/runtime/cloudflare/hibernation.js";
+import { pickSubprotocol } from "../../../../arcs/ws/transport/subprotocol.js";
+import { WS_CHANNEL_REGISTRY } from "../../../../arcs/ws/ws-arc.js";
+import { WEBSOCKETS_CONFIG } from "../../../../config/flare-config.js";
+import { _log } from "../../../../logger/bootstrap.js";
+import { toErrorField } from "../../../../logger/fields.js";
+import { COMPILE_INSTANCE_CONTAINER } from "../../../types/const.js";
+import { Bindings } from "../bindings.js";
+import { isWebSocketUpgrade } from "../handlers/cf-handler-base.js";
+import { DurableHandler } from "../handlers/durable-handler.js";
+import { durableRegistration } from "../registration.js";
 import { DurableState } from "./durable-state.js";
 
 /** Map of per-context seed factories handed to `[COMPILE_INSTANCE_CONTAINER]`. */
-type SeedMap = Map<ServiceToken<FlareService>, (container: Container) => FlareService>;
+/**
+ * Per-context container seeding: token to factory, applied when a context's
+ * singletons compile. Shared by Worker seeding (app.ts) and DO composition.
+ *
+ * @internal
+ */
+export type SeedMap = Map<ServiceToken<FlareService>, (container: Container) => FlareService>;
 
 /**
  * Structural shape of a Durable Object class for host registration. The concrete cloudflare
@@ -41,11 +47,11 @@ type SeedMap = Map<ServiceToken<FlareService>, (container: Container) => FlareSe
  *
  * @internal Users extend `FlareDurableObject`, not this.
  */
-export interface FlareDurableObjectClass {
+export type FlareDurableObjectClass = {
   new(...args: any[]): object;
   readonly deps?: readonly ServiceToken<FlareService>[];
   readonly name: string;
-}
+};
 
 /**
  * Stamped onto a `FlareDurableObject` subclass by `host.durableObject(Class)` so each instance can
@@ -84,7 +90,7 @@ export function composeDurableInstance(
 ): DurableHandler {
   // The per-DO WebSocket arc (the DurableHandle ws arc); the DurableHandler intercepts matching upgrades. Resolved
   // alongside the HTTP arc since both are registered together by host.durableObject().
-  const wsArc = wsArcForDurableObject(cls) ?? null;
+  const wsArc = durableRegistration(cls)?.wsArc ?? null;
   const seed: SeedMap = new Map();
   seed.set(DurableState, (c) => new DurableState(c, state));
   seed.set(Bindings, (c) => new Bindings(c, env));
@@ -97,7 +103,7 @@ export function composeDurableInstance(
     : wsArc?.[WS_CHANNEL_REGISTRY]() ?? new WsChannelRegistry();
   seed.set(WebSocketChannels, (c) => new WebSocketChannels(c, wsDomain));
   const container = host[COMPILE_INSTANCE_CONTAINER](seed);
-  const arcEntry = arcForDurableObject(cls);
+  const arcEntry = durableRegistration(cls)?.arc;
   if (arcEntry === undefined) {
     throw new Error(
       `[flare] ${cls.name} has no per-DO arc. Call host.durableObject(${cls.name}) before host.build().`,
@@ -135,7 +141,7 @@ export class FlareDurableObject extends DurableObject<Cloudflare.Env> {
       );
     }
     this.#handler = composeDurableInstance(host, ctx, env, this.constructor as FlareDurableObjectClass);
-    this.#wsArc = wsArcForDurableObject(this.constructor as FlareDurableObjectClass) ?? null;
+    this.#wsArc = durableRegistration(this.constructor as FlareDurableObjectClass)?.wsArc ?? null;
   }
 
   /** Resolves a service declared in this class's `static deps` from the per-instance graph. */

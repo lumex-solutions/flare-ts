@@ -1,7 +1,8 @@
+import type { JsonValue } from "@flare-ts/lib/schema";
 /**
  * The class-form route authoring base: response helpers over the shared registration core.
  */
-import type { JsonValue } from "@flare-ts/lib/schema";
+import type { ConfigToken } from "../../../../config/flare-config.js";
 import type { FlareService } from "../../../../services/composition/flare-service.js";
 import type { Container } from "../../../../services/container.js";
 import type { ServiceToken } from "../../../../services/types/token.js";
@@ -22,6 +23,7 @@ export type ControllerClass = {
   deps: ServiceToken<FlareService>[];
   state: StateToken[];
   contract?: ContractToken | undefined;
+  config?: readonly ConfigToken<unknown>[] | undefined;
 };
 
 /**

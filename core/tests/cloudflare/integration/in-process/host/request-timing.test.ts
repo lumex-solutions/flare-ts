@@ -1,10 +1,10 @@
 /**
- * Production-path tests exercise CloudflareApp.export()/fetch() directly. Use
+ * Production-path tests exercise FlareAppCF.export()/fetch() directly. Use
  * cfProdAdapter so adapter.env omits FLARE_MODE and host.build() returns the
- * live CloudflareApp rather than the test-mode shim.
+ * live FlareAppCF rather than the test-mode shim.
  */
 import { describe, expect, it } from "vitest";
-import type { CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse, MiddlewareBase } from "../../../../../src/index.js";
 import { makeEnv, makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
@@ -38,7 +38,7 @@ describe("Primary Behavior", () => {
     host.http.get("/ping", () => new FlareResponse(200, { ok: true }));
 
     const t0 = Date.now();
-    const app = host.build() as CloudflareApp;
+    const app = host.build() as FlareAppCF;
     const handle = app.export();
     const res = await handle.fetch(new Request("https://flare.test/ping"), makeEnv(), makeExecutionContext());
     const t1 = Date.now();
@@ -63,7 +63,7 @@ describe("Primary Behavior", () => {
       return new FlareResponse(200, { ok: true });
     });
 
-    const app = host.build() as CloudflareApp;
+    const app = host.build() as FlareAppCF;
     const handle = app.export();
     const res = await handle.fetch(new Request("https://flare.test/ping"), makeEnv(), makeExecutionContext());
 
@@ -89,7 +89,7 @@ describe("Edge Cases", () => {
       return new FlareResponse(200, { ok: true });
     });
 
-    const app = host.build() as CloudflareApp;
+    const app = host.build() as FlareAppCF;
     const handle = app.export();
     const res = await handle.fetch(new Request("https://flare.test/ping"), makeEnv(), makeExecutionContext());
 
@@ -110,7 +110,7 @@ describe("Edge Cases", () => {
       return new FlareResponse(200, { ok: true });
     });
 
-    const app = host.build() as CloudflareApp;
+    const app = host.build() as FlareAppCF;
     const handle = app.export();
 
     const tBefore1 = Date.now();
@@ -141,7 +141,7 @@ describe("Cross-Feature Interactions", () => {
       return new FlareResponse(200, { startTime: v });
     });
 
-    const app = host.build() as CloudflareApp;
+    const app = host.build() as FlareAppCF;
     const handle = app.export();
 
     const tBefore1 = Date.now();

@@ -12,17 +12,21 @@ export {
   durable,
   DurableState,
   FlareDurableObject,
-  forwardDurable,
 } from "./lib/host/runtime/cloudflare/index.js";
 export type {
   CloudflareAdapter,
-  CloudflareApp,
   DurableAddressingOpts,
+  DurableStub,
+  FlareAppCF,
   WorkerExportedHandle,
 } from "./lib/host/runtime/cloudflare/index.js";
 
 // White-box DO testing: drive the real per-instance container graph without
 // miniflare or workerd bindings. Pure helpers; tree-shaken out of production
 // bundles (`sideEffects: false`).
-export { composeDurableInstance } from "./lib/host/runtime/cloudflare/durable-object.js";
-export { makeEnv, makeFakeDurableState, makeFakeStorage } from "./lib/host/runtime/cloudflare/testing.js";
+export {
+  composeDurableInstance,
+  makeEnv,
+  makeFakeDurableState,
+  makeFakeStorage,
+} from "./lib/host/runtime/cloudflare/index.js";

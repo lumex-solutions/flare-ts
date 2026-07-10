@@ -1,10 +1,10 @@
 /**
- * Production-path tests exercise CloudflareApp.export()/fetch() directly. Use
+ * Production-path tests exercise FlareAppCF.export()/fetch() directly. Use
  * cfProdAdapter so adapter.env omits FLARE_MODE and host.build() returns the
- * live CloudflareApp rather than the test-mode shim.
+ * live FlareAppCF rather than the test-mode shim.
  */
 import { describe, expect, it } from "vitest";
-import type { CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import type { LogRecord } from "../../../../../src/index.js";
 import { FlareHost, FlareResponse, LoggerTransport } from "../../../../../src/index.js";
 import { makeEnv, makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
@@ -20,7 +20,7 @@ describe("Primary Behavior", () => {
     }));
     host.http.get("/ok", () => new FlareResponse(200, { ok: true }));
 
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("https://flare.test/ok"), makeEnv(), makeExecutionContext());
 
     expect(res.status).toBe(200);
@@ -36,7 +36,7 @@ describe("Primary Behavior", () => {
     }));
     host.http.get("/ping", () => new FlareResponse(200, { ok: true }));
 
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res1 = await handle.fetch(new Request("https://flare.test/ping"), makeEnv(), makeExecutionContext());
     const res2 = await handle.fetch(new Request("https://flare.test/ping"), makeEnv(), makeExecutionContext());
     const res3 = await handle.fetch(new Request("https://flare.test/ping"), makeEnv(), makeExecutionContext());
@@ -68,7 +68,7 @@ describe("Primary Behavior", () => {
     host.http.get("/flare", () => new FlareResponse(200, { ok: true }));
     host.http.get("/raw", () => new Response("hi", { status: 200 }));
 
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const flareRes = await handle.fetch(new Request("https://flare.test/flare"), makeEnv(), makeExecutionContext());
     const rawRes = await handle.fetch(new Request("https://flare.test/raw"), makeEnv(), makeExecutionContext());
 
@@ -89,7 +89,7 @@ describe("Edge Cases", () => {
       throw new Error("kaboom");
     });
 
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("https://flare.test/boom"), makeEnv(), makeExecutionContext());
 
     expect(res.status).toBe(500);
@@ -99,16 +99,16 @@ describe("Edge Cases", () => {
 });
 
 describe("Failure Modes", () => {
-  it("different CloudflareApp instances derive independent nonces", async () => {
+  it("different FlareAppCF instances derive independent nonces", async () => {
     // workerd cannot simulate an OS process restart; building separate
-    // CloudflareApp instances is the closest proxy for per-process nonce isolation.
+    // FlareAppCF instances is the closest proxy for per-process nonce isolation.
     const buildAndFetch = async (): Promise<string> => {
       const host = new FlareHost(cfProdAdapter({
         host: { env: "test", requestIdHeader: true },
         log: { level: "fatal", format: "json" },
       }));
       host.http.get("/p", () => new FlareResponse(200, { ok: true }));
-      const handle = (host.build() as CloudflareApp).export();
+      const handle = (host.build() as FlareAppCF).export();
       const res = await handle.fetch(new Request("https://flare.test/p"), makeEnv(), makeExecutionContext());
       return res.headers.get("x-request-id")!;
     };
@@ -134,7 +134,7 @@ describe("Failure Modes", () => {
       () => new Response("hi", { status: 200, headers: { "x-request-id": "caller-supplied" } }),
     );
 
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const flareRes = await handle.fetch(new Request("https://flare.test/flare-pre"), makeEnv(), makeExecutionContext());
     const rawRes = await handle.fetch(new Request("https://flare.test/raw-pre"), makeEnv(), makeExecutionContext());
 
@@ -156,7 +156,7 @@ describe("Cross-Feature Interactions", () => {
     }));
     host.http.get("/q", () => new FlareResponse(200, { ok: true }));
 
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
 
     try {
       (crypto as { randomUUID: () => `${string}-${string}-${string}-${string}-${string}`; }).randomUUID = () => {
@@ -207,7 +207,7 @@ describe("Cross-Feature Interactions", () => {
       return new FlareResponse(200, { id: rid });
     });
 
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("https://flare.test/log-me"), makeEnv(), makeExecutionContext());
 
     expect(res.status).toBe(200);

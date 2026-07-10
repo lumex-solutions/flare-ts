@@ -10,11 +10,11 @@
  * Runs in the cloudflare pool (needs the CF type environment for DurableObjectStub types).
  */
 import { describe, expect, it, vi } from "vitest";
-import { durable, wrapStub } from "../../../../../src/lib/host/runtime/cloudflare/addressing.js";
+import { durable, wrapStub } from "../../../../../src/lib/host/runtime/cloudflare/do/addressing.js";
 import {
   RESERVED_STATE_HEADER,
   RESERVED_TRACE_HEADER,
-} from "../../../../../src/lib/host/runtime/cloudflare/state-crossing.js";
+} from "../../../../../src/lib/host/runtime/cloudflare/do/state-crossing.js";
 
 interface FakeStub {
   fetch: ReturnType<typeof vi.fn>;

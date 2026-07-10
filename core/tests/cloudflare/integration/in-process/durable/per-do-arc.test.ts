@@ -2,11 +2,11 @@
  * White-box tests for per-DO route arcs. Each Durable Object owns an HttpArc resolved from its
  * per-instance container; host.http is the front door only. Drives composeDurableInstance directly
  * (workerd's native DurableObject base rejects a fake ctx), with cfProdAdapter so host.build()
- * returns the live CloudflareApp.
+ * returns the live FlareAppCF.
  */
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
-import type { CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { composeDurableInstance, DurableState, FlareDurableObject } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse } from "../../../../../src/index.js";
 import { makeEnv, makeExecutionContext, makeFakeDurableState } from "../../../helpers/cf-runtime-harness.js";
@@ -94,7 +94,7 @@ describe("per-DO route arcs", () => {
     expect(await (await instB.fetch(new Request("https://do/who"))).json()).toEqual({ who: "B" });
 
     // Front door still serves its own arc through .export().
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("https://flare.test/front"), makeEnv(), makeExecutionContext());
     expect(await res.json()).toEqual({ where: "front" });
   });

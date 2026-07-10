@@ -3,7 +3,7 @@
  * isolates and Durable Objects are evicted, so the host exposes host.scoped() instead of singleton().
  */
 import { describe, expect, it } from "vitest";
-import type { CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse, FlareService } from "../../../../../src/index.js";
 import { makeEnv, makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
@@ -21,7 +21,7 @@ describe("scoped services on Cloudflare", () => {
     expect(() => host.scoped(Cache)).not.toThrow();
     host.http.get("/", () => new FlareResponse(200, { ok: true }));
 
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(new Request("http://flare.test/"), makeEnv(), makeExecutionContext());
 
     expect(res.status).toBe(200);

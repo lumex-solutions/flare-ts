@@ -1,7 +1,8 @@
+import type { JsonValue } from "@flare-ts/lib/schema";
 /**
  * The class-form middleware authoring base: before/after/finally hooks over the shared core.
  */
-import type { JsonValue } from "@flare-ts/lib/schema";
+import type { ConfigToken } from "../../../../config/flare-config.js";
 import type { FlareService } from "../../../../services/composition/flare-service.js";
 import type { Container } from "../../../../services/container.js";
 import type { ServiceToken } from "../../../../services/types/token.js";
@@ -16,6 +17,7 @@ export type MiddlewareClass = {
   deps: ServiceToken<FlareService>[];
   state: StateToken[];
   provides?: StateToken[];
+  config?: readonly ConfigToken<unknown>[] | undefined;
 };
 
 /**

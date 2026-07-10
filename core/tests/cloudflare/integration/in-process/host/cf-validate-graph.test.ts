@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
-import type { CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { DurableState, FlareDurableObject } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse, FlareService } from "../../../../../src/index.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
@@ -101,7 +101,7 @@ describe("CF context-aware build-time validation", () => {
   it(".export() returns the handle without re-running the validation suite", async () => {
     const host = new FlareHost(cfProdAdapter(cfJson()));
     host.http.get("/ok", () => new FlareResponse(200, { ok: true }));
-    const app = host.build() as CloudflareApp;
+    const app = host.build() as FlareAppCF;
     // A second .export() (idempotent) must not throw a revalidation error.
     expect(() => app.export()).not.toThrow();
   });

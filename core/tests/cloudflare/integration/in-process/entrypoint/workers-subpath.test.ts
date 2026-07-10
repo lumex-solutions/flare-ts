@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 // Canonical source modules behind the subpath re-exports; used to prove identity equality.
-import type { CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 // The `@flare-ts/core/cloudflare` subpath compiles from `src/cloudflare.ts`
 // to `dist/cloudflare.js`. Within the core package we import the source
 // barrel directly - it is the exact module that the published subpath
@@ -38,7 +38,6 @@ const EXPECTED_RUNTIME_NAMES = [
   "durable",
   "DurableState",
   "FlareDurableObject",
-  "forwardDurable",
   "makeEnv",
   "makeFakeDurableState",
   "makeFakeStorage",
@@ -60,7 +59,7 @@ describe("Primary Behavior", () => {
       // Identity equality: the subpath barrel re-exports the same references
       // as the underlying runtime module. Without this, code that mixes the
       // subpath import (`from "@flare-ts/core/cloudflare"`) with a deep import
-      // would end up with two distinct adapter objects and two CloudflareApp
+      // would end up with two distinct adapter objects and two FlareAppCF
       // class references - silently breaking instanceof checks and shared
       // module-scope state during refactors.
       expect(cfFromSubpath).toBe(cfFromModule);
@@ -90,7 +89,7 @@ describe("Primary Behavior", () => {
       // Both must yield the same Workers module shape and route through to the
       // controller. The runtime adapter is consumed by FlareHost.build(); the
       // host MUST be built with the CF adapter (not the testing harness) so
-      // the assertion exercises the actual `CloudflareApp.export()` terminal a
+      // the assertion exercises the actual `FlareAppCF.export()` terminal a
       // Worker entrypoint would `export default`.
 
       class ProbeController extends ControllerBase {
@@ -106,7 +105,7 @@ describe("Primary Behavior", () => {
       // (1) Built via the bare `cf` adapter (no bundled flare.json)
       const hostA = new FlareHost(cfProdAdapter({}));
       hostA.http.controller("/probe", ProbeController);
-      const moduleA = (hostA.build() as CloudflareApp).export();
+      const moduleA = (hostA.build() as FlareAppCF).export();
 
       // The exported module shape is the Workers entrypoint contract: an
       // object with a `fetch` property that takes a Request and returns a
@@ -127,7 +126,7 @@ describe("Primary Behavior", () => {
       // module shape and route through to the controller the same way.
       const hostB = new FlareHost(cfProdAdapter({}));
       hostB.http.controller("/probe", ProbeController);
-      const moduleB = (hostB.build() as CloudflareApp).export();
+      const moduleB = (hostB.build() as FlareAppCF).export();
 
       expect(moduleB).toBeDefined();
 

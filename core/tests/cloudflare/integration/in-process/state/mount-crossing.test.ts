@@ -7,18 +7,18 @@ import type { JsonObject } from "@flare-ts/lib";
 import type { FlareService, ServiceToken, StateToken } from "../../../../../src/index.js";
 import type { FlareHttpContext } from "../../../../../src/lib/arcs/http/transport/flare-http-context.js";
 import type { HandlerResult } from "../../../../../src/lib/arcs/http/transport/types/response.js";
-import type { CloudflareApp } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
+import type { FlareAppCF } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
 import { MiddlewareBase } from "../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
-import { FlareDurableObject } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
-import { DurableState } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
 import {
   decodeStateEnvelope,
   keyForToken,
   RESERVED_STATE_HEADER,
   RESERVED_TRACE_HEADER,
-} from "../../../../../src/lib/host/runtime/cloudflare/state-crossing.js";
+} from "../../../../../src/lib/host/runtime/cloudflare/do/state-crossing.js";
+import { FlareDurableObject } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
+import { DurableState } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
 import { flareState } from "../../../../../src/lib/state/flare-state.js";
 import { mockContext } from "../../../../../src/testing.js";
 import { makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
@@ -108,7 +108,7 @@ describe("inbound state crossing", () => {
     room.mount("/rooms/:name");
 
     const { ns, calls } = makeEchoNamespace(prebakeTokenBEnvelope());
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
 
     await handle.fetch(
       new Request("https://flare.test/rooms/alpha"),
@@ -145,7 +145,7 @@ describe("inbound state crossing", () => {
     room.mount("/api/room");
 
     const { ns, calls } = makeEchoNamespace(prebakeTokenBEnvelope());
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
 
     await handle.fetch(
       new Request("https://flare.test/api/room"),
@@ -182,14 +182,14 @@ describe("inbound state crossing", () => {
     room.mount("/alpha/:name");
     room.mount("/beta/:name");
 
-    // CloudflareApp.export() caches the env from the first request and reuses the
+    // FlareAppCF.export() caches the env from the first request and reuses the
     // same container for all subsequent requests. Both /alpha/:name and /beta/:name
     // resolve the namespace via env.CrossingRoom, so a single shared namespace
     // records calls from both mount paths.
     const { ns, calls } = makeEchoNamespace(prebakeTokenBEnvelope());
     const sharedEnv = { CrossingRoom: ns } as unknown as Cloudflare.Env;
 
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
 
     // Drive through /alpha/:name - must forward with TokenA encoded.
     await handle.fetch(
@@ -245,7 +245,7 @@ describe("outbound state crossing", () => {
     room.mount("/rooms/:name");
 
     const { ns } = makeEchoNamespace(prebakeTokenBEnvelope());
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
 
     await handle.fetch(
       new Request("https://flare.test/rooms/beta"),
@@ -277,7 +277,7 @@ describe("outbound state crossing", () => {
     room.mount("/api/room");
 
     const { ns } = makeEchoNamespace(prebakeTokenBEnvelope());
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
 
     await handle.fetch(
       new Request("https://flare.test/api/room"),
@@ -298,7 +298,7 @@ describe("security", () => {
     room.mount("/rooms/:name");
 
     const { ns } = makeEchoNamespace(prebakeTokenBEnvelope());
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
 
     const res = await handle.fetch(
       new Request("https://flare.test/rooms/gamma"),
@@ -319,7 +319,7 @@ describe("security", () => {
     room.mount("/rooms/:name");
 
     const { ns, calls } = makeEchoNamespace(prebakeTokenBEnvelope());
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
 
     await handle.fetch(
       new Request("https://flare.test/rooms/hack", {
@@ -355,7 +355,7 @@ describe("resolver behavior", () => {
     room.mount("/rooms/:name");
 
     const { ns, calls } = makeEchoNamespace(prebakeTokenBEnvelope());
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
 
     const res = await handle.fetch(
       new Request("https://flare.test/rooms/delta"),
@@ -376,7 +376,7 @@ describe("resolver behavior", () => {
     room.mount("/rooms/:name");
 
     const { ns, calls } = makeEchoNamespace(prebakeTokenBEnvelope());
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
 
     await handle.fetch(
       new Request("https://flare.test/rooms/url-param-name"),
@@ -414,7 +414,7 @@ describe("edge cases", () => {
     room.http.get("/", () => new FlareResponse(200));
     room.mount("/rooms/:name");
 
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
 
     const res = await handle.fetch(
       new Request("https://flare.test/rooms/ws-room", {

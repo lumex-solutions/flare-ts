@@ -4,13 +4,14 @@
  * for parentRequestId correlation tests; websockets auto-response backs hibernation non-wake tests.
  */
 import { FlareHost, FlareResponse, FlareService, flareState, WebSocketChannels } from "../../../src/index.js";
-import { Bindings, buildCf, DurableState, FlareDurableObject } from "../../../src/lib/host/runtime/cloudflare/index.js";
-import { durable } from "../../../src/lib/host/runtime/cloudflare/index.js";
+import { keyForToken, RESERVED_STATE_HEADER } from "../../../src/lib/host/runtime/cloudflare/do/state-crossing.js";
 import {
-  forwardDurable,
-  keyForToken,
-  RESERVED_STATE_HEADER,
-} from "../../../src/lib/host/runtime/cloudflare/state-crossing.js";
+  Bindings,
+  buildCf,
+  durable,
+  DurableState,
+  FlareDurableObject,
+} from "../../../src/lib/host/runtime/cloudflare/index.js";
 import { loggerALS } from "../../../src/lib/logger/context.js";
 import { registerParityRoutes } from "../../portable/parity/routes.js";
 
@@ -308,7 +309,7 @@ host.http.get(
     // not require SessionState, but the DO state array lists it as a static token).
     ctx.state.set(SessionState, { user: "tracer" });
     const syntheticReq = new Request(`https://room.internal/trace`);
-    const res = await forwardDurable(ctx, scope.bindings.env.ROOM_DO, name, RoomDO, syntheticReq);
+    const res = await durable(scope.bindings.env.ROOM_DO, name).forward(ctx, RoomDO, syntheticReq);
     const doBody = await res.json() as { parentRequestId: string | null; };
     // Return both sides in one response so the test can assert equality.
     return new FlareResponse(200, {
@@ -329,7 +330,7 @@ host.http.get(
     if (!user) return new FlareResponse(401, { error: "x-session-user header required" });
     ctx.state.set(SessionState, { user });
     const syntheticReq = new Request(`https://room.internal/whoami`);
-    const res = await forwardDurable(ctx, scope.bindings.env.ROOM_DO, name, RoomDO, syntheticReq);
+    const res = await durable(scope.bindings.env.ROOM_DO, name).forward(ctx, RoomDO, syntheticReq);
     // Return the DO body directly; EchoState has been re-seeded into ctx.
     const body = await res.json() as { user: string; };
     return new FlareResponse(res.status, body);

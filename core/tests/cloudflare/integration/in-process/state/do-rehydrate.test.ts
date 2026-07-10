@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
-import type { CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { composeDurableInstance, FlareDurableObject } from "../../../../../src/cloudflare.js";
 import {
   captureLogStore,
@@ -17,7 +17,7 @@ import {
   encodeInboundEnvelope,
   RESERVED_STATE_HEADER,
   RESERVED_TRACE_HEADER,
-} from "../../../../../src/lib/host/runtime/cloudflare/state-crossing.js";
+} from "../../../../../src/lib/host/runtime/cloudflare/do/state-crossing.js";
 import { mockContext } from "../../../../../src/testing.js";
 import { makeEnv, makeExecutionContext, makeFakeDurableState } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
@@ -158,7 +158,7 @@ describe("DO-side inbound state rehydrate", () => {
         traceHeaderVisible: traceHeader !== null,
       });
     });
-    const app = (host.build() as CloudflareApp).export();
+    const app = (host.build() as FlareAppCF).export();
 
     const req = new Request("https://flare.test/probe", {
       headers: {
@@ -191,7 +191,7 @@ describe("DO-side inbound state rehydrate", () => {
     frontCtx.state.set(TokenA, { id: "attacker", role: "admin" });
     const envelope = encodeInboundEnvelope(frontCtx, RehydrateTestDO);
 
-    const app = (host.build() as CloudflareApp).export();
+    const app = (host.build() as FlareAppCF).export();
     const req = new Request("https://flare.test/state-probe", {
       headers: { [RESERVED_STATE_HEADER]: envelope! },
     });

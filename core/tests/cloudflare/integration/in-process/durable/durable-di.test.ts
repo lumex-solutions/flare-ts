@@ -1,7 +1,7 @@
 /**
  * Production-path Durable Object DI suite. Exercises composeDurableInstance directly (no miniflare
  * DO binding), driving Flare's per-instance container graph via the runtime harness. Uses
- * cfProdAdapter so host.build() returns the live CloudflareApp (no test-mode shim) and each
+ * cfProdAdapter so host.build() returns the live FlareAppCF (no test-mode shim) and each
  * terminal defers validation + singleton compile to the export, like production.
  *
  * The core claim under test: each Durable Object instance gets its OWN container, seeded with that
@@ -10,10 +10,10 @@
  */
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
-import type { CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { Bindings, composeDurableInstance, DurableState, FlareDurableObject } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse, FlareService, flareState } from "../../../../../src/index.js";
-import { RESERVED_STATE_HEADER } from "../../../../../src/lib/host/runtime/cloudflare/state-crossing.js";
+import { RESERVED_STATE_HEADER } from "../../../../../src/lib/host/runtime/cloudflare/do/state-crossing.js";
 import { makeEnv, makeExecutionContext, makeFakeDurableState } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 
@@ -379,7 +379,7 @@ describe("Bindings exposes the runtime env on both terminals", () => {
         return new FlareResponse(200, { who: env["WHO"] ?? null });
       });
 
-      const handle = (host.build() as CloudflareApp).export();
+      const handle = (host.build() as FlareAppCF).export();
       const res = await handle.fetch(
         new Request("https://flare.test/env"),
         makeEnv({ WHO: "worker-iso" }),
@@ -672,7 +672,7 @@ describe("revalidation gates DurableState to the durable terminal", () => {
         return new FlareResponse(200, { region: env["REGION"] ?? null });
       });
 
-      const handle = (host.build() as CloudflareApp).export();
+      const handle = (host.build() as FlareAppCF).export();
       const res = await handle.fetch(
         new Request("https://flare.test/env"),
         makeEnv({ REGION: "enam" }),

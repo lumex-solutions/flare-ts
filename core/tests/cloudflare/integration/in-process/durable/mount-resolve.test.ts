@@ -1,12 +1,12 @@
 /**
  * Integration tests for `room.resolve()`: the front-door DO instance resolver for literal and
  * param-trailing mounts. Covers string forwards, FlareResponse short-circuits, throws, inject DI,
- * and mount conflict checks via in-process CloudflareApp.export().
+ * and mount conflict checks via in-process FlareAppCF.export().
  */
 
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
-import type { CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { Bindings, DurableState, FlareDurableObject } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse, FlareService } from "../../../../../src/index.js";
 import { makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
@@ -55,7 +55,7 @@ describe("resolve() returning a string forwards to the correct DO instance", () 
     room.mount("/api/me");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(
       new Request("https://flare.test/api/me"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -76,7 +76,7 @@ describe("resolve() returning a string forwards to the correct DO instance", () 
     room.mount("/api/me");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(
       new Request("https://flare.test/api/me/foo"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -95,7 +95,7 @@ describe("resolve() returning a string forwards to the correct DO instance", () 
     room.mount("/api/me");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(
       new Request("https://flare.test/api/me"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -116,7 +116,7 @@ describe("resolve() returning a FlareResponse short-circuits without DO forward"
     room.mount("/api/me");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(
       new Request("https://flare.test/api/me"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -137,7 +137,7 @@ describe("resolve() returning a FlareResponse short-circuits without DO forward"
     room.mount("/api/me");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(
       new Request("https://flare.test/api/me/settings"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -162,7 +162,7 @@ describe("resolve() throwing propagates through the Worker error pipeline", () =
     room.mount("/api/me");
 
     const { ns } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(
       new Request("https://flare.test/api/me"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -183,7 +183,7 @@ describe("resolve() throwing propagates through the Worker error pipeline", () =
     room.mount("/api/me");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(
       new Request("https://flare.test/api/me"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -214,7 +214,7 @@ describe("resolve() with { inject } injects front-door services", () => {
     room.mount("/api/me");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(
       new Request("https://flare.test/api/me"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -236,7 +236,7 @@ describe("resolve() with { inject } injects front-door services", () => {
     room.mount("/tenants/:tenant/me");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(
       new Request("https://flare.test/tenants/acme-corp/me"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -259,7 +259,7 @@ describe("singleton pattern: literal-only path + resolve returning constant", ()
     coord.mount("/coordinator");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(
       new Request("https://flare.test/coordinator"),
       { Coord: ns } as unknown as Cloudflare.Env,
@@ -280,7 +280,7 @@ describe("singleton pattern: literal-only path + resolve returning constant", ()
     coord.mount("/coordinator");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(
       new Request("https://flare.test/coordinator/status"),
       { Coord: ns } as unknown as Cloudflare.Env,
@@ -356,7 +356,7 @@ describe("param-trailing mount with and without resolve", () => {
     room.mount("/rooms/:name");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(
       new Request("https://flare.test/rooms/real-instance"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -374,7 +374,7 @@ describe("param-trailing mount with and without resolve", () => {
     room.mount("/rooms/:name");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(
       new Request("https://flare.test/rooms/xyz/hello"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -448,7 +448,7 @@ describe("async resolve is supported", () => {
     room.mount("/api/me");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(
       new Request("https://flare.test/api/me"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -472,7 +472,7 @@ describe("resolve() with inject reads Bindings from front-door context", () => {
     room.mount("/api/me");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(
       new Request("https://flare.test/api/me"),
       { Room: ns } as unknown as Cloudflare.Env,

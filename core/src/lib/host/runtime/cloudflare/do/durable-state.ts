@@ -1,8 +1,8 @@
 /**
  * The framework service exposing a Durable Object's state to injecting services.
  */
-import type { Container } from "../../../services/container.js";
-import { FlareService } from "../../../services/composition/flare-service.js";
+import type { Container } from "../../../../services/container.js";
+import { FlareService } from "../../../../services/composition/flare-service.js";
 
 /**
  * Framework service exposing a Durable Object's `DurableObjectState` (`ctx`) as a per-instance singleton.

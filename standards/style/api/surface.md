@@ -43,6 +43,16 @@ Declared exception: explicit type parameters where the descriptor cannot carry t
 information. The discriminated-union overloads (`schema<Pet, "union">("kind", ...)`) are the
 canonical case: a union cannot be inferred from its branches.
 
+## Sibling names spell their contract difference
+
+When two public exports share a noun and differ in behavior, the NAMES must carry the
+difference - a reader comparing the two signatures must be able to state what changes
+without opening either body. Two near-twin names with silently opposite contracts
+(one drops state a caller expects to cross, one carries it) are a violation even when
+each is individually documented: the hover test applies to the PAIR, not each name
+alone. The fix is a rename that spells the divergent behavior, or an API fold that
+removes the choice.
+
 ## Dual-form parity
 
 When a surface offers two authoring forms (function handler and class controller), both feed

@@ -2,10 +2,10 @@
  * State crossing between the front door and Durable Object instances: envelope encode/decode over declared tokens.
  */
 import type { JsonValue } from "@flare-ts/lib/schema";
-import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
-import type { StateToken } from "../../../state/flare-state.js";
+import type { FlareHttpContext } from "../../../../arcs/http/transport/flare-http-context.js";
+import type { StateToken } from "../../../../state/flare-state.js";
 import type { FlareDurableObjectClass } from "./durable-object.js";
-import { PEEK_STATE } from "../../../arcs/http/transport/flare-http-context.js";
+import { PEEK_STATE } from "../../../../arcs/http/transport/flare-http-context.js";
 
 /**
  * Module-level registry: maps each StateToken to a stable string key (registration-order index),
@@ -178,42 +178,6 @@ export function applyInboundEnvelope(
     forwarded.headers.set(RESERVED_STATE_HEADER, envelope);
   }
   forwarded.headers.set(RESERVED_TRACE_HEADER, ctx.req.requestId);
-}
-
-/**
- * Manual helper for forwarding a request to a named Durable Object with full bidirectional
- * state crossing.
- *
- * `ctx` is the REQUIRED first parameter so a manual forward cannot silently omit the state
- * source. `namespace` and `name` are adjacent to mirror `durable(namespace, name)`. The function:
- *   1. Resolves the stub via `namespace.getByName(name)`.
- *   2. Builds a forwarded Request from `req` with mutable headers.
- *   3. Calls `applyInboundEnvelope` to sanitize reserved headers and encode outbound state.
- *   4. Awaits `stub.fetch(forwarded)`.
- *   5. Calls `reseedOutboundState` to decode the DO's outbound state back into `ctx` and
- *      strip reserved headers from the response before returning.
- *
- * @param ctx The front-door request context (state source/sink for the crossing).
- * @param namespace The Durable Object namespace binding.
- * @param name The instance name passed to `namespace.getByName`.
- * @param cls The DO class, used to look up its declared `static state` tokens.
- * @param req The request to forward to the DO.
- *
- * Use this when the automatic mount-forward path (`DurableHandle.mount`) is not in play (e.g. a
- * custom forwarding route or an RPC-adjacent dispatch).
- */
-export async function forwardDurable(
-  ctx: FlareHttpContext,
-  namespace: DurableObjectNamespace,
-  name: string,
-  cls: FlareDurableObjectClass,
-  req: Request,
-): Promise<Response> {
-  const stub = namespace.getByName(name);
-  const forwarded = new Request(req);
-  applyInboundEnvelope(ctx, cls, forwarded);
-  const res = await stub.fetch(forwarded);
-  return reseedOutboundState(ctx, cls, res);
 }
 
 /**

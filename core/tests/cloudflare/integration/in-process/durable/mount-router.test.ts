@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
-import type { CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { DurableState, FlareDurableObject } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse } from "../../../../../src/index.js";
 import { makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
@@ -189,7 +189,7 @@ describe("mount() end-to-end forwarding", () => {
     room.mount("/rooms/:name");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(
       new Request("https://flare.test/rooms/abc"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -211,7 +211,7 @@ describe("mount() end-to-end forwarding", () => {
     room.mount("/rooms/:name");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(
       new Request("https://flare.test/rooms/abc/bump", { method: "POST" }),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -231,7 +231,7 @@ describe("mount() end-to-end forwarding", () => {
     room.mount("/rooms/:name");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(
       new Request("https://flare.test/rooms/a%2Fb/ping"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -250,7 +250,7 @@ describe("mount() end-to-end forwarding", () => {
     room.mount("/rooms/:name");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(
       new Request("https://flare.test/rooms/x/bump", {
         method: "POST",
@@ -274,7 +274,7 @@ describe("mount() end-to-end forwarding", () => {
     room.mount("/myrooms/:name");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(
       new Request("https://flare.test/myrooms/inst/ping"),
       { OTHER: ns } as unknown as Cloudflare.Env,
@@ -294,7 +294,7 @@ describe("mount() end-to-end forwarding", () => {
     room.mount("/api/v1/rooms/:name");
 
     const { ns, calls } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     await handle.fetch(
       new Request("https://flare.test/api/v1/rooms/xyz/hello"),
       { Room: ns } as unknown as Cloudflare.Env,
@@ -313,7 +313,7 @@ describe("mount() end-to-end forwarding", () => {
     host.http.get("/_", () => new FlareResponse(200));
 
     const { ns } = fakeNamespace();
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(
       new Request("https://flare.test/room/a"),
       { Room: ns } as unknown as Cloudflare.Env,

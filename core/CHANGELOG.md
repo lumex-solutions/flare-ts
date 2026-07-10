@@ -56,7 +56,7 @@ host extensions are coming soon.
 
 - `FlareApp`, `HostState`, and `ScopedServicesView` are exported from `@flare-ts/core`,
   and `FlareAppNode` is exported as a type from `@flare-ts/core/node` (parity with
-  `CloudflareApp` on the cloudflare entry), so helpers can name `host.build()`'s return
+  `FlareAppCF` on the cloudflare entry), so helpers can name `host.build()`'s return
   and the host's registration view. The `FlareHost` type now accepts an extensions tuple
   parameter (`FlareHost<typeof node, [typeof myExtension]>`) carrying extension members
   in annotations.
@@ -71,11 +71,11 @@ host extensions are coming soon.
     (`.http`), WebSocket routes (`.ws`), explicit mounts (`.mount`), and a per-mount
     resolver gateway (`.resolve`).
   - Request state crosses the Worker-to-Durable Object boundary. `durable(namespace,
-    name)` addresses a DO instance as a state-free raw tunnel by construction: its
-    `.fetch()` strips the framework-reserved state headers, so forwarding
-    `ctx.req.nativeRequest` can never inject DO state. State-carrying forwards go
-    through the blessed seams — `.mount`, or `forwardDurable(...)` for custom
-    forwarding routes.
+    name)` returns a `DurableStub` carrying both contracts, each spelled by its method:
+    `.fetch()` is a state-free raw tunnel by construction (it strips the
+    framework-reserved state headers, so forwarding `ctx.req.nativeRequest` can never
+    inject DO state), and `.forward(ctx, Class)` forwards the current request WITH
+    state crossing. Explicit `.mount`s carry state the same way.
   - The injectable `Bindings` service exposes the Worker `env` to any service, and
     `DurableState` exposes the per-instance DO state (storage, SQL) inside a Durable
     Object's graph.

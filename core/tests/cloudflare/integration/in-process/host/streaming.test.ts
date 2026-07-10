@@ -3,7 +3,7 @@
  * Drives the production Cloudflare export().fetch() path so writer.abort surfaces errors on the readable end.
  */
 import { describe, expect, it } from "vitest";
-import type { CloudflareApp } from "../../../../../src/cloudflare.js";
+import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse } from "../../../../../src/index.js";
 import { makeEnv, makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
@@ -34,7 +34,7 @@ describe("streaming writer abort when the body source throws mid-stream", () => 
         () => new FlareResponse(200, failingStream(), { headers: { "content-type": "text/plain" } }),
       );
 
-      const handle = (host.build() as CloudflareApp).export();
+      const handle = (host.build() as FlareAppCF).export();
 
       // The fetch() call itself must resolve (not hang) even though the stream source throws.
       // The Response is returned before the stream is consumed; the error surfaces only when
@@ -104,7 +104,7 @@ describe("streaming writer abort when the body source throws mid-stream", () => 
         () => new FlareResponse(200, immediateFailure(), { headers: { "content-type": "text/plain" } }),
       );
 
-      const handle = (host.build() as CloudflareApp).export();
+      const handle = (host.build() as FlareAppCF).export();
 
       // Must resolve, not hang.
       const res = await handle.fetch(

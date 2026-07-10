@@ -15,7 +15,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
-import type { CloudflareApp } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
+import type { FlareAppCF } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
 import { DurableState, FlareDurableObject } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
@@ -58,7 +58,7 @@ describe("WebSocket 101 passthrough through the front-door router", () => {
     room.http.get("/ws", () => new FlareResponse(200));
     room.mount("/room/:name");
 
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     // GET + Upgrade: websocket is the standard WebSocket upgrade request.
     const res = await handle.fetch(
       new Request("https://flare.test/room/a/ws", { headers: { Upgrade: "websocket" } }),
@@ -90,7 +90,7 @@ describe("WebSocket 101 passthrough through the front-door router", () => {
       },
     } as unknown as DurableObjectNamespace;
 
-    const handle = (host.build() as CloudflareApp).export();
+    const handle = (host.build() as FlareAppCF).export();
     const res = await handle.fetch(
       new Request("https://flare.test/room/b/ok"),
       { Room: ns } as unknown as Cloudflare.Env,
