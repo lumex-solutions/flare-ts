@@ -9,7 +9,12 @@ import type { StateToken } from "../../../state/flare-state.js";
 import type { WebSocketControllerClass } from "./classes/controller-base.js";
 import type { WebSocketDescriptor, WebSocketToken } from "./contract/ws-contract.js";
 import type { WsHandlerFns, WsRegistration, WsRegistrationBase } from "./types/registration.js";
-import type { LooseWebSocketRouteOptions, WebSocketKey, WebSocketRouteOptions } from "./types/route-options.js";
+import type {
+  LooseWebSocketRouteOptions,
+  WebSocketControllerRouteOptions,
+  WebSocketKey,
+  WebSocketRouteOptions,
+} from "./types/route-options.js";
 import { assertRegistrationPath } from "../../../routing/path.js";
 import { assertInjectKeys } from "../../../services/scope.js";
 import { WebSocketRouteHandle } from "./web-socket-route-handle.js";
@@ -62,7 +67,7 @@ export abstract class WebSocketBase {
 
   /** Registers a controller class at `path` (one instance per connection). */
   controller<T extends WebSocketDescriptor>(path: string, cls: WebSocketControllerClass<T>): void;
-  controller<O extends WebSocketRouteOptions>(
+  controller<O extends WebSocketControllerRouteOptions>(
     path: string,
     opts: O,
     cls: WebSocketControllerClass<DescriptorOf<O>>,
@@ -80,6 +85,10 @@ export abstract class WebSocketBase {
       // rather than at connection time inside `new cls(...)`.
       throw new Error("[flare] host.ws.controller requires a controller class");
     }
+    // Same contract as HTTP's controller registration: the base class's uninitialized `static deps`
+    // declaration satisfies the structural type without a value, so the requirement is enforced here.
+    // `static state` is NOT required - the class form may carry state in the route options instead.
+    if (cls.deps === undefined) throw new Error(`[flare] ${cls.name} is missing static 'deps'.`);
     this.registrations.push({ kind: "controller", cls, ...this.#prepare(path, opts, cls) });
   }
 

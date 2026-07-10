@@ -40,7 +40,7 @@ export function handleCfWsUpgrade(
   // Negotiate the subprotocol from the route's accepted list (only present when the route declared one).
   const protocol = pickSubprotocol(
     request.headers.get("Sec-WebSocket-Protocol"),
-    connection.acceptOptions.subprotocols ?? [],
+    connection.acceptOptions.subprotocols,
   );
 
   const pair = new WebSocketPair();

@@ -3,6 +3,7 @@
  * composite factory that assembles them.
  */
 import type { ControllerRegistration, MiddlewareRegistration } from "../../arcs/http/types/registration.js";
+import type { WsRegistration } from "../../arcs/ws/composition/types/registration.js";
 import type { FlareService } from "../../services/composition/flare-service.js";
 import type { ServiceRegistration } from "../../services/types/registration.js";
 import type { ServiceToken } from "../../services/types/token.js";
@@ -15,8 +16,9 @@ import { ServiceRegistrationValidator } from "./service-registration-validator.j
 /**
  * Context passed to service-layer validators.
  *
- * Includes all service registrations plus all controllers and middleware
- * (including those from groups) so service dependency checks are complete.
+ * Includes all service registrations plus every entry point that declares deps -
+ * controllers and middleware (including those from groups) and WebSocket
+ * registrations - so service dependency checks are complete.
  *
  * @internal
  */
@@ -27,6 +29,8 @@ export type ServiceValidationContext = {
   readonly controllers: ControllerRegistration[];
   /** Global (top-level) middleware registrations. */
   readonly middleware: MiddlewareRegistration[];
+  /** WebSocket registrations (both authoring forms), so WS entry-point deps are checked like HTTP's. */
+  readonly wsRegistrations: readonly WsRegistration[];
   /**
    * Tokens for singleton instances pre-created by the framework
    * (e.g. Logger) and placed directly into singletonInstances rather than

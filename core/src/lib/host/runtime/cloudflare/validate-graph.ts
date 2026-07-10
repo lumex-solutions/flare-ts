@@ -4,6 +4,7 @@
 import type { JsonObject } from "@flare-ts/lib";
 import type { HttpArc } from "../../../arcs/http/http-arc.js";
 import type { ControllerRegistration, MiddlewareRegistration } from "../../../arcs/http/types/registration.js";
+import type { WsRegistration } from "../../../arcs/ws/composition/types/registration.js";
 import type { WebSocketArc } from "../../../arcs/ws/ws-arc.js";
 import type { ConfigToken, WebSocketsConfig, OpaqueConfigToken } from "../../../config/flare-config.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
@@ -141,7 +142,11 @@ export function validateCfGraph(graph: CfValidationGraph): ValidationError[] {
     ...arcMiddleware(graph.frontDoor),
     ...graph.durables.flatMap((d) => arcMiddleware(d.arc)),
   ];
-  const globalCtx = serviceCtx(allControllers, allMiddleware, graph, doTokens);
+  const allWsRegistrations = [
+    ...wsRegs(graph.frontDoorWs),
+    ...graph.durables.flatMap((d) => wsRegs(d.ws)),
+  ];
+  const globalCtx = serviceCtx(allControllers, allMiddleware, allWsRegistrations, graph, doTokens);
   for (const validator of [new DependencyValidator(), new CaptiveDependencyValidator(), new LifecycleHookValidator()]) {
     results.push(...validator.validate(globalCtx));
   }
@@ -150,12 +155,18 @@ export function validateCfGraph(graph: CfValidationGraph): ValidationError[] {
   const regValidator = new ServiceRegistrationValidator();
   results.push(
     ...regValidator.validate(
-      serviceCtx(arcControllers(graph.frontDoor), arcMiddleware(graph.frontDoor), graph, workerTokens),
+      serviceCtx(
+        arcControllers(graph.frontDoor),
+        arcMiddleware(graph.frontDoor),
+        wsRegs(graph.frontDoorWs),
+        graph,
+        workerTokens,
+      ),
     ),
   );
-  for (const { arc } of graph.durables) {
+  for (const { arc, ws } of graph.durables) {
     results.push(
-      ...regValidator.validate(serviceCtx(arcControllers(arc), arcMiddleware(arc), graph, doTokens)),
+      ...regValidator.validate(serviceCtx(arcControllers(arc), arcMiddleware(arc), wsRegs(ws), graph, doTokens)),
     );
   }
 
@@ -189,11 +200,19 @@ function arcMiddleware(arc: HttpArc<"sync">): MiddlewareRegistration[] {
   return [...arc.mwRegistrations, ...arc.groups.flatMap((g) => g.middleware)];
 }
 
+/** Collects a WS arc's registrations; a DO that never used the handle's `ws` arc has none. */
+function wsRegs(ws: WebSocketArc | undefined): readonly WsRegistration[] {
+  return ws ? ws[WS_REGISTRATIONS]() : [];
+}
+
 /** Gathers `classConfigDeclarations` from every registration across the whole app (all arcs + services). */
 function configClassDeclarations(graph: CfValidationGraph): ReadonlyArray<readonly ConfigToken<unknown>[] | undefined> {
   const arcs = [graph.frontDoor, ...graph.durables.map((d) => d.arc)];
   const controllers = arcs.flatMap((arc) => arcControllers(arc));
   const middleware = arcs.flatMap((arc) => arcMiddleware(arc));
+  const wsControllers = [graph.frontDoorWs, ...graph.durables.map((d) => d.ws)]
+    .flatMap((ws) => wsRegs(ws))
+    .flatMap((r) => (r.kind === "controller" ? [r.cls] : []));
   // The structural class types declare the optional static config array directly.
   // `static config?: readonly ConfigToken<unknown>[]` from FlareBase.
   return [
@@ -201,6 +220,7 @@ function configClassDeclarations(graph: CfValidationGraph): ReadonlyArray<readon
     ...graph.singletons.map((r) => r.cls.config),
     ...controllers.map((r) => r.cls.config),
     ...middleware.map((r) => r.cls.config),
+    ...wsControllers.map((cls) => cls.config),
   ];
 }
 
@@ -336,6 +356,11 @@ function reachabilityErrors(graph: CfValidationGraph): ValidationError[] {
   const frontDoorRoots = [
     ...arcControllers(graph.frontDoor).flatMap((c) => c.cls.deps),
     ...arcMiddleware(graph.frontDoor).flatMap((m) => m.cls.deps),
+    // Front-door WS handlers run in the same Worker context: their deps are entries too.
+    ...wsRegs(graph.frontDoorWs).flatMap((r) => [
+      ...Object.values(r.inject),
+      ...(r.kind === "controller" ? r.cls.deps : []),
+    ]),
   ];
   const errors: ValidationError[] = [];
   for (const reg of [...graph.scoped, ...graph.singletons]) {
@@ -363,6 +388,7 @@ function reachabilityErrors(graph: CfValidationGraph): ValidationError[] {
 function serviceCtx(
   controllers: ControllerRegistration[],
   middleware: MiddlewareRegistration[],
+  wsRegistrations: readonly WsRegistration[],
   graph: CfValidationGraph,
   frameworkTokens: ReadonlySet<ServiceToken<FlareService>>,
 ): ServiceValidationContext {
@@ -371,6 +397,7 @@ function serviceCtx(
     singletons: graph.singletons,
     controllers,
     middleware,
+    wsRegistrations,
     prebuiltTokens: new Set<ServiceToken<FlareService>>([...graph.prebuiltTokens, ...frameworkTokens]),
   };
 }

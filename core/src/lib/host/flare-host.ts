@@ -630,6 +630,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
       singletons: this.#singletonRegistrations,
       controllers: allControllers,
       middleware: allMiddleware,
+      wsRegistrations: this.ws[WS_REGISTRATIONS](),
       prebuiltTokens: new Set(this.#singletons.keys()),
     };
   }
@@ -747,6 +748,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
         ...this.#singletonRegistrations.map((r) => r.cls.config),
         ...allControllers.map((r) => r.cls.config),
         ...allMiddleware.map((r) => r.cls.config),
+        ...this.ws[WS_REGISTRATIONS]().flatMap((r) => (r.kind === "controller" ? [r.cls.config] : [])),
       ],
     };
 

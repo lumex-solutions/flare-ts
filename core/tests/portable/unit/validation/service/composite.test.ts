@@ -58,6 +58,7 @@ describe("createServiceValidator", () => {
       singletons: [],
       controllers: [],
       middleware: [],
+      wsRegistrations: [],
       prebuiltTokens: new Set(),
     };
 

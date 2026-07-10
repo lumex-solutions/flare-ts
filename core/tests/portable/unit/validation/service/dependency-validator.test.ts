@@ -40,6 +40,7 @@ function makeCtx(overrides: Partial<ServiceValidationContext> = {}): ServiceVali
     singletons: overrides.singletons ?? [],
     controllers: overrides.controllers ?? [],
     middleware: overrides.middleware ?? [],
+    wsRegistrations: overrides.wsRegistrations ?? [],
     prebuiltTokens: overrides.prebuiltTokens ?? new Set(),
   };
 }

@@ -1,21 +1,22 @@
 /**
- * Build-time validator for unregistered service tokens referenced by controllers and middleware in the service validation pipeline.
+ * Build-time validator for unregistered service tokens referenced by entry points (controllers, middleware, WebSocket registrations) in the service validation pipeline.
  */
 import type { IValidator, ValidationError } from "../types.js";
 import type { ServiceValidationContext } from "./composite.js";
 
 /**
- * Validates that all service tokens referenced by controllers and global middleware
- * are actually registered (scoped or singleton).
+ * Validates that all service tokens referenced by entry points (controllers, global
+ * middleware, and WebSocket registrations) are actually registered (scoped or singleton).
  *
  * Runs in the pre-build validation pass so errors surface alongside other
  * validator output instead of halting arc compilation at the first problem.
  */
 export class ServiceRegistrationValidator implements IValidator<ServiceValidationContext> {
   /**
-   * Reports `CONTROLLER_UNREGISTERED_DEP` and `MIDDLEWARE_UNREGISTERED_DEP`
-   * for service tokens referenced by controllers or global middleware that
-   * are not registered as scoped, singleton, or prebuilt.
+   * Reports `CONTROLLER_UNREGISTERED_DEP`, `MIDDLEWARE_UNREGISTERED_DEP`,
+   * `WS_ROUTE_UNREGISTERED_DEP`, and `WS_CONTROLLER_UNREGISTERED_DEP` for
+   * service tokens referenced by an entry point that are not registered as
+   * scoped, singleton, or prebuilt.
    */
   validate(ctx: ServiceValidationContext): ValidationError[] {
     const errors: ValidationError[] = [];
@@ -45,6 +46,31 @@ export class ServiceRegistrationValidator implements IValidator<ServiceValidatio
             severity: "error",
             code: "MIDDLEWARE_UNREGISTERED_DEP",
             message: `Middleware ${mw.cls.name} depends on unregistered service ${dep.name}.`,
+            hint: `Register ${dep.name} with host.scoped() or host.singleton() before calling host.build().`,
+          });
+        }
+      }
+    }
+
+    for (const reg of ctx.wsRegistrations) {
+      // The function form declares deps as the route's `inject:` map; the class form as `static deps`.
+      for (const dep of Object.values(reg.inject)) {
+        if (!registeredTokens.has(dep)) {
+          errors.push({
+            severity: "error",
+            code: "WS_ROUTE_UNREGISTERED_DEP",
+            message: `WebSocket route "${reg.pattern}" injects unregistered service ${dep.name}.`,
+            hint: `Register ${dep.name} with host.scoped() or host.singleton() before calling host.build().`,
+          });
+        }
+      }
+      if (reg.kind !== "controller") continue;
+      for (const dep of reg.cls.deps) {
+        if (!registeredTokens.has(dep)) {
+          errors.push({
+            severity: "error",
+            code: "WS_CONTROLLER_UNREGISTERED_DEP",
+            message: `WebSocket controller ${reg.cls.name} depends on unregistered service ${dep.name}.`,
             hint: `Register ${dep.name} with host.scoped() or host.singleton() before calling host.build().`,
           });
         }

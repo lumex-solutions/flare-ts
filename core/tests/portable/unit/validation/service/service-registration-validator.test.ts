@@ -8,12 +8,15 @@ import type {
   ControllerRegistration,
   MiddlewareRegistration,
 } from "../../../../../src/lib/arcs/http/types/registration.js";
+import type { WebSocketControllerClass } from "../../../../../src/lib/arcs/ws/composition/classes/controller-base.js";
+import type { WsRegistration } from "../../../../../src/lib/arcs/ws/composition/types/registration.js";
 import type { ServiceRegistration } from "../../../../../src/lib/services/types/registration.js";
 import type { ServiceClass } from "../../../../../src/lib/services/types/service-class.js";
 import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
 import type { ServiceValidationContext } from "../../../../../src/lib/validation/service/composite.js";
 import { ControllerBase } from "../../../../../src/lib/arcs/http/composition/classes/controller-base.js";
 import { MiddlewareBase } from "../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
+import { WebSocketControllerBase } from "../../../../../src/lib/arcs/ws/composition/classes/controller-base.js";
 import { FlareService } from "../../../../../src/lib/services/composition/flare-service.js";
 import { ServiceRegistrationValidator } from "../../../../../src/lib/validation/service/service-registration-validator.js";
 
@@ -81,12 +84,44 @@ function makeMwReg(cls: MiddlewareClass): MiddlewareRegistration {
   };
 }
 
+function makeWsControllerCls(
+  name: string,
+  deps: ServiceToken<FlareService>[] = [],
+): WebSocketControllerClass {
+  class W extends WebSocketControllerBase {
+    public static override deps = deps;
+  }
+  Object.defineProperty(W, "name", { value: name });
+  return W as unknown as WebSocketControllerClass;
+}
+
+function makeWsReg(
+  pattern: string,
+  kindPart:
+    | { kind: "handlers"; inject?: Record<string, ServiceToken<FlareService>>; }
+    | { kind: "controller"; cls: WebSocketControllerClass; },
+): WsRegistration {
+  const base = {
+    pattern,
+    subprotocols: [],
+    descriptor: undefined,
+    inject: {},
+    state: [],
+    channel: undefined,
+    hibernate: true,
+  };
+  return kindPart.kind === "handlers"
+    ? { ...base, kind: "handlers", behaviors: {}, inject: kindPart.inject ?? {} }
+    : { ...base, kind: "controller", cls: kindPart.cls };
+}
+
 function makeCtx(overrides: Partial<ServiceValidationContext> = {}): ServiceValidationContext {
   return {
     scoped: overrides.scoped ?? [],
     singletons: overrides.singletons ?? [],
     controllers: overrides.controllers ?? [],
     middleware: overrides.middleware ?? [],
+    wsRegistrations: overrides.wsRegistrations ?? [],
     prebuiltTokens: overrides.prebuiltTokens ?? new Set(),
   };
 }
@@ -207,5 +242,61 @@ describe("controller and middleware dependency registration", () => {
 
   it("returns [] when controllers and middleware arrays are both empty", () => {
     expect(new ServiceRegistrationValidator().validate(makeCtx())).toEqual([]);
+  });
+});
+
+describe("WebSocket registration dependency checks", () => {
+  it("reports WS_ROUTE_UNREGISTERED_DEP when a function-form route injects an unregistered token", () => {
+    const Missing = makeServiceCls("MissingSvc");
+    const MissingToken = Missing as unknown as ServiceToken<FlareService>;
+
+    const errs = new ServiceRegistrationValidator().validate(
+      makeCtx({ wsRegistrations: [makeWsReg("/chat/:room", { kind: "handlers", inject: { db: MissingToken } })] }),
+    );
+
+    expect(errs).toHaveLength(1);
+    expect(errs[0]).toEqual({
+      severity: "error",
+      code: "WS_ROUTE_UNREGISTERED_DEP",
+      message: `WebSocket route "/chat/:room" injects unregistered service MissingSvc.`,
+      hint: "Register MissingSvc with host.scoped() or host.singleton() before calling host.build().",
+    });
+  });
+
+  it("reports WS_CONTROLLER_UNREGISTERED_DEP when a controller class deps an unregistered token", () => {
+    const Missing = makeServiceCls("MissingSvc");
+    const MissingToken = Missing as unknown as ServiceToken<FlareService>;
+    const Ws = makeWsControllerCls("OrphanSocket", [MissingToken]);
+
+    const errs = new ServiceRegistrationValidator().validate(
+      makeCtx({ wsRegistrations: [makeWsReg("/chat", { kind: "controller", cls: Ws })] }),
+    );
+
+    expect(errs).toHaveLength(1);
+    expect(errs[0]).toEqual({
+      severity: "error",
+      code: "WS_CONTROLLER_UNREGISTERED_DEP",
+      message: "WebSocket controller OrphanSocket depends on unregistered service MissingSvc.",
+      hint: "Register MissingSvc with host.scoped() or host.singleton() before calling host.build().",
+    });
+  });
+
+  it("returns [] when WS route inject and controller deps are registered (scoped or prebuilt)", () => {
+    const Scoped = makeServiceCls("ScopedSvc");
+    const ScopedToken = Scoped as unknown as ServiceToken<FlareService>;
+    const Prebuilt = makeServiceCls("Logger");
+    const PrebuiltToken = Prebuilt as unknown as ServiceToken<FlareService>;
+    const Ws = makeWsControllerCls("ChatSocket", [ScopedToken, PrebuiltToken]);
+
+    const ctx = makeCtx({
+      scoped: [makeServiceReg(Scoped)],
+      wsRegistrations: [
+        makeWsReg("/feed", { kind: "handlers", inject: { db: ScopedToken, log: PrebuiltToken } }),
+        makeWsReg("/chat", { kind: "controller", cls: Ws }),
+      ],
+      prebuiltTokens: new Set([PrebuiltToken]),
+    });
+
+    expect(new ServiceRegistrationValidator().validate(ctx)).toEqual([]);
   });
 });

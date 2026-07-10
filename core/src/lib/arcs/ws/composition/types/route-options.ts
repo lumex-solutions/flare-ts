@@ -53,3 +53,12 @@ export type ContractWebSocketRouteOptions<D extends InjectMap = InjectMap> =
 export type WebSocketRouteOptions<D extends InjectMap = InjectMap> =
   | LooseWebSocketRouteOptions<D>
   | ContractWebSocketRouteOptions<D>;
+
+/**
+ * Controller-form options for `host.ws.controller`: everything but `inject`, which is forbidden here -
+ * a controller class has no `scope` for named deps to attach to; its DI is `static deps`, read with
+ * `this.inject`.
+ */
+export type WebSocketControllerRouteOptions =
+  | (LooseWebSocketRouteOptions & { readonly inject?: never; })
+  | (ContractWebSocketRouteOptions & { readonly inject?: never; });

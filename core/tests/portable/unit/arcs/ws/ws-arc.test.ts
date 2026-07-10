@@ -6,6 +6,7 @@ import type { IFlareHost } from "../../../../../src/lib/host/flare-host.js";
 import { WebSocketControllerBase } from "../../../../../src/lib/arcs/ws/composition/classes/controller-base.js";
 import { socketContract } from "../../../../../src/lib/arcs/ws/composition/contract/ws-contract.js";
 import { COMPILE_WS_ARC, UPGRADE_WS, WebSocketArc, WS_REGISTRATIONS } from "../../../../../src/lib/arcs/ws/ws-arc.js";
+import { FlareService } from "../../../../../src/lib/services/composition/flare-service.js";
 import { FlareRegistrationMap } from "../../../../../src/lib/services/registration-map.js";
 
 function fakeHost(): IFlareHost {
@@ -151,5 +152,25 @@ describe("WebSocketArc registration + upgrade", () => {
     expect(() => (host.ws.controller as (path: string, opts: object) => void)("/x", {})).toThrow(
       /requires a controller class/,
     );
+  });
+
+  it("rejects host.ws.controller when the class does not declare static deps", () => {
+    const host = fakeHost();
+    class NoDeps extends WebSocketControllerBase {}
+    expect(() => host.ws.controller("/x", NoDeps)).toThrow(/NoDeps is missing static 'deps'/);
+  });
+
+  it("rejects opts.inject on the controller form at the type level (class DI is static deps)", () => {
+    const host = fakeHost();
+    class Svc extends FlareService {
+      static override deps = [];
+    }
+    class Ctl extends WebSocketControllerBase {
+      static override deps = [];
+    }
+    // @ts-expect-error the controller form forbids `inject` - a class has no scope for named deps
+    host.ws.controller("/typed", { inject: { svc: Svc } }, Ctl);
+    // The guard is compile-time; the erased call still registers.
+    expect(host.ws[WS_REGISTRATIONS]()).toHaveLength(1);
   });
 });
