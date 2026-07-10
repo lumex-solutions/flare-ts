@@ -1,3 +1,6 @@
+/**
+ * The compiled per-route exec function signature.
+ */
 import type { Container } from "../../../services/container.js";
 import type { MiddlewareBase } from "../composition/classes/middleware-base.js";
 import type { FlareHttpContext } from "../transport/flare-http-context.js";

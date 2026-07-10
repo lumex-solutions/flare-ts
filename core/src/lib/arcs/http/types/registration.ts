@@ -1,12 +1,17 @@
+/**
+ * The registration vocabulary: the shapes host registration records for controllers, middleware, groups, and error handlers.
+ */
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { ServiceFactory } from "../../../services/types/registration.js";
 import type { ServiceToken } from "../../../services/types/token.js";
 import type { ControllerClass } from "../composition/classes/controller-base.js";
+import type { ControllerBase } from "../composition/classes/controller-base.js";
 import type { ErrorHandlerClass } from "../composition/classes/error-handler-base.js";
-import type { ControllerBase, ErrorHandlerBase, MiddlewareBase } from "../composition/classes/index.js";
+import type { ErrorHandlerBase } from "../composition/classes/error-handler-base.js";
+import type { MiddlewareBase } from "../composition/classes/middleware-base.js";
 import type { MiddlewareClass } from "../composition/classes/middleware-base.js";
 import type { CorsConfig } from "../composition/types/cors.js";
-import type { FlareHttpFactory } from "./pipeline.js";
+import type { HttpFactory } from "./pipeline.js";
 
 /**
  * The group scope bound onto a controller registration when it belongs to an `HttpGroup`. Present if
@@ -24,7 +29,7 @@ export type GroupContext = {
 };
 
 export type ControllerRegistration = {
-  readonly factory: FlareHttpFactory<ControllerBase>;
+  readonly factory: HttpFactory<ControllerBase>;
   readonly cls: ControllerClass;
   readonly path: string;
   readonly standalone: boolean;
@@ -33,7 +38,7 @@ export type ControllerRegistration = {
 };
 
 export type MiddlewareRegistration = {
-  readonly factory: FlareHttpFactory<MiddlewareBase>;
+  readonly factory: HttpFactory<MiddlewareBase>;
   readonly cls: MiddlewareClass;
 };
 

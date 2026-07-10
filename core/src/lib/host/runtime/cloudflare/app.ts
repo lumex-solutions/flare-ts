@@ -1,5 +1,5 @@
 import type { JsonObject } from "@flare-ts/lib";
-import type { FlareHandlerScope } from "../../../arcs/http/composition/types/handlers.js";
+import type { HttpHandlerScope } from "../../../arcs/http/composition/types/handlers.js";
 import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
 import type { CfLoggerTransport } from "../../../logger/runtime/cloudflare/cf-transport.js";
 import type { CfLoggerTransportClass } from "../../../logger/runtime/cloudflare/cf-transport.js";
@@ -109,10 +109,10 @@ export type DurableHandle = {
    * `resolve` is per-DO (one resolver for all this DO's literal-trailing mounts). A param-trailing
    * mount ignores any registered `resolve`.
    */
-  resolve(handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<{}>) => InstanceResult): void;
+  resolve(handler: (ctx: FlareHttpContext, scope: HttpHandlerScope<{}>) => InstanceResult): void;
   resolve<const I extends InjectMap>(
     opts: { inject?: I; provides?: readonly StateToken[]; },
-    handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<I>) => InstanceResult,
+    handler: (ctx: FlareHttpContext, scope: HttpHandlerScope<I>) => InstanceResult,
   ): void;
 };
 
@@ -382,7 +382,7 @@ export const cf: CloudflareAdapter = {
       FlareDurableObjectClass,
       {
         inject: Record<string, ServiceToken<FlareService>>;
-        handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectMap>) => InstanceResult;
+        handler: (ctx: FlareHttpContext, scope: HttpHandlerScope<InjectMap>) => InstanceResult;
         provides: readonly StateToken[];
       }
     >();
@@ -519,25 +519,25 @@ export const cf: CloudflareAdapter = {
 
         // resolve() overload implementation: stores the resolver; inject map + handler captured.
         function resolveOverload(
-          handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<{}>) => InstanceResult,
+          handler: (ctx: FlareHttpContext, scope: HttpHandlerScope<{}>) => InstanceResult,
         ): void;
         function resolveOverload<const I extends InjectMap>(
           opts: { inject?: I; provides?: readonly StateToken[]; },
-          handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<I>) => InstanceResult,
+          handler: (ctx: FlareHttpContext, scope: HttpHandlerScope<I>) => InstanceResult,
         ): void;
         function resolveOverload(
           optsOrHandler:
             | { inject?: InjectMap; provides?: readonly StateToken[]; }
-            | ((ctx: FlareHttpContext, scope: FlareHandlerScope<InjectMap>) => InstanceResult),
-          maybeHandler?: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectMap>) => InstanceResult,
+            | ((ctx: FlareHttpContext, scope: HttpHandlerScope<InjectMap>) => InstanceResult),
+          maybeHandler?: (ctx: FlareHttpContext, scope: HttpHandlerScope<InjectMap>) => InstanceResult,
         ): void {
           let inject: Record<string, ServiceToken<FlareService>>;
-          let handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectMap>) => InstanceResult;
+          let handler: (ctx: FlareHttpContext, scope: HttpHandlerScope<InjectMap>) => InstanceResult;
           let provides: readonly StateToken[];
           if (typeof optsOrHandler === "function") {
             inject = {};
             provides = [];
-            handler = optsOrHandler as (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectMap>) => InstanceResult;
+            handler = optsOrHandler as (ctx: FlareHttpContext, scope: HttpHandlerScope<InjectMap>) => InstanceResult;
           } else {
             inject = (optsOrHandler.inject ?? {}) as Record<string, ServiceToken<FlareService>>;
             provides = optsOrHandler.provides ?? [];

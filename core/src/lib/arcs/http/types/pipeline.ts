@@ -1,3 +1,6 @@
+/**
+ * The compiled pipeline vocabulary: the per-route structure build produces and exec consumes.
+ */
 import type { Primitive } from "@flare-ts/lib/schema";
 import type { Container } from "../../../services/container.js";
 import type { CompiledCorsPolicy } from "../composition/types/cors.js";
@@ -8,7 +11,7 @@ import type { ControllerRegistration, ErrorHandlerRegistration } from "./registr
 
 export type CompiledQueryPrimitive = { readonly key: string; readonly primitive: Primitive; };
 
-export type FlareHttpFactory<T> = (container: Container, ctx: FlareHttpContext) => T;
+export type HttpFactory<T> = (container: Container, ctx: FlareHttpContext) => T;
 
 export type Pipeline = {
   readonly registration: ControllerRegistration;

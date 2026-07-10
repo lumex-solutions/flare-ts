@@ -6,11 +6,11 @@ import type { RequestContext } from "../../../../../../src/lib/arcs/http/transpo
 import type { ResponseSerializers } from "../../../../../../src/lib/arcs/http/transport/types/response.js";
 import type { TypedStateToken } from "../../../../../../src/lib/state/flare-state.js";
 import {
-  DRAIN_SET_COOKIES,
   FlareHttpContext,
   SET_PARSED_BODY,
   SET_REQ_CTX,
 } from "../../../../../../src/lib/arcs/http/transport/flare-http-context.js";
+import { DRAIN_SET_COOKIES } from "../../../../../../src/lib/arcs/http/transport/types/cookies.js";
 import { flareState } from "../../../../../../src/lib/state/flare-state.js";
 
 /** Builds a minimal FlareRequest stub exposing only the headers surface under test. */

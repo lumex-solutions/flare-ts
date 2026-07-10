@@ -20,7 +20,7 @@ import type {
  * The per-connection DI + config + input surface handed to a function-form WS handler as its second
  * argument. Declared deps appear by name; `config` resolves config tokens; `input` carries the
  * connect-time `{ params, query }` typed from the route's descriptor. The WebSocket analog of
- * {@link FlareHandlerScope}.
+ * {@link HttpHandlerScope}.
  */
 export type WebSocketHandlerScope<D extends InjectMap = {}, T extends WebSocketDescriptor = {}> =
   & { config: ScopeConfig; }

@@ -3,7 +3,7 @@
  * loose descriptor fields (body/route/query/...) OR with a branded `contract` entry from a
  * httpContract, never both. The file passing `tsc` IS the assertion (the `@ts-expect-error` lines
  * fail the build if they stop erroring); the single runtime `it` only anchors it as a vitest file.
- * See RouteOptions / DescriptorOf in composition/types/handlers.ts.
+ * See HttpRouteOptions / DescriptorOf in composition/types/handlers.ts.
  */
 process.env["FLARE_MODE"] = "test";
 

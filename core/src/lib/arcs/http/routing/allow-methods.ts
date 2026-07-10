@@ -1,3 +1,6 @@
+/**
+ * Computes the Allow header for 405 responses from a path's registered methods.
+ */
 import type { ControllerHandler } from "./types/route.js";
 import { METHOD_IDX_MAP, SUPPORTED_METHODS } from "./types/methods.js";
 

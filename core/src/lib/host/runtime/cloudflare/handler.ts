@@ -11,15 +11,12 @@ import type { ServiceToken } from "../../../services/types/token.js";
 import type { TestRequestInput } from "../../../testing/types/flare-test-req.js";
 import type { IFlareHost } from "../../flare-host.js";
 import type { FlareDurableObjectClass } from "./durable-object.js";
-import {
-  DRAIN_SET_COOKIES,
-  FlareHttpContext,
-  INSTANCE_SINGLETONS,
-} from "../../../arcs/http/transport/flare-http-context.js";
+import { FlareHttpContext, INSTANCE_SINGLETONS } from "../../../arcs/http/transport/flare-http-context.js";
 import { HANDLER_ERRORED } from "../../../arcs/http/transport/flare-http-context.js";
 import { FlareRequest } from "../../../arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../../arcs/http/transport/flare-response.js";
 import { CfRequestAdapter } from "../../../arcs/http/transport/runtime/cloudflare.js";
+import { DRAIN_SET_COOKIES } from "../../../arcs/http/transport/types/cookies.js";
 import { HibernationChannelIndex } from "../../../arcs/ws/transport/runtime/cloudflare/hibernation-channel-index.js";
 import { handleCfWsUpgrade } from "../../../arcs/ws/transport/runtime/cloudflare/upgrade.js";
 import { loggerALS } from "../../../logger/context.js";

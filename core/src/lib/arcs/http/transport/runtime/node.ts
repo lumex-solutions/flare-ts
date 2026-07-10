@@ -1,3 +1,6 @@
+/**
+ * The Node request adapter over IncomingMessage: signal, background work, and raw headers.
+ */
 import type { IncomingMessage } from "node:http";
 import type { RequestAdapter } from "../types/adapter";
 

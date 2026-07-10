@@ -1,3 +1,6 @@
+/**
+ * CORS policy compilation at build time and origin checks plus header application at request time.
+ */
 import type { CompiledCorsPolicy, CorsConfig } from "./composition/types/cors.js";
 import type { ControllerHandler } from "./routing/types/route.js";
 import type { ResponseLike } from "./transport/types/response.js";
@@ -5,9 +8,10 @@ import { deriveAllowedMethods } from "./routing/allow-methods.js";
 import { FlareResponse } from "./transport/flare-response.js";
 
 /**
- * Precomputes a {@link CompiledCorsPolicy} from a {@link CorsConfig} and the
- * set of handlers registered for a specific route path. Called once per
- * pipeline during `host.build()`.
+ * Precomputes a {@link CompiledCorsPolicy} for one route path.
+ *
+ * Reads the {@link CorsConfig} and the path's registered handlers; called
+ * once per pipeline during `host.build()`.
  */
 export function compileCorsPolicy(
   config: CorsConfig,
@@ -50,6 +54,7 @@ export function compileCorsPolicy(
 
 /**
  * Checks whether the given origin is allowed by the policy.
+ *
  * Returns synchronously for wildcard and static list policies; may return a
  * `Promise<boolean>` for function-based policies.
  */
@@ -64,6 +69,7 @@ export function checkOriginAllowed(
 
 /**
  * Builds the 204 preflight response with all CORS-required headers.
+ *
  * Only called when the origin has already been verified as allowed.
  */
 export function buildCorsPreflightResponse(

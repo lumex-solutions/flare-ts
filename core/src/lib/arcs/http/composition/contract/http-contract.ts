@@ -1,5 +1,3 @@
-import type { OpaqueSchemaToken, TypedPrimitive } from "@flare-ts/lib/schema";
-import { Primitive } from "@flare-ts/lib/schema";
 /**
  * The HTTP contract: the `"http"` kind of the generic {@link contract} core
  * (`core/src/lib/contract/contract.ts`).
@@ -7,6 +5,8 @@ import { Primitive } from "@flare-ts/lib/schema";
  * `httpContract(descriptor)` is a thin shorthand over `contract("http", descriptor)`; the concrete
  * HTTP descriptor (`RequestDescriptor`) and the HTTP-facing type aliases live here.
  */
+import type { OpaqueSchemaToken, TypedPrimitive } from "@flare-ts/lib/schema";
+import { Primitive } from "@flare-ts/lib/schema";
 import type {
   ContractEntry,
   ContractToken as ContractTokenBase,

@@ -1,3 +1,6 @@
+/**
+ * The function-form authoring vocabulary: route options, handler scopes, and the middleware and error handler signatures.
+ */
 import type { FlareError } from "../../../../errors/flare-error.js";
 import type { HttpErrorContext } from "../../../../logger/types.js";
 import type { FlareService } from "../../../../services/composition/flare-service.js";
@@ -16,7 +19,7 @@ export type { HandlerScope, ScopeConfig } from "../../../../services/types/scope
  * Per-request DI and config surface. Declared deps appear by name; `config` resolves config tokens;
  * `input` carries the parsed `{ body, route, query }` typed from the route's `contract`.
  */
-export type FlareHandlerScope<
+export type HttpHandlerScope<
   D extends Record<string, ServiceToken<FlareService>> = {},
   C extends RequestDescriptor = {},
 > =
@@ -27,7 +30,7 @@ export type FlareHandlerScope<
 export type RequestKey = "body" | "route" | "query" | "response" | "maxBodyBytes" | "signedCookies";
 
 /** Registration options common to both route-option forms (DI, state, and registration flags). */
-export type RouteOptionsBase<D extends InjectMap = InjectMap> = {
+export type HttpRouteOptionsBase<D extends InjectMap = InjectMap> = {
   inject?: D;
   state?: readonly StateToken[];
   isolated?: boolean;
@@ -38,8 +41,8 @@ export type RouteOptionsBase<D extends InjectMap = InjectMap> = {
  * Inline form: the request descriptor's fields (`body`/`route`/`query`/...) are spelled directly in
  * the route options. `contract` is forbidden here - use one form or the other, never both.
  */
-export type LooseRouteOptions<D extends InjectMap = InjectMap> =
-  & RouteOptionsBase<D>
+export type LooseHttpRouteOptions<D extends InjectMap = InjectMap> =
+  & HttpRouteOptionsBase<D>
   & RequestDescriptor
   & { contract?: never; };
 
@@ -47,13 +50,13 @@ export type LooseRouteOptions<D extends InjectMap = InjectMap> =
  * Branded form: the request descriptor is supplied as a {@link RequestToken} from a `httpContract`
  * entry. The loose descriptor keys are forbidden here.
  */
-export type ContractRouteOptions<D extends InjectMap = InjectMap> =
-  & RouteOptionsBase<D>
+export type ContractHttpRouteOptions<D extends InjectMap = InjectMap> =
+  & HttpRouteOptionsBase<D>
   & { contract: RequestToken; }
   & { [K in RequestKey]?: never; };
 
 /** Registration options for function routes: loose inline fields OR a branded `contract`, never both. */
-export type RouteOptions<D extends InjectMap = InjectMap> = LooseRouteOptions<D> | ContractRouteOptions<D>;
+export type HttpRouteOptions<D extends InjectMap = InjectMap> = LooseHttpRouteOptions<D> | ContractHttpRouteOptions<D>;
 
 /** Recovers the `inject` token map from a concrete route-options object (defaults to `{}`). */
 export type InjectOf<O> = O extends { inject: infer D extends InjectMap; } ? D : {};
@@ -67,7 +70,7 @@ export type DescriptorOf<O> = O extends { contract: RequestToken<infer C>; } ? C
   : {};
 
 /** Registration options for `before`/`after`/`finally`. */
-export type MiddlewareOptions<D extends InjectMap = InjectMap> = {
+export type HttpMiddlewareOptions<D extends InjectMap = InjectMap> = {
   inject?: D;
   state?: readonly StateToken[];
   provides?: readonly StateToken[];
@@ -75,13 +78,16 @@ export type MiddlewareOptions<D extends InjectMap = InjectMap> = {
 };
 
 /** Registration options for `error`. */
-export type ErrorHandlerOptions<D extends InjectMap = InjectMap> = {
+export type HttpErrorHandlerOptions<D extends InjectMap = InjectMap> = {
   inject?: D;
   name?: string;
 };
 
 /** Inline or functional route handler signature. */
-export type RouteHandler = (ctx: FlareHttpContext, scope: FlareHandlerScope) => HandlerResult | Promise<HandlerResult>;
+export type HttpRouteHandler = (
+  ctx: FlareHttpContext,
+  scope: HttpHandlerScope,
+) => HandlerResult | Promise<HandlerResult>;
 
 /**
  * `before` middleware hook signature.
@@ -89,27 +95,27 @@ export type RouteHandler = (ctx: FlareHttpContext, scope: FlareHandlerScope) => 
  * Middleware and error handlers run outside any route contract, so their scope is the DI + config
  * base with no `input`; read raw request data from `ctx`.
  */
-export type BeforeMiddlewareHandler = (
+export type HttpBeforeHandler = (
   ctx: FlareHttpContext,
   scope: HandlerScope,
 ) => MiddlewareOverride | Promise<MiddlewareOverride>;
 
-/** `after` middleware hook signature. Scope note: see {@link BeforeMiddlewareHandler}. */
-export type AfterMiddlewareHandler = (
-  ctx: FlareHttpContext,
-  result: HandlerResult,
-  scope: HandlerScope,
-) => MiddlewareOverride | Promise<MiddlewareOverride>;
-
-/** `finally` middleware hook signature. Scope note: see {@link BeforeMiddlewareHandler}. */
-export type FinallyMiddlewareHandler = (
+/** `after` middleware hook signature. Scope note: see {@link HttpBeforeHandler}. */
+export type HttpAfterHandler = (
   ctx: FlareHttpContext,
   result: HandlerResult,
   scope: HandlerScope,
 ) => MiddlewareOverride | Promise<MiddlewareOverride>;
 
-/** Inline error-handler function signature. Scope note: see {@link BeforeMiddlewareHandler}. */
-export type FlareErrorHandler = (
+/** `finally` middleware hook signature. Scope note: see {@link HttpBeforeHandler}. */
+export type HttpFinallyHandler = (
+  ctx: FlareHttpContext,
+  result: HandlerResult,
+  scope: HandlerScope,
+) => MiddlewareOverride | Promise<MiddlewareOverride>;
+
+/** Inline error-handler function signature. Scope note: see {@link HttpBeforeHandler}. */
+export type HttpErrorHandler = (
   err: FlareError | Error,
   context: HttpErrorContext,
   scope: HandlerScope,

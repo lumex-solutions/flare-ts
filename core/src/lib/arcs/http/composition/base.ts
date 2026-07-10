@@ -1,3 +1,6 @@
+/**
+ * The registration core both authoring forms feed: routes, middleware, groups, and error handlers compile to one shape here.
+ */
 import type { ConfigToken } from "../../../config/flare-config.js";
 import type { FlareError } from "../../../errors/flare-error.js";
 import type { HttpErrorContext } from "../../../logger/types.js";
@@ -17,17 +20,17 @@ import type { RequestDescriptor } from "./contract/http-contract.js";
 import type { HttpGroup } from "./group.js";
 import type { CorsConfig } from "./types/cors.js";
 import type {
-  AfterMiddlewareHandler,
-  BeforeMiddlewareHandler,
+  HttpAfterHandler,
+  HttpBeforeHandler,
   DescriptorOf,
-  ErrorHandlerOptions,
-  FinallyMiddlewareHandler,
-  FlareErrorHandler,
-  FlareHandlerScope,
+  HttpErrorHandlerOptions,
+  HttpFinallyHandler,
+  HttpErrorHandler,
+  HttpHandlerScope,
   InjectOf,
-  MiddlewareOptions,
-  RouteHandler,
-  RouteOptions,
+  HttpMiddlewareOptions,
+  HttpRouteHandler,
+  HttpRouteOptions,
 } from "./types/handlers.js";
 import { assertRegistrationPath } from "../../../routing/path.js";
 import { assertInjectKeys, attachScopeDeps } from "../../../services/scope.js";
@@ -94,17 +97,17 @@ export abstract class HttpBase {
     this.mwRegistrations.push({ factory: (container, req) => new middleware(container, req), cls: middleware });
   }
 
-  public before(handler: BeforeMiddlewareHandler): void;
+  public before(handler: HttpBeforeHandler): void;
   public before<const D extends InjectMap>(
-    options: MiddlewareOptions<D>,
+    options: HttpMiddlewareOptions<D>,
     handler: (ctx: FlareHttpContext, scope: HandlerScope<D>) => MiddlewareOverride | Promise<MiddlewareOverride>,
   ): void;
 
   public before(
-    optionsOrHandler: MiddlewareOptions | BeforeMiddlewareHandler,
-    maybeHandler?: BeforeMiddlewareHandler,
+    optionsOrHandler: HttpMiddlewareOptions | HttpBeforeHandler,
+    maybeHandler?: HttpBeforeHandler,
   ): void {
-    const { options, handler } = this.#resolveOptions<MiddlewareOptions, BeforeMiddlewareHandler>(
+    const { options, handler } = this.#resolveOptions<HttpMiddlewareOptions, HttpBeforeHandler>(
       optionsOrHandler,
       maybeHandler,
       "middleware",
@@ -112,9 +115,9 @@ export abstract class HttpBase {
     this.#syntheticMiddleware("before", options, handler);
   }
 
-  public after(handler: AfterMiddlewareHandler): void;
+  public after(handler: HttpAfterHandler): void;
   public after<const D extends InjectMap>(
-    options: MiddlewareOptions<D>,
+    options: HttpMiddlewareOptions<D>,
     handler: (
       ctx: FlareHttpContext,
       result: HandlerResult,
@@ -123,10 +126,10 @@ export abstract class HttpBase {
   ): void;
 
   public after(
-    optionsOrHandler: MiddlewareOptions | AfterMiddlewareHandler,
-    maybeHandler?: AfterMiddlewareHandler,
+    optionsOrHandler: HttpMiddlewareOptions | HttpAfterHandler,
+    maybeHandler?: HttpAfterHandler,
   ): void {
-    const { options, handler } = this.#resolveOptions<MiddlewareOptions, AfterMiddlewareHandler>(
+    const { options, handler } = this.#resolveOptions<HttpMiddlewareOptions, HttpAfterHandler>(
       optionsOrHandler,
       maybeHandler,
       "middleware",
@@ -134,9 +137,9 @@ export abstract class HttpBase {
     this.#syntheticMiddleware("after", options, handler);
   }
 
-  public finally(handler: FinallyMiddlewareHandler): void;
+  public finally(handler: HttpFinallyHandler): void;
   public finally<const D extends InjectMap>(
-    options: MiddlewareOptions<D>,
+    options: HttpMiddlewareOptions<D>,
     handler: (
       ctx: FlareHttpContext,
       result: HandlerResult,
@@ -145,10 +148,10 @@ export abstract class HttpBase {
   ): void;
 
   public finally(
-    optionsOrHandler: MiddlewareOptions | FinallyMiddlewareHandler,
-    maybeHandler?: FinallyMiddlewareHandler,
+    optionsOrHandler: HttpMiddlewareOptions | HttpFinallyHandler,
+    maybeHandler?: HttpFinallyHandler,
   ): void {
-    const { options, handler } = this.#resolveOptions<MiddlewareOptions, FinallyMiddlewareHandler>(
+    const { options, handler } = this.#resolveOptions<HttpMiddlewareOptions, HttpFinallyHandler>(
       optionsOrHandler,
       maybeHandler,
       "middleware",
@@ -172,108 +175,136 @@ export abstract class HttpBase {
     });
   }
 
-  public get(path: string, handler: RouteHandler): void;
-  public get<const O extends RouteOptions>(
+  public get(path: string, handler: HttpRouteHandler): void;
+  public get<const O extends HttpRouteOptions>(
     path: string,
     options: O,
     handler: (
       ctx: FlareHttpContext,
-      scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>,
+      scope: HttpHandlerScope<InjectOf<O>, DescriptorOf<O>>,
     ) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
-  public get(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
+  public get(
+    path: string,
+    optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
+    maybeHandler?: HttpRouteHandler,
+  ): void {
     this.#syntheticController(path, "GET", optionsOrHandler, maybeHandler);
   }
 
-  public post(path: string, handler: RouteHandler): void;
-  public post<const O extends RouteOptions>(
+  public post(path: string, handler: HttpRouteHandler): void;
+  public post<const O extends HttpRouteOptions>(
     path: string,
     options: O,
     handler: (
       ctx: FlareHttpContext,
-      scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>,
+      scope: HttpHandlerScope<InjectOf<O>, DescriptorOf<O>>,
     ) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
-  public post(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
+  public post(
+    path: string,
+    optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
+    maybeHandler?: HttpRouteHandler,
+  ): void {
     this.#syntheticController(path, "POST", optionsOrHandler, maybeHandler);
   }
 
-  public put(path: string, handler: RouteHandler): void;
-  public put<const O extends RouteOptions>(
+  public put(path: string, handler: HttpRouteHandler): void;
+  public put<const O extends HttpRouteOptions>(
     path: string,
     options: O,
     handler: (
       ctx: FlareHttpContext,
-      scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>,
+      scope: HttpHandlerScope<InjectOf<O>, DescriptorOf<O>>,
     ) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
-  public put(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
+  public put(
+    path: string,
+    optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
+    maybeHandler?: HttpRouteHandler,
+  ): void {
     this.#syntheticController(path, "PUT", optionsOrHandler, maybeHandler);
   }
 
-  public patch(path: string, handler: RouteHandler): void;
-  public patch<const O extends RouteOptions>(
+  public patch(path: string, handler: HttpRouteHandler): void;
+  public patch<const O extends HttpRouteOptions>(
     path: string,
     options: O,
     handler: (
       ctx: FlareHttpContext,
-      scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>,
+      scope: HttpHandlerScope<InjectOf<O>, DescriptorOf<O>>,
     ) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
-  public patch(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
+  public patch(
+    path: string,
+    optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
+    maybeHandler?: HttpRouteHandler,
+  ): void {
     this.#syntheticController(path, "PATCH", optionsOrHandler, maybeHandler);
   }
 
-  public delete(path: string, handler: RouteHandler): void;
-  public delete<const O extends RouteOptions>(
+  public delete(path: string, handler: HttpRouteHandler): void;
+  public delete<const O extends HttpRouteOptions>(
     path: string,
     options: O,
     handler: (
       ctx: FlareHttpContext,
-      scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>,
+      scope: HttpHandlerScope<InjectOf<O>, DescriptorOf<O>>,
     ) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
-  public delete(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
+  public delete(
+    path: string,
+    optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
+    maybeHandler?: HttpRouteHandler,
+  ): void {
     this.#syntheticController(path, "DELETE", optionsOrHandler, maybeHandler);
   }
 
-  public head(path: string, handler: RouteHandler): void;
-  public head<const O extends RouteOptions>(
+  public head(path: string, handler: HttpRouteHandler): void;
+  public head<const O extends HttpRouteOptions>(
     path: string,
     options: O,
     handler: (
       ctx: FlareHttpContext,
-      scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>,
+      scope: HttpHandlerScope<InjectOf<O>, DescriptorOf<O>>,
     ) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
-  public head(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
+  public head(
+    path: string,
+    optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
+    maybeHandler?: HttpRouteHandler,
+  ): void {
     this.#syntheticController(path, "HEAD", optionsOrHandler, maybeHandler);
   }
 
-  public options(path: string, handler: RouteHandler): void;
-  public options<const O extends RouteOptions>(
+  public options(path: string, handler: HttpRouteHandler): void;
+  public options<const O extends HttpRouteOptions>(
     path: string,
     options: O,
     handler: (
       ctx: FlareHttpContext,
-      scope: FlareHandlerScope<InjectOf<O>, DescriptorOf<O>>,
+      scope: HttpHandlerScope<InjectOf<O>, DescriptorOf<O>>,
     ) => HandlerResult | Promise<HandlerResult>,
   ): void;
 
-  public options(path: string, optionsOrHandler: RouteOptions | RouteHandler, maybeHandler?: RouteHandler): void {
+  public options(
+    path: string,
+    optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
+    maybeHandler?: HttpRouteHandler,
+  ): void {
     this.#syntheticController(path, "OPTIONS", optionsOrHandler, maybeHandler);
   }
 
   public error(handler: ErrorHandlerClass): void;
-  public error(handler: FlareErrorHandler): void;
+  public error(handler: HttpErrorHandler): void;
   public error<const D extends InjectMap>(
-    options: ErrorHandlerOptions<D>,
+    options: HttpErrorHandlerOptions<D>,
     handler: (
       err: FlareError | Error,
       context: HttpErrorContext,
@@ -282,8 +313,8 @@ export abstract class HttpBase {
   ): void;
 
   public error(
-    optionsOrHandler: ErrorHandlerClass | ErrorHandlerOptions | FlareErrorHandler,
-    maybeHandler?: FlareErrorHandler,
+    optionsOrHandler: ErrorHandlerClass | HttpErrorHandlerOptions | HttpErrorHandler,
+    maybeHandler?: HttpErrorHandler,
   ): void {
     if (typeof optionsOrHandler === "function" && optionsOrHandler.prototype instanceof ErrorHandlerBase) {
       const handlerClass = optionsOrHandler as ErrorHandlerClass;
@@ -296,8 +327,8 @@ export abstract class HttpBase {
       return;
     }
 
-    const { options, handler } = this.#resolveOptions<ErrorHandlerOptions, FlareErrorHandler>(
-      optionsOrHandler as ErrorHandlerOptions | FlareErrorHandler,
+    const { options, handler } = this.#resolveOptions<HttpErrorHandlerOptions, HttpErrorHandler>(
+      optionsOrHandler as HttpErrorHandlerOptions | HttpErrorHandler,
       maybeHandler,
       "error handler",
     );
@@ -329,11 +360,11 @@ export abstract class HttpBase {
   #syntheticController(
     path: string,
     method: HttpMethod,
-    optionsOrHandler: RouteOptions | RouteHandler,
-    maybeHandler?: RouteHandler,
+    optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
+    maybeHandler?: HttpRouteHandler,
   ): void {
     this.#assertPath(path);
-    const { options, handler } = this.#resolveOptions<RouteOptions, RouteHandler>(
+    const { options, handler } = this.#resolveOptions<HttpRouteOptions, HttpRouteHandler>(
       optionsOrHandler,
       maybeHandler,
       "route",
@@ -370,7 +401,7 @@ export abstract class HttpBase {
               },
               ownInject,
               (token) => this.inject(token),
-            ) as FlareHandlerScope,
+            ) as HttpHandlerScope,
           );
         },
         writable: true,
@@ -422,7 +453,7 @@ export abstract class HttpBase {
             },
             ownInject,
             (token) => this.inject(token),
-          ) as FlareHandlerScope,
+          ) as HttpHandlerScope,
         );
       }
     };
@@ -448,8 +479,8 @@ export abstract class HttpBase {
 
   #syntheticMiddleware(
     lifecycle: "before" | "after" | "finally",
-    options: MiddlewareOptions,
-    handler: BeforeMiddlewareHandler | AfterMiddlewareHandler | FinallyMiddlewareHandler,
+    options: HttpMiddlewareOptions,
+    handler: HttpBeforeHandler | HttpAfterHandler | HttpFinallyHandler,
   ): void {
     assertInjectKeys(options.inject ?? {});
     // Dedup: `inject: { a: Svc, b: Svc }` declares one dep, not two.
@@ -470,7 +501,7 @@ export abstract class HttpBase {
         static override state = state;
 
         override before() {
-          return (handler as BeforeMiddlewareHandler)(
+          return (handler as HttpBeforeHandler)(
             this.ctx,
             attachScopeDeps(
               { config: <T>(token: ConfigToken<T>): T => this.config(token) },
@@ -491,7 +522,7 @@ export abstract class HttpBase {
         static override state = state;
 
         override after(result: HandlerResult) {
-          return (handler as AfterMiddlewareHandler)(
+          return (handler as HttpAfterHandler)(
             this.ctx,
             result,
             attachScopeDeps(
@@ -512,7 +543,7 @@ export abstract class HttpBase {
       static override state = state;
 
       override finally(result: HandlerResult) {
-        return (handler as FinallyMiddlewareHandler)(
+        return (handler as HttpFinallyHandler)(
           this.ctx,
           result,
           attachScopeDeps(
@@ -530,7 +561,7 @@ export abstract class HttpBase {
   #registerSyntheticMiddleware(
     name: string,
     middleware: MiddlewareClass,
-    provides?: MiddlewareOptions["provides"],
+    provides?: HttpMiddlewareOptions["provides"],
   ): void {
     if (provides) middleware.provides = [...provides];
     Object.defineProperty(middleware, "name", { value: name });
@@ -587,12 +618,16 @@ export abstract class HttpBase {
  * of two ways: a branded `contract` entry (which IS a descriptor; the brand is an inert extra symbol),
  * or the loose descriptor fields spelled inline. Returns undefined when the route declares neither.
  */
-function routeDescriptor(options: RouteOptions): RequestDescriptor | undefined {
+function routeDescriptor(options: HttpRouteOptions): RequestDescriptor | undefined {
+  // A branded contract entry IS a descriptor at runtime; the brand is an inert
+  // extra symbol the descriptor type does not carry.
   if (options.contract) return options.contract as RequestDescriptor;
   let descriptor: Record<string, unknown> | undefined;
   for (const field of REQUEST_FIELDS) {
     const value = (options as Record<string, unknown>)[field];
     if (value !== undefined) (descriptor ??= {})[field] = value;
   }
+  // Assembled field-by-field from REQUEST_FIELDS; the loop realizes exactly the
+  // descriptor shape, which the checker cannot follow through dynamic keys.
   return descriptor as RequestDescriptor | undefined;
 }

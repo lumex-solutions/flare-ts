@@ -1,3 +1,6 @@
+/**
+ * The HTTP arc: route registration surface, pipeline dispatch on fetch, and lifecycle hooks.
+ */
 import type { ArrayTypedPrimitive, JsonValue } from "@flare-ts/lib/schema";
 import type { Primitive, TypedPrimitive } from "@flare-ts/lib/schema";
 import type { IFlareHost } from "../../host/flare-host.js";
@@ -27,10 +30,11 @@ import { applyActualCorsHeaders, buildCorsPreflightResponse, checkOriginAllowed 
 import { deriveAllowedMethods } from "./routing/allow-methods.js";
 import { INVALID_REQUEST_PATH_BODY } from "./routing/path.js";
 import { METHOD_IDX_MAP } from "./routing/types/methods.js";
-import { COOKIE_SIGNER, INSTANCE_SINGLETONS, SET_REQ_CTX } from "./transport/flare-http-context.js";
+import { INSTANCE_SINGLETONS, SET_REQ_CTX } from "./transport/flare-http-context.js";
 import { type FlareRequest, SET_MAX_BODY_BYTES, SET_ROUTE_PARAMS } from "./transport/flare-request.js";
 import { FlareResponse } from "./transport/flare-response.js";
 import { normalizeHandlerResult } from "./transport/normalize.js";
+import { COOKIE_SIGNER } from "./transport/types/cookies.js";
 
 export const CHAR_CODE_COLON = 58; // ":"
 export const CHAR_CODE_SLASH = 47; // "/"
@@ -198,7 +202,8 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
 
   /**
    * Registers a callback to be invoked when the application starts.
-   * Callbacks are called in registration order during {@link FlareApp.start}.
+   *
+   * Callbacks are called in registration order during app startup.
    */
   public onStart(fn: LifecycleCallback<TLifecycle>): void {
     this.#onStartCallbacks.push(fn);
@@ -206,6 +211,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
 
   /**
    * Registers a callback to be invoked when the application stops.
+   *
    * Callbacks are called in registration order during graceful shutdown.
    */
   public onStop(fn: LifecycleCallback<TLifecycle>): void {

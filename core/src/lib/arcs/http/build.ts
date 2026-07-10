@@ -1,3 +1,6 @@
+/**
+ * Compiles registered controllers and middleware into sorted pipelines, the router, and per-route exec functions.
+ */
 import { compileSerializer } from "@flare-ts/lib/schema";
 import type { Router } from "../../routing/router.js";
 import type { StateToken } from "../../state/flare-state.js";
@@ -7,7 +10,7 @@ import type { CorsConfig } from "./composition/types/cors.js";
 import type { ControllerHandler, Route, RouteSegment } from "./routing/types/route.js";
 import type { ResponseSerializers, Serializer } from "./transport/types/response.js";
 import type { ExecFn } from "./types/exec-fn.js";
-import type { CompiledQueryPrimitive, FlareHttpFactory, Pipeline } from "./types/pipeline.js";
+import type { CompiledQueryPrimitive, HttpFactory, Pipeline } from "./types/pipeline.js";
 import type {
   ControllerRegistration,
   ErrorHandlerRegistration,
@@ -38,7 +41,7 @@ export function compileHttp(
   groups: GroupRegistration[] = [],
   arcCorsConfig?: CorsConfig,
   providedAtEntry: readonly StateToken[] = [],
-): { middleware: FlareHttpFactory<MiddlewareBase>[]; pipelines: Pipeline[]; router: Router; execFns: ExecFn[]; } {
+): { middleware: HttpFactory<MiddlewareBase>[]; pipelines: Pipeline[]; router: Router; execFns: ExecFn[]; } {
   const middleware = compileMiddleware(mwRegistrations);
   const pipelines = compilePipelines(
     ctrlRegistrations,
@@ -154,8 +157,8 @@ function compileExecStepNames(pipeline: Pipeline, globalMwRegs: MiddlewareRegist
   return names;
 }
 
-function compileMiddleware(middlewareRegistrations: MiddlewareRegistration[]): FlareHttpFactory<MiddlewareBase>[] {
-  const middleware: FlareHttpFactory<MiddlewareBase>[] = Array(middlewareRegistrations.length);
+function compileMiddleware(middlewareRegistrations: MiddlewareRegistration[]): HttpFactory<MiddlewareBase>[] {
+  const middleware: HttpFactory<MiddlewareBase>[] = Array(middlewareRegistrations.length);
 
   for (let i = 0; i < middlewareRegistrations.length; i++) {
     middleware[i] = middlewareRegistrations[i]!.factory;

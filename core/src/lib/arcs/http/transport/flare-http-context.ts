@@ -1,3 +1,7 @@
+/**
+ * The full HTTP context handlers receive: the inbound request, per-request state,
+ * contract extraction, SSE, and the cookie accessor, plus the arc's internal seams.
+ */
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { ServiceToken } from "../../../services/types/token.js";
 import type { DeepReadonly, StateToken, TypedStateToken } from "../../../state/flare-state.js";
@@ -10,23 +14,17 @@ import type { ResponseSerializers, Serializer } from "./types/response.js";
 import { loggerALS } from "../../../logger/context.js";
 import { StateMap } from "../../../state/map.js";
 import { getTokenDefault, getTokenDerivation, getTokenLogMapper } from "../../../state/read.js";
+import { FlareCookies } from "./flare-cookies.js";
 import { FlareResponse } from "./flare-response.js";
 import { encodeSseComment, encodeSseEvent, SseStream } from "./sse.js";
+import { COOKIE_SIGNER, DRAIN_SET_COOKIES } from "./types/cookies.js";
 
 /** @internal */
 export const SET_REQ_CTX: unique symbol = Symbol("SET_REQ_CTX");
 /** @internal */
 export const SET_PARSED_BODY: unique symbol = Symbol("SET_PARSED_BODY");
 /** @internal */
-export const DRAIN_SET_COOKIES: unique symbol = Symbol("DRAIN_SET_COOKIES");
-/** @internal */
 export const INSTANCE_SINGLETONS: unique symbol = Symbol("INSTANCE_SINGLETONS");
-/**
- * @internal Slot for the host's cookie signer, stamped by the HTTP arc only when a `cookies.secret`
- * is configured. Backs {@link FlareCookies.setSigned} / {@link FlareCookies.getSigned}; absent
- * otherwise, in which case those methods throw.
- */
-export const COOKIE_SIGNER: unique symbol = Symbol("flare.cookieSigner");
 /**
  * Neutral internal accessor: returns the populated parsed request context (the same `#requestCtx`
  * that {@link FlareHttpContext.extract} returns) WITHOUT the descriptor-identity guard. Used to seed
@@ -56,29 +54,11 @@ export const PEEK_STATE: unique symbol = Symbol("flare.peekState");
  */
 export const HANDLER_ERRORED: unique symbol = Symbol("flare.handlerErrored");
 
-interface RequestState {
+type RequestState = {
   set: <T>(token: TypedStateToken<T>, value: T) => void;
   get: <T>(token: TypedStateToken<T>) => DeepReadonly<T> | undefined;
   require: <T>(token: TypedStateToken<T>) => DeepReadonly<T>;
-}
-
-type BaseCookieOptions = {
-  httpOnly?: boolean;
-  path?: string;
-  domain?: string;
-  maxAge?: number;
-  expires?: Date;
-  partitioned?: boolean;
 };
-
-/**
- * Options for `ctx.cookies.set()`. Discriminated on `sameSite` so that
- * `SameSite=None` is a TypeScript error unless `secure: true` is also set:
- * browsers reject the unsecured form, and silent correction would mask the bug.
- */
-export type CookieOptions =
-  | (BaseCookieOptions & { sameSite: "None"; secure: true; })
-  | (BaseCookieOptions & { sameSite?: "Strict" | "Lax"; secure?: boolean; });
 
 // Contract-less routes read an empty input every request; reuse one frozen object rather than
 // allocating `{}` per read. Frozen so a stray write can never leak across requests.
@@ -364,127 +344,4 @@ export class FlareHttpContext {
       (state ??= store.state = {})[key] = mappedValue;
     }
   }
-}
-
-/**
- * Read/write cookie API exposed via `ctx.cookies`.
- *
- * Reads lazily parse the inbound `Cookie` header on first access and cache the result.
- * Writes accumulate serialized `Set-Cookie` strings in an internal buffer that the
- * runtime adapter drains when building the outgoing response.
- */
-export class FlareCookies {
-  #ctx: FlareHttpContext;
-  #parsed: Record<string, string> | undefined;
-  #setCookies: string[] | undefined;
-
-  constructor(ctx: FlareHttpContext) {
-    this.#ctx = ctx;
-  }
-
-  get(name: string): string | undefined {
-    return this.#getAll()[name];
-  }
-
-  getAll(): Readonly<Record<string, string>> {
-    return this.#getAll();
-  }
-
-  /**
-   * Serializes `name=value` plus the given options into a `Set-Cookie` header.
-   *
-   * Throws if `sameSite: "None"` is used without `secure: true`. Browsers reject
-   * unsecured SameSite=None cookies and silently correcting would mask the bug.
-   * The {@link CookieOptions} type also enforces this at compile time.
-   */
-  set(name: string, value: string, options?: CookieOptions): void {
-    if (options?.sameSite === "None" && options.secure !== true) {
-      throw new Error(
-        `[flare] Cookie "${name}" sets SameSite=None without Secure=true. `
-          + `Browsers reject this combination; set { sameSite: "None", secure: true } explicitly.`,
-      );
-    }
-    (this.#setCookies ??= []).push(serializeCookie(name, value, options));
-  }
-
-  delete(name: string, options?: { path?: string; domain?: string; }): void {
-    const opts: CookieOptions = { maxAge: 0 };
-    if (options?.path !== undefined) opts.path = options.path;
-    if (options?.domain !== undefined) opts.domain = options.domain;
-    this.set(name, "", opts);
-  }
-
-  /**
-   * Sets a cookie whose value is signed with the host's cookie secret, producing a
-   * tamper-evident payload that {@link getSigned} verifies on read.
-   *
-   * Signing provides integrity, not confidentiality: the value is encoded (not
-   * encrypted) and is recoverable by anyone who reads the cookie. Do not store
-   * secrets in a signed cookie.
-   *
-   * Requires `cookies.secret` to be configured; a route can declare `signedCookies: true`
-   * to have `host.build()` enforce that at build time. Throws if no secret is configured.
-   */
-  async setSigned(name: string, value: string, options?: CookieOptions): Promise<void> {
-    this.set(name, await this.#requireSigner().sign(value), options);
-  }
-
-  /**
-   * Reads a cookie written by {@link setSigned}, returning its value when the signature is
-   * valid and `undefined` when the cookie is absent, tampered with, or signed under a secret
-   * that is no longer accepted.
-   *
-   * Requires `cookies.secret` to be configured. Throws if no secret is configured.
-   */
-  async getSigned(name: string): Promise<string | undefined> {
-    const raw = this.#getAll()[name];
-    if (raw === undefined) return undefined;
-    return this.#requireSigner().verify(raw);
-  }
-
-  #requireSigner(): CookieSigner {
-    const signer = this.#ctx[COOKIE_SIGNER];
-    if (!signer) {
-      throw new Error(
-        "[flare] Signed cookies require a secret. Set `cookies.secret` in flare.json (or via FLARE__COOKIES__SECRET) before calling setSigned/getSigned.",
-      );
-    }
-    return signer;
-  }
-
-  #getAll(): Record<string, string> {
-    if (this.#parsed) return this.#parsed;
-    const header = this.#ctx.req.headers.get("Cookie");
-    const out: Record<string, string> = {};
-    if (header) {
-      // Split on `;` plus any trailing whitespace. Browsers send `"a=1; b=2"` (with a
-      // space after each separator), but proxies and server-to-server clients sometimes
-      // omit the space; `; *` tolerates both without dropping or misparsing values.
-      const parts = header.split(/;\s*/);
-      for (let i = 0; i < parts.length; i++) {
-        const p = parts[i]!;
-        const eq = p.indexOf("=");
-        if (eq === -1) continue;
-        out[p.slice(0, eq)] = p.slice(eq + 1);
-      }
-    }
-    return (this.#parsed = out);
-  }
-
-  [DRAIN_SET_COOKIES](): string[] | null {
-    return this.#setCookies ?? null;
-  }
-}
-
-function serializeCookie(name: string, value: string, o?: CookieOptions): string {
-  let s = `${name}=${value}`;
-  if (o?.maxAge !== undefined) s += `; Max-Age=${o.maxAge}`;
-  if (o?.expires) s += `; Expires=${o.expires.toUTCString()}`;
-  if (o?.domain) s += `; Domain=${o.domain}`;
-  if (o?.path) s += `; Path=${o.path}`;
-  if (o?.httpOnly) s += `; HttpOnly`;
-  if (o?.secure) s += `; Secure`;
-  if (o?.sameSite) s += `; SameSite=${o.sameSite}`;
-  if (o?.partitioned) s += `; Partitioned`;
-  return s;
 }

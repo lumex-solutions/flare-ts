@@ -10,7 +10,7 @@ import type { ErrorHandlerBase } from "../../../../../src/lib/arcs/http/composit
 import type { MiddlewareClass } from "../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
 import type { MiddlewareBase as MwBase } from "../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
 import type { FlareHttpContext } from "../../../../../src/lib/arcs/http/transport/flare-http-context.js";
-import type { Pipeline, FlareHttpFactory } from "../../../../../src/lib/arcs/http/types/pipeline.js";
+import type { Pipeline, HttpFactory } from "../../../../../src/lib/arcs/http/types/pipeline.js";
 import type {
   ControllerRegistration,
   ErrorHandlerRegistration,
@@ -63,7 +63,7 @@ function makeMiddlewareCls(
 
 function mwReg(cls: MiddlewareClass, instance: object): MiddlewareRegistration {
   return {
-    factory: ((_c: Container, _ctx: FlareHttpContext) => instance as MwBase) as FlareHttpFactory<MwBase>,
+    factory: ((_c: Container, _ctx: FlareHttpContext) => instance as MwBase) as HttpFactory<MwBase>,
     cls,
   };
 }
@@ -74,7 +74,7 @@ function ctrlReg(
 ): ControllerRegistration {
   const instance = { _h: handler };
   return {
-    factory: ((_c: Container, _ctx: FlareHttpContext) => instance as unknown as CtlBase) as FlareHttpFactory<CtlBase>,
+    factory: ((_c: Container, _ctx: FlareHttpContext) => instance as unknown as CtlBase) as HttpFactory<CtlBase>,
     cls,
     path: "",
     standalone: true,

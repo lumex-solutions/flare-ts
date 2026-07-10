@@ -1,3 +1,6 @@
+/**
+ * HMAC signing and verification for signed cookies, with key rotation over the configured secrets.
+ */
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 

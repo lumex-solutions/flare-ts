@@ -23,31 +23,27 @@ export type { ConfigToken, HostConfig, LogConfig, WebSocketsConfig } from "./lib
 
 // HTTP arc
 export { ControllerBase } from "./lib/arcs/http/composition/classes/controller-base.js";
-export type { ControllerFn, RedirectOptions } from "./lib/arcs/http/composition/classes/controller-base.js";
+export type { RedirectOptions } from "./lib/arcs/http/composition/classes/controller-base.js";
 export { ErrorHandlerBase } from "./lib/arcs/http/composition/classes/error-handler-base.js";
 export { MiddlewareBase } from "./lib/arcs/http/composition/classes/middleware-base.js";
-export type {
-  MiddlewareAfterFn,
-  MiddlewareBeforeFn,
-  MiddlewareFinallyFn,
-} from "./lib/arcs/http/composition/classes/middleware-base.js";
 export { httpContract, stream } from "./lib/arcs/http/composition/contract/http-contract.js";
 export type { CorsConfig } from "./lib/arcs/http/composition/types/cors.js";
 export type {
-  AfterMiddlewareHandler,
-  BeforeMiddlewareHandler,
-  ErrorHandlerOptions,
-  FinallyMiddlewareHandler,
-  FlareErrorHandler,
-  FlareHandlerScope,
   HandlerScope,
-  MiddlewareOptions,
-  RouteHandler,
-  RouteOptions,
+  HttpAfterHandler,
+  HttpBeforeHandler,
+  HttpErrorHandler,
+  HttpErrorHandlerOptions,
+  HttpFinallyHandler,
+  HttpHandlerScope,
+  HttpMiddlewareOptions,
+  HttpRouteHandler,
+  HttpRouteOptions,
 } from "./lib/arcs/http/composition/types/handlers.js";
 export type { HttpArc } from "./lib/arcs/http/http-arc.js";
+export { FlareCookies } from "./lib/arcs/http/transport/flare-cookies.js";
+export type { CookieOptions } from "./lib/arcs/http/transport/flare-cookies.js";
 export { FlareHttpContext } from "./lib/arcs/http/transport/flare-http-context.js";
-export type { CookieOptions } from "./lib/arcs/http/transport/flare-http-context.js";
 export { FlareRequest } from "./lib/arcs/http/transport/flare-request.js";
 export { FlareResponse } from "./lib/arcs/http/transport/flare-response.js";
 export type { SseEvent, SseWriter } from "./lib/arcs/http/transport/sse.js";

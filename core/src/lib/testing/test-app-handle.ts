@@ -12,8 +12,9 @@ import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceClass } from "../services/types/service-class.js";
 import type { ServiceToken } from "../services/types/token.js";
 import type { TestRequestInit } from "./types/flare-test-req.js";
-import { DRAIN_SET_COOKIES, FlareHttpContext } from "../arcs/http/transport/flare-http-context.js";
+import { FlareHttpContext } from "../arcs/http/transport/flare-http-context.js";
 import { FlareResponse } from "../arcs/http/transport/flare-response.js";
+import { DRAIN_SET_COOKIES } from "../arcs/http/transport/types/cookies.js";
 import { FlareTestError } from "./flare-test-error.js";
 
 /** The app view TestAppHandle drives: a built app with its HTTP arc reachable. */

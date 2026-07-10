@@ -1,3 +1,6 @@
+/**
+ * The inbound request wrapper handlers read: lazy headers, body, params, and abort signal over the runtime adapter.
+ */
 import type { JsonValue } from "@flare-ts/lib/schema";
 import type { RequestAdapter } from "./types/adapter.js";
 import { flareErrorCodes } from "../../../errors/codes.js";

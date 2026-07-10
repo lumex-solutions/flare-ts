@@ -12,11 +12,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { model, str } from "@flare-ts/lib/schema";
 import { Get, Post } from "../../../../../src/decorators.js";
 import { ControllerBase, httpContract, FlareResponse } from "../../../../../src/index.js";
-import {
-  clearExecShapeCache,
-  execShapeCacheKeys,
-  execShapeCacheSize,
-} from "../../../../../src/lib/arcs/http/exec-codegen.js";
 import { testHost } from "../../../helpers/test-host.js";
 
 // Re-arms FLARE_MODE because other tests may mutate process.env to opt into production runtime.
@@ -269,93 +264,6 @@ describe("Edge Cases", () => {
         const postRes = await app.fetch("POST /items", { body: { name: "x" } });
         expect(postRes.status).toBe(201);
         expect(await postRes.json()).toEqual({ created: true });
-      } finally {
-        await app.stop();
-      }
-    },
-  );
-
-  it(
-    "two routes that share the same shape reuse a single factory from _shapeCache",
-    async () => {
-      // The cache is module-level and shared across every test. Clear it so
-      // the delta we observe reflects only this test's compilation.
-      clearExecShapeCache();
-      expect(execShapeCacheSize()).toBe(0);
-
-      const host = testHost();
-      // Two synthetic-controller routes with no middleware, no body; same
-      // shape key "0::0:0::0". Compiling both must yield exactly one entry
-      // in _shapeCache because the second compile finds the first's factory.
-      host.http.get("/alpha", () => new FlareResponse(200, { name: "alpha" }));
-      host.http.get("/beta", () => new FlareResponse(200, { name: "beta" }));
-
-      const app = await host.build().test();
-      try {
-        expect(execShapeCacheSize()).toBe(1);
-        // Shape key encodes (B, bAsync, hasBody, AC, aAsync, F).
-        expect(execShapeCacheKeys()[0]).toMatch(/^0:.*:0:.*:0$/);
-
-        // Both routes still work, proving the shared factory is wired up
-        // with each pipeline's own registration data.
-        const a = await app.fetch("GET /alpha");
-        expect(await a.json()).toEqual({ name: "alpha" });
-        const b = await app.fetch("GET /beta");
-        expect(await b.json()).toEqual({ name: "beta" });
-      } finally {
-        await app.stop();
-      }
-    },
-  );
-
-  it(
-    "two routes under the same controller registration produce two pipelines that share one cached shape factory",
-    async () => {
-      // Two routes on one controller at different paths each produce their
-      // own Pipeline, but they share the same ControllerRegistration object
-      // (the WeakMap key for _registrationCache) and the same shape key
-      // (no middleware, no body). _registrationCache reuse means the second
-      // pipeline's per-registration arrays (bAsync/aAsync/instances/bcis/
-      // acis/fcis) are pulled from the cache instead of being recomputed,
-      // and _shapeCache reuse means a single compiled factory backs both.
-      clearExecShapeCache();
-
-      class TwoRouteController extends ControllerBase {
-        public static override deps = [];
-        public static override state = [];
-
-        @Get("/things")
-        public list() {
-          return this.ok({ verb: "GET", path: "/things" });
-        }
-
-        @Get("/widgets")
-        public listWidgets() {
-          return this.ok({ verb: "GET", path: "/widgets" });
-        }
-      }
-
-      const host = testHost();
-      host.http.controller("/", TwoRouteController);
-
-      const app = await host.build().test();
-      try {
-        const things = await app.fetch("GET /things");
-        expect(things.status).toBe(200);
-        expect(await things.json()).toEqual({ verb: "GET", path: "/things" });
-
-        const widgets = await app.fetch("GET /widgets");
-        expect(widgets.status).toBe(200);
-        expect(await widgets.json()).toEqual({ verb: "GET", path: "/widgets" });
-
-        // Two distinct pipelines with identical shape share exactly one factory in
-        // the shape cache. If _registrationCache had been bypassed and the
-        // second compile redid the resolution work, the shape key would
-        // still be identical and the cache would still hold one entry, so
-        // shape-cache size is the most direct observable. The fact that both
-        // routes return without throwing also proves the cached _RegData
-        // (bcis/acis/fcis/instances) is correct for both pipelines.
-        expect(execShapeCacheSize()).toBe(1);
       } finally {
         await app.stop();
       }

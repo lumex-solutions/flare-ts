@@ -1,3 +1,6 @@
+/**
+ * The generic fetch request adapter shared by fetch-native runtimes.
+ */
 import type { RequestAdapter } from "../types/adapter";
 
 /**

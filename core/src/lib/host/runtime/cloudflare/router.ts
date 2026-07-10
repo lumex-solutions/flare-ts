@@ -1,4 +1,4 @@
-import type { FlareHandlerScope } from "../../../arcs/http/composition/types/handlers.js";
+import type { HttpHandlerScope } from "../../../arcs/http/composition/types/handlers.js";
 import type { HttpArc } from "../../../arcs/http/http-arc.js";
 import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
 import type { ResponseLike } from "../../../arcs/http/transport/types/response.js";
@@ -30,7 +30,7 @@ export type InstanceResult = string | FlareResponse | Promise<string | FlareResp
  */
 export interface ResolveRecord {
   readonly inject: Record<string, ServiceToken<FlareService>>;
-  readonly handler: (ctx: FlareHttpContext, scope: FlareHandlerScope<InjectMap>) => InstanceResult;
+  readonly handler: (ctx: FlareHttpContext, scope: HttpHandlerScope<InjectMap>) => InstanceResult;
   /**
    * State tokens this resolver promises to set on `ctx.state` before returning the instance name.
    * Used by the front-door provide check (MOUNT_STATE_NOT_PROVIDED) to mark a DO's `static state`
@@ -266,7 +266,7 @@ export function installExplicitMount(frontDoor: HttpArc<"sync">, record: MountRe
     ? { ...resolveRecord.inject, bindings: Bindings }
     : { bindings: Bindings };
 
-  type CombinedScope = FlareHandlerScope<InjectMap> & { bindings: Bindings; };
+  type CombinedScope = HttpHandlerScope<InjectMap> & { bindings: Bindings; };
 
   const makeHandler = (stripToRoot: boolean) =>
   async (
@@ -276,7 +276,7 @@ export function installExplicitMount(frontDoor: HttpArc<"sync">, record: MountRe
     // When a resolver is present, invoke it before deriving the instance name.
     let instance: string;
     if (resolveRecord) {
-      const result = await resolveRecord.handler(ctx, scope as FlareHandlerScope<InjectMap>);
+      const result = await resolveRecord.handler(ctx, scope as HttpHandlerScope<InjectMap>);
       if (result instanceof FlareResponse) {
         // Short-circuit: return this response; do NOT enter any DO.
         return result;

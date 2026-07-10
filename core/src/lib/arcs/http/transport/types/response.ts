@@ -1,5 +1,8 @@
+/**
+ * The response vocabulary: handler results, middleware overrides, header shapes, and serializer slots.
+ */
 import type { JsonValue } from "@flare-ts/lib/schema";
-import type { FlareResponse } from "../../composition/classes/index.js";
+import type { FlareResponse } from "../flare-response.js";
 
 export type ResponseLike = Response | FlareResponse;
 
@@ -39,9 +42,9 @@ export type MiddlewareOverride = Exclude<HandlerResult, undefined | null> | void
 
 export type ResponseHeaders = Record<string, string>;
 
-export interface ResponseInit {
+export type ResponseInit = {
   headers?: ResponseHeaders;
-}
+};
 
 /** Pre-compiled stringify function that converts an object to a JSON string. */
 export type Serializer = (doc: JsonValue) => string;

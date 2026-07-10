@@ -1,3 +1,6 @@
+/**
+ * The class-form route authoring base: response helpers over the shared registration core.
+ */
 import type { JsonValue } from "@flare-ts/lib/schema";
 import type { FlareService } from "../../../../services/composition/flare-service.js";
 import type { Container } from "../../../../services/container.js";
@@ -6,11 +9,8 @@ import type { StateToken } from "../../../../state/flare-state.js";
 import type { FlareHttpContext } from "../../transport/flare-http-context.js";
 import type { ResponseLike } from "../../transport/types/response.js";
 import type { ContractToken } from "../contract/http-contract.js";
-import type { RouteHandler } from "../types/handlers.js";
 import { FlareBase } from "../../../../services/composition/flare-base.js";
 import { FlareResponse } from "../../transport/flare-response.js";
-
-export type ControllerFn = RouteHandler;
 
 export type RedirectOptions = {
   permanent?: boolean;

@@ -1,4 +1,7 @@
 /**
+ * The CORS vocabulary: the authoring config and its compiled per-route policy.
+ */
+/**
  * Configuration for a CORS policy, declared at arc or group level.
  * All behavior derives from the WHATWG Fetch Living Standard §3.3.
  */

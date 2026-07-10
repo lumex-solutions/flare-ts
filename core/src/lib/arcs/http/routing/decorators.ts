@@ -1,5 +1,8 @@
+/**
+ * The route decorators (@Get, @Post, ...) and the metadata writer they share.
+ */
 import type { ControllerClass } from "../composition/classes/controller-base.js";
-import type { ControllerBase } from "../composition/classes/index.js";
+import type { ControllerBase } from "../composition/classes/controller-base.js";
 import type { METHOD_IDX_MAP } from "./types/methods.js";
 import type { ControllerHandler, RouteMetadata } from "./types/route.js";
 import { ROUTE_STORE } from "./route-store.js";

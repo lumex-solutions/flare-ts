@@ -1,3 +1,6 @@
+/**
+ * The HTTP method vocabulary: canonical method list and index lookup.
+ */
 /** HTTP methods recognised by the router. Order matches {@link METHOD_IDX_MAP}. */
 export const SUPPORTED_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] as const;
 

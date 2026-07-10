@@ -21,7 +21,7 @@
 import type { MiddlewareBase } from "./composition/classes/middleware-base.js";
 import type { MiddlewareClass } from "./composition/classes/middleware-base.js";
 import type { ExecFn } from "./types/exec-fn.js";
-import type { FlareHttpFactory, Pipeline } from "./types/pipeline.js";
+import type { HttpFactory, Pipeline } from "./types/pipeline.js";
 import type { MiddlewareRegistration } from "./types/registration.js";
 import { stream } from "./composition/contract/http-contract.js";
 import { dispatchErrorHandlers, prepareRequestBody } from "./exec-helpers.js";
@@ -56,7 +56,7 @@ const _asyncFlagsCache = new WeakMap<object, { before: boolean; after: boolean; 
 type _RegData = {
   readonly bAsync: boolean[];
   readonly aAsync: boolean[];
-  readonly instances: Array<FlareHttpFactory<MiddlewareBase> | null>;
+  readonly instances: Array<HttpFactory<MiddlewareBase> | null>;
   readonly bcis: number[];
   readonly acis: number[];
   readonly fcis: number[];
@@ -91,7 +91,7 @@ export function clearExecShapeCache(): void {
  */
 export function compileExecFn(
   pipeline: Pipeline,
-  factories: FlareHttpFactory<MiddlewareBase>[],
+  factories: HttpFactory<MiddlewareBase>[],
   execNames: string[],
   globalMwRegs: MiddlewareRegistration[],
 ): ExecFn {
@@ -119,7 +119,7 @@ export function compileExecFn(
       (_, i) => _detectSlotAsync(pipeline, B + 1 + i, factories, globalMwRegs, "after"),
     );
 
-    const instances: Array<FlareHttpFactory<MiddlewareBase> | null> = new Array(pipeline.execCount).fill(null);
+    const instances: Array<HttpFactory<MiddlewareBase> | null> = new Array(pipeline.execCount).fill(null);
     for (let execIdx = 0; execIdx < pipeline.execCount; execIdx++) {
       const factoryIdx = pipeline.middlewareFactoryByExecIdx[execIdx];
       if (factoryIdx === undefined || factoryIdx < 0) continue;
@@ -415,7 +415,7 @@ function _isAsyncFn(fn: Function): boolean {
 function _resolveMwClass(
   pipeline: Pipeline,
   execIdx: number,
-  factories: FlareHttpFactory<MiddlewareBase>[],
+  factories: HttpFactory<MiddlewareBase>[],
   globalMwRegs: MiddlewareRegistration[],
 ): MiddlewareClass | undefined {
   const middlewareIdx = pipeline.middlewareFactoryByExecIdx[execIdx];
@@ -434,7 +434,7 @@ function _resolveMwClass(
 function _detectSlotAsync(
   pipeline: Pipeline,
   execIdx: number,
-  factories: FlareHttpFactory<MiddlewareBase>[],
+  factories: HttpFactory<MiddlewareBase>[],
   globalMwRegs: MiddlewareRegistration[],
   phase: "before" | "after" | "finally",
 ): boolean {
@@ -465,9 +465,9 @@ function _detectSlotAsync(
 
 function _resolveFactory(
   pipeline: Pipeline,
-  factories: FlareHttpFactory<MiddlewareBase>[],
+  factories: HttpFactory<MiddlewareBase>[],
   execIdx: number,
-): FlareHttpFactory<MiddlewareBase> {
+): HttpFactory<MiddlewareBase> {
   const middlewareIdx = pipeline.middlewareFactoryByExecIdx[execIdx]!;
   const group = pipeline.registration.group;
 

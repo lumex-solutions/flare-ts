@@ -1,3 +1,6 @@
+/**
+ * Server-sent events: frame encoding, the writer contract, and the paced stream behind ctx.sse().
+ */
 import type { JsonValue } from "@flare-ts/lib/schema";
 
 /**
@@ -7,12 +10,12 @@ import type { JsonValue } from "@flare-ts/lib/schema";
  * with `JSON.stringify`. `event`, `id`, and `retry` map to the corresponding
  * SSE fields and are omitted from the frame when not provided.
  */
-export interface SseEvent {
+export type SseEvent = {
   data: JsonValue;
   event?: string;
   id?: string;
   retry?: number;
-}
+};
 
 /**
  * Push surface handed to a `ctx.sse(...)` producer.
@@ -21,12 +24,12 @@ export interface SseEvent {
  * producer that awaits each call is paced by the connection (at most one frame
  * is buffered).
  */
-export interface SseWriter {
+export type SseWriter = {
   /** Sends one event frame. */
   send(event: SseEvent): Promise<void>;
   /** Sends a comment frame. Clients ignore it; useful as a keep-alive. */
   comment(text: string): Promise<void>;
-}
+};
 
 const encoder = new TextEncoder();
 

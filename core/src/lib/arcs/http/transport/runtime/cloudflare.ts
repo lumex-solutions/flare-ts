@@ -1,3 +1,6 @@
+/**
+ * The Cloudflare request adapter: native Request semantics for signal, background work, and raw headers.
+ */
 import { waitUntil } from "cloudflare:workers";
 import type { RequestAdapter } from "../types/adapter.js";
 

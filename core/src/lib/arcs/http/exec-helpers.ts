@@ -41,6 +41,8 @@ export function prepareRequestBody(
   if (bodyDescriptor === undefined || bodyDescriptor === stream) return;
 
   const logger = container.resolveDep(Logger);
+  // The stream sentinel was excluded by the caller's === stream check, which the
+  // type system cannot connect to this union narrowing.
   const bodyContract = bodyDescriptor as SchemaToken<JsonValue>;
 
   return request

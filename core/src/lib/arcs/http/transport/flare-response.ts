@@ -1,3 +1,6 @@
+/**
+ * The response value handlers return: status, headers, body, and streaming variants.
+ */
 import type { JsonValue } from "@flare-ts/lib/schema";
 import type { ResponseHeaders, ResponseInit } from "./types/response.js";
 

@@ -1,4 +1,7 @@
 /**
+ * Route-path joining for controller-plus-method composition, and the invalid-path response body.
+ */
+/**
  * Joins a controller base path and a route path into a single canonical route path.
  *
  * Handles the two degenerate cases that come up in practice: an empty route path

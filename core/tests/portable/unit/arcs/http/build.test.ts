@@ -612,7 +612,7 @@ describe("exec step resolution and error target naming", () => {
 });
 
 describe("middleware factory registration order", () => {
-  it("returns FlareHttpFactory functions in registration order", () => {
+  it("returns HttpFactory functions in registration order", () => {
     const A = makeMiddlewareCls("AA", { hooks: { before: true } });
     const B = makeMiddlewareCls("BB", { hooks: { before: true } });
     const regA = makeMwReg(A);

@@ -1,7 +1,13 @@
+/**
+ * The parsed request input vocabulary: the untyped runtime snapshot and its typed recovery against a contract.
+ */
 import type { SchemaToken } from "@flare-ts/lib/schema";
 import type { JsonValue, SafeParseResult } from "@flare-ts/lib/schema";
 import type { TypedPrimitive } from "@flare-ts/lib/schema";
 import type { RequestDescriptor } from "../../composition/contract/http-contract.js";
+
+/** One parsed query value: exactly what the query parsers produce (the scalars and their array forms). */
+export type QueryValue = number | string | boolean | Date | number[] | string[] | boolean[] | Date[];
 
 /**
  * @internal
@@ -13,9 +19,6 @@ import type { RequestDescriptor } from "../../composition/contract/http-contract
  * Values are stored loosely here. Strong types are recovered at the call site
  * by {@link TypedRequestContext} against the contract descriptor.
  */
-/** One parsed query value: exactly what the query parsers produce (the scalars and their array forms). */
-export type QueryValue = number | string | boolean | Date | number[] | string[] | boolean[] | Date[];
-
 export type RequestContext = {
   body?: Extract<SafeParseResult<JsonValue>, { success: true; }>["data"] | AsyncIterable<Uint8Array>;
   route?: Record<string, number | string>;

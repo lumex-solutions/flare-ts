@@ -1,3 +1,6 @@
+/**
+ * The route group handle host.http.group() returns: scoped registration with shared prefix, middleware, and isolation flags.
+ */
 import type {
   ControllerRegistration,
   ErrorHandlerRegistration,

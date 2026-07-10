@@ -1,3 +1,6 @@
+/**
+ * The class-form middleware authoring base: before/after/finally hooks over the shared core.
+ */
 import type { JsonValue } from "@flare-ts/lib/schema";
 import type { FlareService } from "../../../../services/composition/flare-service.js";
 import type { Container } from "../../../../services/container.js";
@@ -5,14 +8,8 @@ import type { ServiceToken } from "../../../../services/types/token.js";
 import type { StateToken } from "../../../../state/flare-state.js";
 import type { FlareHttpContext } from "../../transport/flare-http-context.js";
 import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../../transport/types/response.js";
-import type { AfterMiddlewareHandler, BeforeMiddlewareHandler, FinallyMiddlewareHandler } from "../types/handlers.js";
 import { FlareBase } from "../../../../services/composition/flare-base.js";
 import { FlareResponse } from "../../transport/flare-response.js";
-
-export type MiddlewareBeforeFn = BeforeMiddlewareHandler;
-export type MiddlewareAfterFn = AfterMiddlewareHandler;
-export type MiddlewareFinallyFn = FinallyMiddlewareHandler;
-export type MiddlewareFn = MiddlewareBeforeFn | MiddlewareAfterFn | MiddlewareFinallyFn;
 
 export type MiddlewareClass = {
   new(container: Container, ctx: FlareHttpContext): MiddlewareBase;

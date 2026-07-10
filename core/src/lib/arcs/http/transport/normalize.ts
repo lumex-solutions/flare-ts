@@ -1,3 +1,6 @@
+/**
+ * Normalizes every handler return shape into a response the runtime adapter can send.
+ */
 import type { JsonValue } from "@flare-ts/lib/schema";
 import type { Pipeline } from "../types/pipeline.js";
 import type { HandlerResult, ResponseLike, Serializer } from "./types/response.js";

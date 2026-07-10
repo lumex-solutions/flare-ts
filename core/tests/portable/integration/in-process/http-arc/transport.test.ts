@@ -10,7 +10,7 @@ process.env["FLARE_MODE"] = "test";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { model, str, uuid } from "@flare-ts/lib/schema";
-import type { RouteHandler } from "../../../../../src/index.js";
+import type { HttpRouteHandler } from "../../../../../src/index.js";
 import type { FlareHttpContext } from "../../../../../src/index.js";
 import type { TestAppHandle } from "../../../../../src/testing.js";
 import { FlareResponse } from "../../../../../src/index.js";
@@ -114,7 +114,7 @@ function buildHost() {
   // "Handler returned an unsupported type. Use a response helper or return a FlareResponse.".
   // The framework's HandlerResult type does not include primitives, so cast
   // through unknown to model a buggy handler that escapes the type system.
-  host.http.get("/primitive-return", (() => 42) as unknown as RouteHandler);
+  host.http.get("/primitive-return", (() => 42) as unknown as HttpRouteHandler);
 
   // Returns an Error instance: normalizeHandlerResult RETHROWS the Error so it
   // surfaces with the handler's original message intact (rather than being

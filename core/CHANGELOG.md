@@ -16,6 +16,17 @@ host extensions are coming soon.
   descriptor fields with `contract` is a type error (details under Changed).
 - `CFWExportedHandle` is renamed to `WorkerExportedHandle` on the
   `@flare-ts/core/cloudflare` entry.
+- The HTTP function-form vocabulary types spell the domain, with no aliases:
+  `FlareHandlerScope` is `HttpHandlerScope`, `FlareErrorHandler` is `HttpErrorHandler`,
+  `RouteOptions` is `HttpRouteOptions`, `RouteHandler` is `HttpRouteHandler`,
+  `MiddlewareOptions` is `HttpMiddlewareOptions`, `BeforeMiddlewareHandler` /
+  `AfterMiddlewareHandler` / `FinallyMiddlewareHandler` are `HttpBeforeHandler` /
+  `HttpAfterHandler` / `HttpFinallyHandler`, and `ErrorHandlerOptions` is
+  `HttpErrorHandlerOptions`. Annotations update mechanically; inferred handler and
+  options arguments need no change.
+- `ControllerFn` and `MiddlewareBeforeFn` / `MiddlewareAfterFn` / `MiddlewareFinallyFn`
+  are removed: each was a verbatim duplicate of `HttpRouteHandler` or the matching
+  `Http*Handler` type. Use those names directly.
 - On `@flare-ts/core/testing`: `FlareTestReq` is renamed to `TestRequestInit` and
   `FlareBuildSnapshot` to `BuildSnapshot`, with no aliases. `FlareTestRequestInput` is no
   longer exported: it typed the internal adapter seam and no public signature references it.
@@ -42,6 +53,9 @@ host extensions are coming soon.
   that `WorkerExportedHandle` started.
 
 ### Added
+
+- `FlareCookies` (the type of `ctx.cookies`) is exported from `@flare-ts/core`, so
+  helpers can type a cookies parameter explicitly.
 
 - **Durable Objects.** One host emits the front-door Worker and any number of Durable
   Objects from a single dependency-injection graph.

@@ -1,3 +1,6 @@
+/**
+ * The decorator-metadata store: the symbol routes are recorded under and the reader that drains it.
+ */
 import type { RouteMetadata } from "./types/route.js";
 
 export const DECORATOR_METADATA_SYMBOL = Symbol.metadata ?? Symbol.for("Symbol.metadata");
@@ -28,6 +31,8 @@ export const ROUTE_STORE = new WeakMap<DecoratorMetadataObject, RouteMetadata[]>
  * @param cls - The controller constructor to inspect.
  */
 export const _getRoutes = (cls: Function): RouteMetadata[] => {
+  // Symbol.metadata access: the ambient Function type does not declare the
+  // decorator metadata slot the @Method decorators wrote.
   const metadata = (cls as DecoratedClass)[DECORATOR_METADATA_SYMBOL] as DecoratorMetadataObject | undefined;
   if (!metadata) return [];
   return ROUTE_STORE.get(metadata) ?? [];

@@ -1,3 +1,6 @@
+/**
+ * The class-form error-handler authoring base.
+ */
 import type { FlareError } from "../../../../errors/flare-error.js";
 import type { HttpErrorContext } from "../../../../logger/types.js";
 import type { FlareService } from "../../../../services/composition/flare-service.js";
