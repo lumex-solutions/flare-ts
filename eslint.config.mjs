@@ -242,30 +242,23 @@ export default [
 
   // TEST FILE runtime-adapter isolation rules
   //
-  // Mirrors the source-code rules above, applied to `**/tests/**/*.test.ts`.
-  // The filename IS the runtime signal:
-  //   - Runtime-agnostic test files must not import adapter code from any runtime.
-  //   - CF test files (*cloudflare* / cfw-*) may import CF adapter code but not Node/Bun/Deno.
-  //   - Bun/Deno test files similarly restricted (future pools).
+  // Mirrors the source-code rules above. The FOLDER is the runtime signal
+  // (tests/portable, tests/node, tests/cloudflare), matching the vitest pools:
+  //   - portable/ suites must not import CF/Bun/Deno adapter code.
+  //   - cloudflare/ suites may import CF adapter code but not Node/Bun/Deno.
+  //   - node/ suites may import the Node adapter but not CF/Bun/Deno.
+  // Two sanctioned exceptions to folder routing:
+  //   - *.cloudflare.test.ts marks a node-pool suite that exercises a CF MODULE
+  //     without the CF runtime (e.g. wrangler frame-width rendering).
+  //   - tests/node/unit/host/runtime/ holds adapter-shape probers that construct
+  //     every adapter under the node pool by design.
   //
   // To add a deliberate exception add an `eslint-disable-next-line` comment
   // documenting WHY the import is safe across runtimes (see types.ts pattern).
 
-  // Runtime-agnostic test files: no runtime adapter imports at all.
+  // Portable test files: no CF/Bun/Deno adapter imports.
   {
-    files: ["**/tests/**/*.test.ts"],
-    ignores: [
-      "**/*cloudflare*.test.ts",
-      "**/cfw-*.test.ts",
-      "**/tests/cloudflare/**/*.test.ts",
-      "**/runtime/*cloudflare*.test.ts",
-      "**/*bun*.test.ts",
-      "**/runtime/*bun*.test.ts",
-      "**/*deno*.test.ts",
-      "**/runtime/*deno*.test.ts",
-      "**/*node*.test.ts",
-      "**/runtime/*node*.test.ts",
-    ],
+    files: ["**/tests/portable/**/*.test.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -274,17 +267,17 @@ export default [
             ...CF_ADAPTER_PATTERNS.map((p) => ({
               group: [p],
               message:
-                "CF adapter import in a runtime-agnostic test file. Rename to *.cloudflare.test.ts or extract to a helper called from a runtime-specific file.",
+                "CF adapter import in a portable test file. Move the suite to tests/cloudflare/ or extract a helper called from a runtime root.",
             })),
             ...BUN_ADAPTER_PATTERNS.map((p) => ({
               group: [p],
               message:
-                "Bun adapter import in a runtime-agnostic test file. Rename to *.bun.test.ts.",
+                "Bun adapter import in a portable test file. Move the suite to a runtime root.",
             })),
             ...DENO_ADAPTER_PATTERNS.map((p) => ({
               group: [p],
               message:
-                "Deno adapter import in a runtime-agnostic test file. Rename to *.deno.test.ts.",
+                "Deno adapter import in a portable test file. Move the suite to a runtime root.",
             })),
           ],
         },
@@ -292,13 +285,11 @@ export default [
     },
   },
 
-  // CF test files: may import CF adapter code; must NOT import Node/Bun/Deno.
+  // Cloudflare test files: may import CF adapter code; must NOT import Node/Bun/Deno.
   {
     files: [
-      "**/*cloudflare*.test.ts",
-      "**/cfw-*.test.ts",
       "**/tests/cloudflare/**/*.test.ts",
-      "**/runtime/*cloudflare*.test.ts",
+      "**/*.cloudflare.test.ts",
     ],
     rules: {
       "no-restricted-imports": [
@@ -324,9 +315,13 @@ export default [
     },
   },
 
-  // Node test files (*node*.test.ts): may import Node adapter; must NOT import CF/Bun/Deno.
+  // Node test files: may import the Node adapter; must NOT import CF/Bun/Deno.
   {
-    files: ["**/*node*.test.ts", "**/runtime/*node*.test.ts"],
+    files: ["**/tests/node/**/*.test.ts"],
+    ignores: [
+      "**/*.cloudflare.test.ts",
+      "**/tests/node/unit/host/runtime/*.test.ts",
+    ],
     rules: {
       "no-restricted-imports": [
         "error",

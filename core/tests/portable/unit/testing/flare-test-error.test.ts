@@ -2,7 +2,7 @@
  * Unit tests for {@link FlareTestError} name identity and message preservation.
  */
 import { describe, it, expect } from "vitest";
-import { FlareTestError } from "../../../../src/lib/testing/error.js";
+import { FlareTestError } from "../../../../src/lib/testing/flare-test-error.js";
 
 describe("test harness error identity", () => {
   it("sets name to 'FlareTestError' and preserves it across Error.prototype traversal", () => {

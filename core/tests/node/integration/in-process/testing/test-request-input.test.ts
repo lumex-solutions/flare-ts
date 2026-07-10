@@ -125,7 +125,7 @@ describe("Primary Behavior", () => {
 
       // The plain object was JSON-stringified by the translation and then
       // round-tripped by the handler. Equality proves the body field on the
-      // FlareTestRequestInput handed to createTestRequest was a JSON string.
+      // TestRequestInput handed to createTestRequest was a JSON string.
       expect(body.parsedBody).toEqual({ hello: "world", n: 7 });
 
       // The runtime adapter received a normalized input: the synthesized
@@ -191,7 +191,7 @@ describe("Edge Cases", () => {
 
     // The two requests received distinct signal instances, proving that the
     // runtime adapter is producing a fresh signal per request rather than
-    // sharing a process-wide one when `signal` is absent on FlareTestReq.
+    // sharing a process-wide one when `signal` is absent on TestRequestInit.
     expect(signalProbes[0]!.signalInstance).not.toBe(signalProbes[1]!.signalInstance);
   });
 });
@@ -226,13 +226,13 @@ describe("Cross-Feature Interactions", () => {
     },
   );
 
-  it("(with testing/test-app-handle) the only public producer of FlareTestRequestInput is TestAppHandle.fetch; `@flare-ts/core/testing` exposes no runtime value for the interface", () => {
-    // FlareTestRequestInput is exported as a TYPE only from the testing
+  it("(with testing/test-app-handle) the only public producer of TestRequestInput is TestAppHandle.fetch; `@flare-ts/core/testing` exposes no runtime value for the interface", () => {
+    // TestRequestInput is exported as a TYPE only from the testing
     // subpath. A runtime import yields `undefined`, so no public path can
     // construct one directly.
     const runtimeBag = testingExports as unknown as Record<string, unknown>;
-    expect(runtimeBag["FlareTestRequestInput"]).toBeUndefined();
-    expect(runtimeBag["FlareTestReq"]).toBeUndefined();
+    expect(runtimeBag["TestRequestInput"]).toBeUndefined();
+    expect(runtimeBag["TestRequestInit"]).toBeUndefined();
 
     // The handle is the only public surface that produces it at runtime.
     expect(typeof runtimeBag["TestAppHandle"]).toBe("function");

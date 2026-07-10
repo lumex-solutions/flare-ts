@@ -9,8 +9,7 @@ process.env["FLARE_MODE"] = "test";
 import { describe, expect, it } from "vitest";
 import type { HostState } from "../../../../../src/lib/host/types/types.js";
 import { FlareHost, FlareResponse, FlareService } from "../../../../../src/index.js";
-import { FlareTestApp } from "../../../../../src/lib/testing/test.js";
-import { FlareTestError } from "../../../../../src/testing.js";
+import { inspectBuild, FlareTestError } from "../../../../../src/testing.js";
 import { registerMinimalPingRoute } from "../../../../portable/helpers/host-fixtures.js";
 import { nodeAdapter } from "../../../helpers/node-adapter.js";
 
@@ -47,14 +46,16 @@ describe("Primary Behavior", () => {
       const app = host.build();
 
       // Sibling-of-FlareAppNode/FlareAppCF check: the app produced under test
-      // mode is the FlareTestApp variant, not a Node or CF app.
-      expect(app).toBeInstanceOf(FlareTestApp);
+      // mode is the test-app variant, observed through the public snapshot.
+      expect(inspectBuild({ host, app }).app.isTestApp).toBe(true);
 
       // run() and export() are no-op shims in test mode; both return null so
       // the user host-file pattern `export default host.build().export()`
       // does not bind a port or hand back a real handler.
       expect(app.run()).toBeNull();
-      expect((app as unknown as FlareTestApp).export()).toBeNull();
+      // export() is not on the built-app type; the structural cast avoids
+      // reaching into the internal class for a public-behavior claim.
+      expect((app as unknown as { export(): null; }).export()).toBeNull();
 
       const handle = await app.test();
       try {
@@ -75,7 +76,7 @@ describe("Primary Behavior", () => {
       // Mirror exactly what a user's host module does at top-level. The shim
       // must succeed silently and return null; throwing here would prevent
       // the test file from importing the host module at all.
-      const value = (host.build() as unknown as FlareTestApp).export();
+      const value = (host.build() as unknown as { export(): null; }).export();
       expect(value).toBeNull();
     },
   );
@@ -117,9 +118,9 @@ describe("Edge Cases", () => {
         // The shims are unconditional null returns; calling them post-test()
         // must not flip any internal flag or break the live handle.
         expect(app.run()).toBeNull();
-        expect((app as unknown as FlareTestApp).export()).toBeNull();
+        expect((app as unknown as { export(): null; }).export()).toBeNull();
         expect(app.run()).toBeNull();
-        expect((app as unknown as FlareTestApp).export()).toBeNull();
+        expect((app as unknown as { export(): null; }).export()).toBeNull();
 
         // Handle still drives requests through the pipeline.
         const res = await handle.fetch("GET /ping");

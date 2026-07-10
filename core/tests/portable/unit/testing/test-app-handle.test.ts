@@ -1,30 +1,28 @@
 /**
- * Unit tests for {@link FlareTestApp} and {@link TestAppHandle} request helpers and lifecycle wiring.
- * Only run() and export() are unit-isolated here; test() and reset need a full host.
+ * Unit tests for {@link TestAppHandle} request parsing, response normalization, and lifecycle wiring.
  */
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import type { HttpArc } from "../../../../src/lib/arcs/http/http-arc.js";
 import type { FlareHttpContext } from "../../../../src/lib/arcs/http/transport/flare-http-context.js";
 import type { ResponseLike } from "../../../../src/lib/arcs/http/transport/types/response.js";
 import type { IFlareApp } from "../../../../src/lib/host/flare-app.js";
-import type { IFlareHost, IFlareTestHost } from "../../../../src/lib/host/flare-host.js";
 import type { HostRuntimeAdapter } from "../../../../src/lib/host/types/adapter.js";
 import type { HostRuntimeLifecycle } from "../../../../src/lib/host/types/lifecycle.js";
 import type { LoggerTransportClass } from "../../../../src/lib/logger/types.js";
 import type { FlareService } from "../../../../src/lib/services/composition/flare-service.js";
 import type { ServiceClass } from "../../../../src/lib/services/types/service-class.js";
 import type { ServiceToken } from "../../../../src/lib/services/types/token.js";
-import type { FlareTestRequestInput } from "../../../../src/lib/testing/types/flare-test-req.js";
+import type { TestRequestInput } from "../../../../src/lib/testing/types/flare-test-req.js";
 import { FlareRequest } from "../../../../src/lib/arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../../../src/lib/arcs/http/transport/flare-response.js";
-import { FlareTestError } from "../../../../src/lib/testing/error.js";
-import { FlareTestApp, TestAppHandle } from "../../../../src/lib/testing/test.js";
+import { FlareTestError } from "../../../../src/lib/testing/flare-test-error.js";
+import { TestAppHandle } from "../../../../src/lib/testing/test-app-handle.js";
 
 type HostedAppLike = IFlareApp & { http: HttpArc; };
 type AnyAdapter = HostRuntimeAdapter<IFlareApp, LoggerTransportClass, HostRuntimeLifecycle>;
 
 interface RecordedCall {
-  input: FlareTestRequestInput;
+  input: TestRequestInput;
 }
 
 interface FetchHarness {
@@ -35,7 +33,7 @@ interface FetchHarness {
 }
 
 /** Builds a FlareRequest with a no-op adapter for short-circuited fetch tests. */
-function makeFlareRequest(input: FlareTestRequestInput): FlareRequest {
+function makeFlareRequest(input: TestRequestInput): FlareRequest {
   const adapter = {
     rawHeaders(): Record<string, string> {
       return {};
@@ -75,7 +73,7 @@ function buildHandle(opts: {
     defaultLoggerTransports: [],
     createApp: () => ({}) as IFlareApp,
     createLogger: () => ({}) as never,
-    createTestRequest: (input: FlareTestRequestInput): FlareRequest => {
+    createTestRequest: (input: TestRequestInput): FlareRequest => {
       recorded.push({ input });
       return makeFlareRequest(input);
     },
@@ -205,7 +203,7 @@ describe("TestAppHandle.fetch - target parsing", () => {
     expect(hdrs["content-type"]).toBe("application/vnd.api+json");
   });
 
-  it("forwards init.signal into the FlareTestRequestInput", async () => {
+  it("forwards init.signal into the TestRequestInput", async () => {
     const { handle, recorded } = buildHandle();
     const ctrl = new AbortController();
     await handle.fetch("GET /x", { signal: ctrl.signal });
@@ -338,32 +336,5 @@ describe("TestAppHandle.reset", () => {
     await handle.reset({ replace });
     expect(resetCalls.length).toBe(1);
     expect(resetCalls[0]?.replace).toBe(replace);
-  });
-});
-
-describe("FlareTestApp.run / FlareTestApp.export", () => {
-  // Minimal stub host: only the surface FlareAppBase touches at construction time
-  // (it reads `host.http`). It does NOT need to be functional for run()/export()
-  // because both shims unconditionally return null.
-  let app: FlareTestApp;
-
-  beforeEach(() => {
-    const host = { http: {} } as unknown as IFlareHost & IFlareTestHost;
-    const adapter = {} as unknown as AnyAdapter;
-    app = new FlareTestApp(host, adapter);
-  });
-
-  it("run() returns null in test mode (no-op shim)", () => {
-    expect(app.run()).toBeNull();
-  });
-
-  it("export() returns null in test mode (no-op shim)", () => {
-    expect(app.export()).toBeNull();
-  });
-
-  it("run() and export() can be called repeatedly without side effects", () => {
-    expect(app.run()).toBeNull();
-    expect(app.export()).toBeNull();
-    expect(app.run()).toBeNull();
   });
 });

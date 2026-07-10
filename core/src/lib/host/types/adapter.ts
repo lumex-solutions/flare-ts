@@ -4,7 +4,7 @@ import type { Logger } from "../../logger/logger";
 import type { LoggerTransport } from "../../logger/transport";
 import type { LoggerTransportClass } from "../../logger/types";
 import type { Container } from "../../services/container";
-import type { FlareTestRequestInput } from "../../testing/types/flare-test-req";
+import type { TestRequestInput } from "../../testing/types/flare-test-req";
 import type { IFlareApp } from "../flare-app";
 import type { IFlareHost } from "../flare-host";
 import type { HostRuntimeLifecycle } from "./lifecycle";
@@ -40,8 +40,8 @@ export interface HostRuntimeAdapter<
   createApp: (host: IFlareHost) => TApp;
   /** Builds the runtime-specific logger from the resolved transports and bootstrap container. */
   createLogger: (transports: LoggerTransport[], container: Container) => Logger;
-  /** Synthesizes a {@link FlareRequest} from a {@link FlareTestRequestInput} for in-process tests. */
-  createTestRequest: (input: FlareTestRequestInput) => FlareRequest;
+  /** Synthesizes a {@link FlareRequest} from a {@link TestRequestInput} for in-process tests. */
+  createTestRequest: (input: TestRequestInput) => FlareRequest;
   /**
    * Members the adapter stamps onto the host instance at construction. The host's constructor calls
    * this and copies the returned members onto itself, and the host type intersects `TExt`, so a

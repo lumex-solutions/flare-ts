@@ -16,6 +16,9 @@ host extensions are coming soon.
   descriptor fields with `contract` is a type error (details under Changed).
 - `CFWExportedHandle` is renamed to `WorkerExportedHandle` on the
   `@flare-ts/core/cloudflare` entry.
+- On `@flare-ts/core/testing`: `FlareTestReq` is renamed to `TestRequestInit` and
+  `FlareBuildSnapshot` to `BuildSnapshot`, with no aliases. `FlareTestRequestInput` is no
+  longer exported: it typed the internal adapter seam and no public signature references it.
 - Three error vocabulary names on `@flare-ts/core/errors` are renamed, with no aliases:
   `FlareErrorCategories` to `ErrorCategories`, `FlareErrorCategory` to `ErrorCategory`,
   and `CodeDescriptor` to `ErrorCodeDescriptor`. Only these three change; everything

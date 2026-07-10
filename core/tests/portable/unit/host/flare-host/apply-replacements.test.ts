@@ -9,7 +9,7 @@ import type { ServiceToken } from "../../../../../src/lib/services/types/token.j
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
 import { COMPILE_FOR_TEST } from "../../../../../src/lib/host/types/const.js";
 import { FlareService as FlareServiceBase } from "../../../../../src/lib/services/composition/flare-service.js";
-import { FlareTestError } from "../../../../../src/lib/testing/error.js";
+import { FlareTestError } from "../../../../../src/lib/testing/flare-test-error.js";
 import { makeAdapter, makeServiceClass, registerMinimalPingRoute } from "./_fixtures.js";
 
 describe("replacing registered services during test compile", () => {

@@ -17,7 +17,7 @@ import type { Logger } from "../../../../../src/lib/logger/logger.js";
 import type { LoggerTransport } from "../../../../../src/lib/logger/transport.js";
 import type { LoggerTransportClass } from "../../../../../src/lib/logger/types.js";
 import type { Container } from "../../../../../src/lib/services/container.js";
-import type { FlareTestRequestInput } from "../../../../../src/lib/testing/types/flare-test-req.js";
+import type { TestRequestInput } from "../../../../../src/lib/testing/types/flare-test-req.js";
 import { FlareHost, FlareResponse, FlareService, FlareValidationError } from "../../../../../src/index.js";
 import { singletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
 import { FlareAppNode } from "../../../../../src/lib/host/runtime/node.js";
@@ -30,7 +30,7 @@ type CustomAdapterInit = {
   defaultLoggerTransports?: readonly LoggerTransportClass[];
   createApp?: (host: IFlareHost) => IFlareApp;
   createLogger?: (transports: LoggerTransport[], container: Container) => Logger;
-  createTestRequest?: (input: FlareTestRequestInput) => FlareRequest;
+  createTestRequest?: (input: TestRequestInput) => FlareRequest;
   /** Counts each access to `flareJsonFile`. */
   jsonReadCount?: { value: number; };
   /** Records every key looked up on `env`, in order. */

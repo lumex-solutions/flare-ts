@@ -13,7 +13,7 @@ import type { FlareService } from "../../../../../src/lib/services/composition/f
 import type { Container } from "../../../../../src/lib/services/container.js";
 import type { ServiceClass } from "../../../../../src/lib/services/types/service-class.js";
 import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
-import type { FlareTestRequestInput } from "../../../../../src/lib/testing/types/flare-test-req.js";
+import type { TestRequestInput } from "../../../../../src/lib/testing/types/flare-test-req.js";
 import { singletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
 import { FlareAppBase } from "../../../../../src/lib/host/flare-app.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";
@@ -57,7 +57,7 @@ export function makeAdapter(opts: AdapterOpts = {}): AnyAdapter {
     defaultLoggerTransports: (opts.defaultLoggerTransports ?? []) as readonly LoggerTransportClass[],
     createApp: (host) => new StubApp(host),
     createLogger: (_transports, container: Container) => new StubLogger([], container),
-    createTestRequest: (_input: FlareTestRequestInput) => ({} as FlareRequest),
+    createTestRequest: (_input: TestRequestInput) => ({} as FlareRequest),
     // Define flareJsonFile via property descriptor below so we can throw.
     flareJsonFile: opts.flareJsonFile ?? {},
     extendHost: (host) => singletonExtension(host),

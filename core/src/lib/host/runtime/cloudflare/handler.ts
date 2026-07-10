@@ -8,7 +8,7 @@ import type { FlareService } from "../../../services/composition/flare-service.j
 import type { Container } from "../../../services/container.js";
 import type { Injected } from "../../../services/types/inject.js";
 import type { ServiceToken } from "../../../services/types/token.js";
-import type { FlareTestRequestInput } from "../../../testing/types/flare-test-req.js";
+import type { TestRequestInput } from "../../../testing/types/flare-test-req.js";
 import type { IFlareHost } from "../../flare-host.js";
 import type { FlareDurableObjectClass } from "./durable-object.js";
 import {
@@ -362,7 +362,7 @@ export class DurableHandler extends FlareCfHandlerBase {
 }
 
 /** Builds a {@link FlareRequest} from a test input for the Cloudflare adapter's `createTestRequest`. */
-export function buildCfTestRequest(input: FlareTestRequestInput): FlareRequest {
+export function buildCfTestRequest(input: TestRequestInput): FlareRequest {
   const fullUrl = new URL(input.url, "http://flare.test").toString();
   const requestInit: RequestInit = { method: input.method };
   if (input.headers) requestInit.headers = input.headers;

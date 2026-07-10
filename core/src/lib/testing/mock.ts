@@ -1,3 +1,7 @@
+/**
+ * Unit-level DI and context mocks: a synthetic FlareHttpContext and a map-backed
+ * container, both off the integration pipeline.
+ */
 import type { RequestAdapter } from "../arcs/http/transport/types/adapter.js";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceToken } from "../services/types/token.js";
@@ -6,11 +10,11 @@ import { FlareHttpContext } from "../arcs/http/transport/flare-http-context.js";
 import { FlareRequest, SET_RAW_BODY, SET_ROUTE_PARAMS } from "../arcs/http/transport/flare-request.js";
 import { Container } from "../services/container.js";
 import { FlareRegistrationMap } from "../services/registration-map.js";
-import { FlareTestError } from "./error.js";
+import { FlareTestError } from "./flare-test-error.js";
 
-interface MockNativeRequest {
+type MockNativeRequest = {
   headers: Headers;
-}
+};
 
 /**
  * Minimal DI container surface returned by {@link mockContainer}.
@@ -23,6 +27,8 @@ export type MockContainer = Container;
 
 const MOCK_ADAPTER: RequestAdapter = {
   rawHeaders(req: unknown): Headers {
+    // The adapter contract erases the native request type; every request this
+    // adapter sees was built by mockContext with a MockNativeRequest.
     return (req as MockNativeRequest).headers;
   },
   signal(): AbortSignal {
@@ -34,9 +40,10 @@ const MOCK_ADAPTER: RequestAdapter = {
 };
 
 /**
- * Constructs a {@link FlareHttpContext} with a synthetic {@link FlareRequest} and a
- * zero-allocation mock adapter. Use for unit-testing controllers, middleware, and
- * handler functions without the integration pipeline.
+ * Constructs a {@link FlareHttpContext} with a synthetic {@link FlareRequest}.
+ *
+ * Uses a zero-allocation mock adapter; for unit-testing controllers, middleware,
+ * and handler functions without the integration pipeline.
  *
  * Body is raw bytes only; no auto-JSON. The integration harness
  * ({@link FlareTestApp.fetch}) auto-serializes, but the unit surface intentionally
@@ -45,6 +52,8 @@ const MOCK_ADAPTER: RequestAdapter = {
  * State tokens and route params are provided as `Map` instances because their keys
  * (state token objects, route param strings) cannot be used as computed object
  * literal keys reliably.
+ *
+ * @throws {FlareTestError} When a `state` key is not a StateToken.
  */
 export function mockContext(opts: MockContextOpts = {}): FlareHttpContext {
   const method = opts.method ?? "GET";
@@ -65,6 +74,8 @@ export function mockContext(opts: MockContextOpts = {}): FlareHttpContext {
   );
 
   if (opts.body !== undefined && opts.body !== null) {
+    // A Uint8Array's .buffer is typed ArrayBufferLike; test inputs are never
+    // SharedArrayBuffer-backed, which the checker cannot know.
     const buf: ArrayBuffer = opts.body instanceof Uint8Array
       ? (opts.body.buffer as ArrayBuffer).slice(
         opts.body.byteOffset,
@@ -90,6 +101,8 @@ export function mockContext(opts: MockContextOpts = {}): FlareHttpContext {
       if (
         typeof token !== "object"
         || token === null
+        // Defensive runtime check: the compile-time StateToken type does not stop
+        // untyped test code from passing arbitrary keys.
         || typeof (token as { name?: unknown; }).name !== "string"
       ) {
         throw new FlareTestError(
@@ -109,9 +122,10 @@ export function mockContext(opts: MockContextOpts = {}): FlareHttpContext {
 }
 
 /**
- * Constructs a minimal {@link Container} that resolves tokens from a developer-
- * provided map. Use for unit-testing controllers or services that take a
- * `Container` in their constructor.
+ * Constructs a minimal {@link Container} that resolves tokens from a developer-provided map.
+ *
+ * Use for unit-testing controllers or services that take a `Container` in
+ * their constructor.
  *
  * The fakes in the map are placed directly into the container's singletons map,
  * so `resolveDep` returns them immediately on the fast path. Missing deps surface

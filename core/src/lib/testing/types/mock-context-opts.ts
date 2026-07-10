@@ -1,3 +1,6 @@
+/**
+ * The options vocabulary mockContext() accepts.
+ */
 import type { StateToken } from "../../state/flare-state.js";
 
 /**
@@ -8,13 +11,13 @@ import type { StateToken } from "../../state/flare-state.js";
  *
  * Body is raw bytes (no auto-JSON); encode explicitly with `TextEncoder` for parity
  * with what a real request would carry on the wire. The integration harness
- * (`FlareTestApp.fetch` + {@link FlareTestReq}) auto-JSON-serializes; this unit-level
+ * (`FlareTestApp.fetch` + {@link TestRequestInit}) auto-JSON-serializes; this unit-level
  * surface intentionally does not.
  *
  * `params` and `state` use `Map` instances because route param keys and `StateToken`
  * objects cannot be used as computed object-literal keys.
  */
-export interface MockContextOpts {
+export type MockContextOpts = {
   method?: string;
   url?: string;
   headers?: Record<string, string>;
@@ -22,4 +25,4 @@ export interface MockContextOpts {
   params?: Map<string, string>;
   state?: Map<StateToken, unknown>;
   requestId?: string;
-}
+};

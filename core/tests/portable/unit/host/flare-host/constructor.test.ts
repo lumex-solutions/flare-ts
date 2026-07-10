@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
-import { FlareTestApp } from "../../../../../src/lib/testing/test.js";
+import { FlareTestApp } from "../../../../../src/lib/testing/flare-test-app.js";
 import { makeAdapter, StubApp, registerMinimalPingRoute } from "./_fixtures.js";
 
 describe("host construction from adapter", () => {

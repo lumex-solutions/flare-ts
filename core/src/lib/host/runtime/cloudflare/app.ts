@@ -8,7 +8,7 @@ import type { Container } from "../../../services/container.js";
 import type { InjectMap } from "../../../services/types/inject.js";
 import type { ServiceToken } from "../../../services/types/token.js";
 import type { StateToken } from "../../../state/flare-state.js";
-import type { FlareTestRequestInput } from "../../../testing/types/flare-test-req.js";
+import type { TestRequestInput } from "../../../testing/types/flare-test-req.js";
 import type { ValidationError } from "../../../validation/types.js";
 import type { IFlareHost } from "../../flare-host.js";
 import type { HostRuntimeAdapter } from "../../types/adapter.js";
@@ -367,7 +367,7 @@ export const cf: CloudflareAdapter = {
   createLogger(transports, container) {
     return new CfLogger(transports as CfLoggerTransport[], container);
   },
-  createTestRequest(input: FlareTestRequestInput) {
+  createTestRequest(input: TestRequestInput) {
     return buildCfTestRequest(input);
   },
   setup(host) {

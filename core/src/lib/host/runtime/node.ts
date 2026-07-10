@@ -8,7 +8,7 @@ import type { IFlareWebSocket } from "../../arcs/ws/transport/socket.js";
 import type { HostConfig, LogConfig } from "../../config/flare-config.js";
 import type { LogContext } from "../../logger/types.js";
 import type { LoggerTransportClass } from "../../logger/types.js";
-import type { FlareTestRequestInput } from "../../testing/types/flare-test-req.js";
+import type { TestRequestInput } from "../../testing/types/flare-test-req.js";
 import type { SingletonExtension } from "../extensions/singleton.js";
 import type { HostRuntimeAdapter } from "../types/adapter.js";
 import { DRAIN_SET_COOKIES, FlareHttpContext } from "../../arcs/http/transport/flare-http-context.js";
@@ -46,7 +46,7 @@ export type NodeRunHandle = {
   stop(): Promise<void>;
 };
 
-function buildNodeTestRequest(input: FlareTestRequestInput): FlareRequest {
+function buildNodeTestRequest(input: TestRequestInput): FlareRequest {
   // Synthesize an IncomingMessage-shaped object. `nodeRequestAdapter`'s `rawHeaders`
   // reads `req.headers` and `signal` attaches listeners via `req.once(event, fn)`.
   // FlareRequest body buffering uses the object as an AsyncIterable<Uint8Array>,

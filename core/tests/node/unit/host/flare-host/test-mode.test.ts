@@ -11,7 +11,7 @@ import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapt
 import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
 import { FlareHost, FlareResponse, FlareService, Logger } from "../../../../../src/index.js";
 import { COMPILE_FOR_TEST, RESET_FOR_TEST } from "../../../../../src/lib/host/types/const.js";
-import { FlareTestApp } from "../../../../../src/lib/testing/test.js";
+import { FlareTestApp } from "../../../../../src/lib/testing/flare-test-app.js";
 import { node } from "../../../../../src/node.js";
 import { FlareTestError } from "../../../../../src/testing.js";
 
