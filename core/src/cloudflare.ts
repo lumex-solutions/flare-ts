@@ -1,8 +1,9 @@
 /**
  * `@flare-ts/core/cloudflare`: the Cloudflare Workers runtime surface, plus the
  * white-box Durable Object testing helpers (in-process DO composition and
- * KV-only fakes). Requires a Workers environment: {@link FlareDurableObject}
- * imports `cloudflare:workers` at module scope.
+ * KV-only fakes). Requires a Workers environment: `cloudflare:workers` is
+ * imported at module scope (the {@link FlareDurableObject} base class and the
+ * request adapter's `waitUntil`).
  */
 
 export {

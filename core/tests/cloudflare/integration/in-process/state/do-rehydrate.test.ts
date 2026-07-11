@@ -1,11 +1,15 @@
 /**
- * White-box tests for DO-side inbound state rehydration via composeDurableInstance.
- * Covers x-flare-state and x-flare-trace header stripping, parentRequestId, and front-door gating.
+ * White-box tests for DO-side inbound state rehydration. Its 1 and 3 drive the public crossing
+ * seam (`durable(...).forward(...)`) against a real in-process DO instance behind a fake
+ * namespace, so the front-door -> DO envelope is encoded by production code, never by the test.
+ * The remaining its send raw literal headers straight at `composeDurableInstance`'s `.fetch()`
+ * (a public production-path entry point) to cover header stripping, parentRequestId, and
+ * front-door gating.
  */
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
 import type { FlareAppCF } from "../../../../../src/cloudflare.js";
-import { composeDurableInstance, FlareDurableObject } from "../../../../../src/cloudflare.js";
+import { composeDurableInstance, durable, FlareDurableObject } from "../../../../../src/cloudflare.js";
 import {
   captureLogStore,
   FlareHost,
@@ -13,14 +17,14 @@ import {
   FlareResponse,
   flareState,
 } from "../../../../../src/index.js";
-import {
-  encodeInboundEnvelope,
-  RESERVED_STATE_HEADER,
-  RESERVED_TRACE_HEADER,
-} from "../../../../../src/lib/host/runtime/cloudflare/do/state-crossing.js";
 import { mockContext } from "../../../../../src/testing.js";
 import { makeEnv, makeExecutionContext, makeFakeDurableState } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
+
+// wire contract, pinned literally: if this name changes the crossing protocol changes and this suite must fail
+const RESERVED_STATE_HEADER = "x-flare-state";
+// wire contract, pinned literally: if this name changes the crossing protocol changes and this suite must fail
+const RESERVED_TRACE_HEADER = "x-flare-trace";
 
 function cfJson(host: JsonObject = {}, log: JsonObject = {}): JsonObject {
   return {
@@ -71,21 +75,41 @@ function makeFrontDoorCtx(): FlareHttpContext {
   return mockContext({ url: "/", requestId: "front-door-req" });
 }
 
+/**
+ * Fake DO namespace whose `getByName(name)` returns a stub delegating `.fetch()` to a REAL
+ * `composeDurableInstance` instance for RehydrateTestDO, one per distinct name (cached, created
+ * lazily). Lets `durable(...).forward(...)` (the public crossing seam) drive a real DO instance.
+ */
+function makeRehydrateNamespace(host: FlareHost): DurableObjectNamespace<undefined> {
+  const instances = new Map<string, ReturnType<typeof composeDurableInstance>>();
+  const ns = {
+    getByName(name: string): DurableObjectStub<undefined> {
+      let inst = instances.get(name);
+      if (inst === undefined) {
+        inst = composeDurableInstance(host, makeFakeDurableState({ name }), makeEnv(), RehydrateTestDO);
+        instances.set(name, inst);
+      }
+      const resolved = inst;
+      return {
+        fetch(req: Request): Promise<Response> {
+          return resolved.fetch(req);
+        },
+      } as unknown as DurableObjectStub<undefined>;
+    },
+  } as unknown as DurableObjectNamespace<undefined>;
+  return ns;
+}
+
 describe("DO-side inbound state rehydrate", () => {
   it("a request with x-flare-state encoding TokenA rehydrates ctx.state in the DO route", async () => {
     const host = buildDoHost();
-    const inst = composeDurableInstance(host, makeFakeDurableState({ name: "room-1" }), makeEnv(), RehydrateTestDO);
+    const stub = durable(makeRehydrateNamespace(host), "room-1");
 
-    // Encode state as the front-door would.
+    // Encode state as the front-door would - through the public forward() crossing seam.
     const frontCtx = makeFrontDoorCtx();
     frontCtx.state.set(TokenA, { id: "u1", role: "admin" });
-    const envelope = encodeInboundEnvelope(frontCtx, RehydrateTestDO);
-    expect(envelope).toBeDefined();
 
-    const req = new Request("https://do/check", {
-      headers: { [RESERVED_STATE_HEADER]: envelope! },
-    });
-    const res = await inst.fetch(req);
+    const res = await stub.forward(frontCtx, RehydrateTestDO, new Request("https://do/check"));
     const body = await res.json() as { statePresent: boolean; stateValue: unknown; rawHeaderVisible: boolean; };
 
     expect(body.statePresent).toBe(true);
@@ -106,16 +130,12 @@ describe("DO-side inbound state rehydrate", () => {
 
   it("the reserved x-flare-state header is stripped before the DO route sees it", async () => {
     const host = buildDoHost();
-    const inst = composeDurableInstance(host, makeFakeDurableState({ name: "room-3" }), makeEnv(), RehydrateTestDO);
+    const stub = durable(makeRehydrateNamespace(host), "room-3");
 
     const frontCtx = makeFrontDoorCtx();
     frontCtx.state.set(TokenA, { id: "u2", role: "viewer" });
-    const envelope = encodeInboundEnvelope(frontCtx, RehydrateTestDO);
 
-    const req = new Request("https://do/check", {
-      headers: { [RESERVED_STATE_HEADER]: envelope! },
-    });
-    const res = await inst.fetch(req);
+    const res = await stub.forward(frontCtx, RehydrateTestDO, new Request("https://do/check"));
     const body = await res.json() as { statePresent: boolean; stateValue: unknown; rawHeaderVisible: boolean; };
 
     expect(body.rawHeaderVisible).toBe(false);
@@ -178,7 +198,6 @@ describe("DO-side inbound state rehydrate", () => {
   it("front-door handler does not rehydrate ctx.state even if x-flare-state is sent by a client", async () => {
     // A front-door route that checks ctx.state.get(TokenA) - should be undefined.
     const host = new FlareHost(cfProdAdapter(cfJson()));
-    // Register the token so it has a key.
     host.http.get("/state-probe", (ctx) => {
       const val = ctx.state.get(TokenA);
       return new FlareResponse(200, { statePresent: val !== undefined });
@@ -186,14 +205,13 @@ describe("DO-side inbound state rehydrate", () => {
     // Register the DO so the token gets registered in the module-level registry.
     host.durableObject(RehydrateTestDO);
 
-    // Build envelope as if the front-door was going to forward.
-    const frontCtx = makeFrontDoorCtx();
-    frontCtx.state.set(TokenA, { id: "attacker", role: "admin" });
-    const envelope = encodeInboundEnvelope(frontCtx, RehydrateTestDO);
-
     const app = (host.build() as FlareAppCF).export();
     const req = new Request("https://flare.test/state-probe", {
-      headers: { [RESERVED_STATE_HEADER]: envelope! },
+      headers: {
+        // A forged envelope; its content is irrelevant - the front door never attempts to decode
+        // a state header on a non-DO route at all, no matter what it carries.
+        [RESERVED_STATE_HEADER]: JSON.stringify({ "0": { id: "attacker", role: "admin" } }),
+      },
     });
     const res = await app.fetch(req, makeEnv(), makeExecutionContext());
     const body = await res.json() as { statePresent: boolean; };

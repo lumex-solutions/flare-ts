@@ -13,9 +13,11 @@ import type { JsonObject } from "@flare-ts/lib";
 import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { Bindings, composeDurableInstance, DurableState, FlareDurableObject } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse, FlareService, flareState } from "../../../../../src/index.js";
-import { RESERVED_STATE_HEADER } from "../../../../../src/lib/host/runtime/cloudflare/do/state-crossing.js";
 import { makeEnv, makeExecutionContext, makeFakeDurableState } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
+
+// wire contract, pinned literally: if this name changes the crossing protocol changes and this suite must fail
+const RESERVED_STATE_HEADER = "x-flare-state";
 
 /** Per-instance handler from `composeDurableInstance`, sidestepping workerd's native DO base. */
 type DurableInstance = ReturnType<typeof composeDurableInstance>;
