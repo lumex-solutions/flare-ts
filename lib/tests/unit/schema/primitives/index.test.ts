@@ -2,6 +2,7 @@
  * Unit tests for optional() and defaultTo() primitive wrappers and their metadata.
  */
 import { describe, expect, it } from "vitest";
+import { array } from "../../../../src/schema/primitives/array.js";
 import { defaultTo, optional } from "../../../../src/schema/primitives/index.js";
 import { int } from "../../../../src/schema/primitives/int.js";
 
@@ -38,6 +39,13 @@ describe("optional primitive wrapping", () => {
     expect(int._type).toBe(beforeType);
     expect(int.jsonSchema).toBe(beforeJsonSchema);
   });
+
+  it("an array primitive keeps its string[] calling convention through the wrapper (no cast)", () => {
+    const maybeIds = optional(array(int));
+    expect(maybeIds(["1", "2"])).toEqual([1, 2]);
+    expect(maybeIds("1,2")).toEqual([1, 2]);
+    expect(maybeIds("")).toBeUndefined();
+  });
 });
 
 describe("defaultTo primitive wrapping", () => {
@@ -62,5 +70,12 @@ describe("defaultTo primitive wrapping", () => {
     expect(countOrZero._required).toBe(false);
     expect(countOrZero._type).toBe(int._type);
     expect(countOrZero.jsonSchema).toBe(int.jsonSchema);
+  });
+
+  it("an array primitive keeps its string[] calling convention through the wrapper (no cast)", () => {
+    const idsOrNone = defaultTo([], array(int));
+    expect(idsOrNone(["3", "4"])).toEqual([3, 4]);
+    expect(idsOrNone("3,4")).toEqual([3, 4]);
+    expect(idsOrNone("")).toEqual([]);
   });
 });

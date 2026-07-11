@@ -15,7 +15,7 @@ import type { HttpFactory } from "./pipeline.js";
 
 /**
  * The group scope bound onto a controller registration when it belongs to an `HttpGroup`. Present if
- * the controller is in a group; a standalone (non-group) controller has no `group`. Bundles every
+ * the controller is in a group; a top-level (non-group) controller has no `group`. Bundles every
  * group-derived field so they are set together or absent together.
  */
 export type GroupContext = {
@@ -32,7 +32,8 @@ export type ControllerRegistration = {
   readonly factory: HttpFactory<ControllerBase>;
   readonly cls: ControllerClass;
   readonly path: string;
-  readonly standalone: boolean;
+  /** Runs with NO global middleware (the `isolated` route option / `static isolated` on a class). */
+  readonly isolated: boolean;
   /** Group scope, present only when this controller is registered inside an `HttpGroup`. */
   group?: GroupContext;
 };

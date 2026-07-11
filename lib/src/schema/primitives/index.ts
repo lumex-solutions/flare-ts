@@ -86,13 +86,29 @@ export type ArrayTypedPrimitive<T> = Primitive & {
 };
 
 /**
+ * An {@link ArrayTypedPrimitive} wrapped by {@link optional}: missing or
+ * empty-string input maps to `undefined`; the array calling convention is kept.
+ *
+ * @typeParam T The element type produced after parsing each item.
+ */
+export type OptionalArrayTypedPrimitive<T> = Primitive & {
+  (v: string | string[]): T[] | undefined;
+};
+
+/**
  * Wraps a primitive to accept missing or empty-string inputs, mapping them to `undefined`.
+ *
+ * An array primitive keeps its `string | string[]` calling convention through the wrapper
+ * (an array input falls through to the wrapped parser untouched).
  *
  * @example
  * ```ts
- * const maybeInt = optional(int); // TypedPrimitive<number | undefined>
+ * const maybeInt = optional(int);         // TypedPrimitive<number | undefined>
+ * const maybeIds = optional(array(int));  // OptionalArrayTypedPrimitive<number>
  * ```
  */
+export function optional<T>(primitive: ArrayTypedPrimitive<T>): OptionalArrayTypedPrimitive<T>;
+export function optional<T>(primitive: TypedPrimitive<T>): TypedPrimitive<T | undefined>;
 export function optional<T>(primitive: TypedPrimitive<T>): TypedPrimitive<T | undefined> {
   const optionalPrimitive = (v: string) => {
     if (v === undefined) throw new TypeError("optional primitive received undefined");
@@ -108,11 +124,17 @@ export function optional<T>(primitive: TypedPrimitive<T>): TypedPrimitive<T | un
 /**
  * Wraps a primitive so that missing or empty-string inputs produce `fallback` instead.
  *
+ * An array primitive keeps its `string | string[]` calling convention through the wrapper
+ * (an array input falls through to the wrapped parser untouched).
+ *
  * @example
  * ```ts
  * const countOrZero = defaultTo(0, int.min(0));
+ * const idsOrNone = defaultTo([], array(int));
  * ```
  */
+export function defaultTo<T>(fallback: T[], primitive: ArrayTypedPrimitive<T>): ArrayTypedPrimitive<T>;
+export function defaultTo<T>(fallback: T, primitive: TypedPrimitive<T>): TypedPrimitive<T>;
 export function defaultTo<T>(fallback: T, primitive: TypedPrimitive<T>): TypedPrimitive<T> {
   const fn = (v: string): T => {
     if (v === undefined) throw new TypeError("defaultTo primitive received undefined");

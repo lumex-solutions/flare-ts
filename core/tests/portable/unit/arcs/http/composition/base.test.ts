@@ -255,7 +255,7 @@ describe("controller registration validation and path prefixing", () => {
     expect(reg.cls).toBe(ctrl);
     // No group parent here, so fullPath === path.
     expect(reg.path).toBe("/users");
-    expect(reg.standalone).toBe(false);
+    expect(reg.isolated).toBe(false);
     // Not registered inside a group, so there is no group scope.
     expect(reg.group).toBeUndefined();
   });
@@ -268,6 +268,15 @@ describe("controller registration validation and path prefixing", () => {
 
     expect(group.conRegistrations).toHaveLength(1);
     expect(group.conRegistrations[0]!.path).toBe("/api/v1/users");
+  });
+
+  it("static isolated: a class declaring it registers isolated (the class-form spelling of the route option)", () => {
+    const ctrl = makeControllerCls();
+    ctrl.isolated = true;
+
+    base.controller("/health", ctrl);
+
+    expect(base.conRegistrations[0]!.isolated).toBe(true);
   });
 });
 
@@ -317,10 +326,10 @@ describe("synthetic route registration via HTTP method helpers", () => {
     expect(proto.handlePOST.call(instance)).toEqual({ via: "POST" });
   });
 
-  it("isolated option: sets standalone on the controller registration", () => {
+  it("isolated option: sets isolated on the controller registration", () => {
     base.get("/x", { isolated: true }, () => null);
 
-    expect(base.conRegistrations[0]!.standalone).toBe(true);
+    expect(base.conRegistrations[0]!.isolated).toBe(true);
   });
 
   it("Throws when route handler is missing (options overload)", () => {

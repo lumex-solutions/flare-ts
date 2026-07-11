@@ -19,6 +19,11 @@
   `pattern` fields it emits for constrained `str`/`text` primitives; previously
   reading them off the result required a cast.
 
+- `optional(array(...))` and `defaultTo([], array(...))` now keep the array's
+  `string | string[]` calling convention at the type level (the parsers always
+  accepted both at runtime). `optional(array(...))` returns the new
+  `OptionalArrayTypedPrimitive` shape.
+
 ### Internal
 
 - Restructured the schema subsystem: the `internal/` and `json/` folders dissolved

@@ -24,6 +24,7 @@ export type ControllerClass = {
   state: StateToken[];
   contract?: ContractToken | undefined;
   config?: readonly ConfigToken<unknown>[] | undefined;
+  isolated?: boolean | undefined;
 };
 
 /**
@@ -35,6 +36,8 @@ export abstract class ControllerBase extends FlareBase {
   public static override deps: ServiceToken<FlareService>[];
   public static state: StateToken[];
   public static contract?: ContractToken | undefined;
+  /** Runs this controller's routes with NO global middleware (the class-form spelling of the `isolated` route option). */
+  public static isolated?: boolean | undefined;
 
   constructor(
     protected override readonly container: Container,

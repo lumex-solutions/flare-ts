@@ -275,9 +275,9 @@ describe("Failure Modes", () => {
       }
 
       // Trigger DEAD_MIDDLEWARE: a global middleware whose only consuming
-      // controller is `standalone: true` (the `isolated` option marks a
-      // synthetic route controller as standalone). The dead-middleware
-      // validator emits a warning, never an error.
+      // controller is isolated (the `isolated` route option marks the synthetic
+      // controller's registration). The dead-middleware validator emits a
+      // warning, never an error.
       class GlobalMw extends MiddlewareBase {
         public static override deps = [];
         public static override state = [];

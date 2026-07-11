@@ -85,11 +85,31 @@ describe("request-scoped state storage and resolution", () => {
     );
     const ctx = new FlareHttpContext(makeReq());
 
-    // The inner throw is wrapped by the outer "Error retrieving derivation for token ..." catch,
-    // but the original message text is preserved in the wrapped message.
+    // The circular throw crosses the outer token's derivation frame, which anchors it to that
+    // token ("State derivation ... threw:"); the original message text is preserved.
     expect(() => ctx.state.require(tokenA as unknown as TypedStateToken<number>)).toThrow(
       "Circular state derivation detected",
     );
+  });
+
+  it("a throwing .from() derivation is anchored to its token, with the original error on cause", () => {
+    const original = new Error("boom from user code");
+    const throwing = flareState<number>("ThrowingDerived").from(() => {
+      throw original;
+    });
+    const ctx = new FlareHttpContext(makeReq());
+
+    let caught: unknown;
+    try {
+      ctx.state.require(throwing as unknown as TypedStateToken<number>);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toBe(
+      '[flare] State derivation for token "ThrowingDerived" threw: boom from user code',
+    );
+    expect((caught as Error).cause).toBe(original);
   });
 
   it("Caches derived/default values on first resolve", () => {

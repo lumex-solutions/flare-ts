@@ -31,6 +31,12 @@
  * body, and all non-reserved headers cross intact). Treat `durable(...).fetch(...)` as a
  * state-free raw tunnel.
  *
+ * The UNPROTECTED path is the raw binding without `durable()`
+ * (`env.ROOM_DO.get(id).fetch(clientRequest)`): nothing strips a client-forged state envelope
+ * there, and the receiving Durable Object trusts it (state-crossing.ts documents the trust
+ * model). Route DO traffic through `durable()` or a mount, or strip the reserved headers
+ * yourself before a raw forward.
+ *
  * To carry DO state across the boundary, use the blessed seams (`DurableHandle.mount` and
  * the stub's own `forward`), which sanitize the reserved headers and then encode the
  * framework-owned state tokens from `ctx` onto the forwarded request:

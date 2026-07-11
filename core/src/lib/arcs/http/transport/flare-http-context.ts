@@ -4,7 +4,7 @@
  */
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { ServiceToken } from "../../../services/types/token.js";
-import type { DeepReadonly, StateToken, TypedStateToken } from "../../../state/flare-state.js";
+import type { DeepReadonly, StateGetter, StateToken, TypedStateToken } from "../../../state/flare-state.js";
 import type { RequestDescriptor } from "../composition/contract/http-contract.js";
 import type { CookieSigner } from "./cookie-signer.js";
 import type { FlareRequest } from "./flare-request.js";
@@ -287,44 +287,48 @@ export class FlareHttpContext {
     const stored = _state.get(token);
     if (stored !== undefined) return stored;
 
-    try {
-      const derivation = getTokenDerivation(token);
-      if (derivation !== undefined) {
-        if (!this.#derivingTokens) this.#derivingTokens = new Set();
-        const dt = this.#derivingTokens;
-        if (dt.has(token)) {
-          throw new Error(
-            `[Flare] Circular state derivation detected for token "${token.name}". Check that your .from() functions do not require each other.`,
-          );
-        }
-        dt.add(token);
-        try {
-          const computed = derivation(this);
-          if (computed !== undefined) {
-            _state.set(token, computed);
-            this.#stampState(token);
-            return _state.get(token)!;
-          }
-        } finally {
-          dt.delete(token);
-        }
+    const derivation = getTokenDerivation(token);
+    if (derivation !== undefined) {
+      if (!this.#derivingTokens) this.#derivingTokens = new Set();
+      const dt = this.#derivingTokens;
+      if (dt.has(token)) {
+        throw new Error(
+          `[flare] Circular state derivation detected for token "${token.name}". Check that your .from() functions do not require each other.`,
+        );
       }
-    } catch (err) {
-      throw new Error(`Error retrieving derivation for token ${token.name}: ${(err as Error).message}`);
+      dt.add(token);
+      try {
+        const computed = this.#runDerivation(token, derivation);
+        if (computed !== undefined) {
+          _state.set(token, computed);
+          this.#stampState(token);
+          return _state.get(token)!;
+        }
+      } finally {
+        dt.delete(token);
+      }
     }
 
-    try {
-      const defaultVal = getTokenDefault(token);
-      if (defaultVal !== undefined) {
-        _state.set(token, defaultVal);
-        this.#stampState(token);
-        return _state.get(token)!;
-      }
-    } catch (err) {
-      throw new Error(`Error retrieving default value for token ${token.name}: ${(err as Error).message}`);
+    const defaultVal = getTokenDefault(token);
+    if (defaultVal !== undefined) {
+      _state.set(token, defaultVal);
+      this.#stampState(token);
+      return _state.get(token)!;
     }
 
     return undefined;
+  }
+
+  /** Invokes a token's `.from()` derivation, anchoring a throw to the token; the original error rides on `cause`. */
+  #runDerivation<T>(token: TypedStateToken<T>, derivation: (ctx: StateGetter) => T): T {
+    try {
+      return derivation(this);
+    } catch (err) {
+      throw new Error(
+        `[flare] State derivation for token "${token.name}" threw: ${(err as Error).message}`,
+        { cause: err },
+      );
+    }
   }
 
   #stampState<T>(token: TypedStateToken<T>): void {

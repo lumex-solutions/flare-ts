@@ -28,7 +28,7 @@ function makeControllerRegistration(cls: Function): ControllerRegistration {
     factory: (() => undefined) as never,
     cls: cls as never,
     path: "/",
-    standalone: false,
+    isolated: false,
   };
 }
 

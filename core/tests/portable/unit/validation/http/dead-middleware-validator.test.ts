@@ -11,7 +11,7 @@ import type { HttpValidationContext } from "../../../../../src/lib/validation/ht
 import { DeadMiddlewareValidator } from "../../../../../src/lib/validation/http/dead-middleware-validator.js";
 
 type ControllerOpts = {
-  standalone?: boolean;
+  isolated?: boolean;
   groupIsolated?: boolean;
   groupExcludeList?: readonly MiddlewareClass[];
 };
@@ -31,7 +31,7 @@ function makeController(opts: ControllerOpts = {}): ControllerRegistration {
     factory: (() => undefined) as never,
     cls: function NoopCtrl() {} as never,
     path: "/",
-    standalone: opts.standalone ?? false,
+    isolated: opts.isolated ?? false,
     ...(grouped
       ? {
         group: {
@@ -66,19 +66,19 @@ describe("dead middleware detection", () => {
     expect(errors).toEqual([]);
   });
 
-  it("returns [] when at least one non-standalone, non-groupIsolated controller would run the middleware", () => {
+  it("returns [] when at least one non-isolated, non-groupIsolated controller would run the middleware", () => {
     const mw = makeMiddleware("AuthMw");
-    const ctrl = makeController(); // standalone:false, groupIsolated:false, no excludes
+    const ctrl = makeController(); // isolated:false, groupIsolated:false, no excludes
 
     const errors = new DeadMiddlewareValidator().validate(makeContext([ctrl], [mw]));
 
     expect(errors).toEqual([]);
   });
 
-  it("flags every global middleware when every controller is standalone", () => {
+  it("flags every global middleware when every controller is isolated", () => {
     const mw1 = makeMiddleware("Mw1");
     const mw2 = makeMiddleware("Mw2");
-    const ctrl = makeController({ standalone: true });
+    const ctrl = makeController({ isolated: true });
 
     const errors = new DeadMiddlewareValidator().validate(
       makeContext([ctrl], [mw1, mw2]),
@@ -131,7 +131,7 @@ describe("dead middleware detection", () => {
 
   it("emits DEAD_MIDDLEWARE with severity 'warning', never 'error'", () => {
     const mw = makeMiddleware("Mw1");
-    const ctrl = makeController({ standalone: true });
+    const ctrl = makeController({ isolated: true });
 
     const errors = new DeadMiddlewareValidator().validate(makeContext([ctrl], [mw]));
 

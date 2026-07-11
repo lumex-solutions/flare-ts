@@ -157,6 +157,17 @@ host extensions are coming soon.
   correlating a Durable Object handler's records with the front-door request that
   forwarded to it.
 
+- **`host.whenState(state)`.** Resolves when the host reaches (or has already passed) a
+  lifecycle state (`starting -> ready -> draining -> stopped`). Use it to coordinate
+  graceful shutdown, e.g. deregistering from a load balancer the moment draining
+  begins: `void host.whenState("draining").then(() => registry.deregister(id))`. On a
+  runtime whose lifecycle never leaves `ready` (Cloudflare Workers), a
+  `draining`/`stopped` waiter never resolves.
+
+- **`static isolated` on class controllers.** A controller class can now declare
+  `static isolated = true` to run its routes with no global middleware, the class-form
+  spelling of the `isolated` route option (the same way `static deps` mirrors `inject`).
+
 ### Changed
 
 - **BREAKING: `flareContract` is now `httpContract`.** The contract factory shipped in
@@ -250,6 +261,16 @@ host extensions are coming soon.
 - `scope.config(token)` now works in function-form middleware and error handlers.
   Previously it always threw a missing-static-config error; only route handlers could
   read config through the scope.
+
+- A state token derivation (`.from()`) that throws now surfaces as
+  `State derivation for token "X" threw: <message>` with the original error preserved
+  on `cause`. Previously the throw was relabeled as a framework retrieval error and the
+  original error object was discarded; a token default can no longer be misattributed
+  to a derivation failure.
+
+- The `bun` and `deno` placeholder adapters now type their app as `never` instead of
+  `any`: `host.build()` against them is a compile-time dead end, matching the
+  "not yet supported" runtime error, instead of an untyped value.
 
 - The Cloudflare streaming-response writer aborts on a body-stream error instead of
   hanging.

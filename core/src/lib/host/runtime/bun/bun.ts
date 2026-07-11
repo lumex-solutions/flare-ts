@@ -16,8 +16,7 @@ import { singletonExtension } from "../../extensions/singleton";
  * Placeholder Bun runtime adapter. Reads `flare.json` and exposes `process.env`, but
  * `createApp` and `createTestRequest` throw because the Bun runtime is not yet supported.
  */
-// TODO: replace `any` with the concrete FlareAppBun class once the Bun runtime is implemented.
-export const bun: HostRuntimeAdapter<any, LoggerTransportClass, "async", SingletonExtension> = {
+export const bun: HostRuntimeAdapter<never, LoggerTransportClass, "async", SingletonExtension> = {
   runtime: "bun",
   lifecycle: "async",
   get flareJsonFile() {

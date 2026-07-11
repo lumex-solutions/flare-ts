@@ -9,7 +9,7 @@ import type { HttpValidationContext } from "./composite.js";
  * excluded by every single controller in the application.
  *
  * A controller excludes global middleware when:
- * - It is a `standalone` controller (no middleware at all), OR
+ * - It is an `isolated` controller (no global middleware at all), OR
  * - Its group is isolated (uses only the group's own middleware), OR
  * - The middleware class appears in the group's exclude list
  *
@@ -31,7 +31,7 @@ export class DeadMiddlewareValidator implements IValidator<HttpValidationContext
       let isLive = false;
 
       for (const controller of ctx.controllers) {
-        if (controller.standalone) continue; // excludes ALL global middleware
+        if (controller.isolated) continue; // excludes ALL global middleware
         if (controller.group?.isolated) continue; // uses only group-local middleware
 
         const excluded = controller.group?.excludeList ?? [];

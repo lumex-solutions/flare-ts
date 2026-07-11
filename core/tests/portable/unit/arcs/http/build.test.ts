@@ -66,7 +66,7 @@ function makeControllerReg(
   cls: ControllerClass,
   opts: {
     path?: string;
-    standalone?: boolean;
+    isolated?: boolean;
     groupMiddleware?: MiddlewareRegistration[];
     groupIsolated?: boolean;
     groupErrorHandlers?: ErrorHandlerRegistration[];
@@ -79,7 +79,7 @@ function makeControllerReg(
     factory: ((_c: unknown, _ctx: unknown) => new (cls as unknown as { new(): ControllerBase; })()) as never,
     cls,
     path: opts.path ?? "",
-    standalone: opts.standalone ?? false,
+    isolated: opts.isolated ?? false,
   };
   // Build the group context the production binding sets when a controller is in a group.
   const grouped = opts.groupMiddleware !== undefined || opts.groupIsolated !== undefined
@@ -210,10 +210,10 @@ beforeEach(() => {
 });
 
 describe("compileHttp", () => {
-  it("returns { middleware, pipelines, router, execFns } with matching lengths for a single standalone controller", () => {
+  it("returns { middleware, pipelines, router, execFns } with matching lengths for a single isolated controller", () => {
     const cls = makeControllerCls("UsersController");
     attachRoutes(cls, [{ method: "GET", path: "/users", handler: function getUsers() {} }]);
-    const ctrl = makeControllerReg(cls, { standalone: true });
+    const ctrl = makeControllerReg(cls, { isolated: true });
 
     const out = compileHttp([ctrl], []);
 
@@ -233,7 +233,7 @@ describe("compileHttp", () => {
 
     // Register the lower-scoring route first to prove the sort actually runs.
     const out = compileHttp(
-      [makeControllerReg(a, { standalone: true }), makeControllerReg(b, { standalone: true })],
+      [makeControllerReg(a, { isolated: true }), makeControllerReg(b, { isolated: true })],
       [],
     );
 
@@ -247,7 +247,7 @@ describe("compileHttp", () => {
     const cls = makeControllerCls("EmptyController");
     attachRoutes(cls, []); // empty route metadata
 
-    expect(() => compileHttp([makeControllerReg(cls, { standalone: true })], [])).toThrow(
+    expect(() => compileHttp([makeControllerReg(cls, { isolated: true })], [])).toThrow(
       "Controller EmptyController has no route handlers. Add at least one decorated method.",
     );
   });
@@ -257,7 +257,7 @@ describe("compileHttp", () => {
     attachRoutes(cls, [{ method: "GET", path: "/public", handler: function() {} }]);
     const cors: CorsConfig = { origins: "*" };
 
-    const out = compileHttp([makeControllerReg(cls, { standalone: true })], [], [], [], cors);
+    const out = compileHttp([makeControllerReg(cls, { isolated: true })], [], [], [], cors);
 
     expect(out.pipelines[0]!.corsPolicy).toBeDefined();
     expect(out.pipelines[0]!.corsPolicy!.isWildcard).toBe(true);
@@ -266,7 +266,7 @@ describe("compileHttp", () => {
   it("uses the group's corsConfig instead of the arc-level cors when the controller belongs to a group with its own cors", () => {
     const cls = makeControllerCls("ApiController");
     attachRoutes(cls, [{ method: "GET", path: "/v1/widgets", handler: function() {} }]);
-    const ctrl = makeControllerReg(cls, { standalone: true });
+    const ctrl = makeControllerReg(cls, { isolated: true });
 
     const arcCors: CorsConfig = { origins: "*" };
     const groupCors: CorsConfig = { origins: ["https://example.com"] };
@@ -288,11 +288,11 @@ describe("compileHttp", () => {
 });
 
 describe("pipeline middleware ordering and group scope", () => {
-  it("produces a single pipeline with no middleware factory indexes for a standalone controller", () => {
+  it("produces a single pipeline with no middleware factory indexes for a isolated controller", () => {
     const cls = makeControllerCls("StandaloneController");
     attachRoutes(cls, [{ method: "GET", path: "/x", handler: function() {} }]);
 
-    const out = compileHttp([makeControllerReg(cls, { standalone: true })], [makeMwReg(makeMiddlewareCls("M"))]);
+    const out = compileHttp([makeControllerReg(cls, { isolated: true })], [makeMwReg(makeMiddlewareCls("M"))]);
 
     const p = out.pipelines[0]!;
     expect(p.execCount).toBe(1);
@@ -441,7 +441,7 @@ describe("exec step resolution and error target naming", () => {
         },
       },
     ]);
-    const out = compileHttp([makeControllerReg(cls, { standalone: true })], []);
+    const out = compileHttp([makeControllerReg(cls, { isolated: true })], []);
     expect(invokeExec(out)).toBe(handlerSentinel);
   });
 
@@ -632,19 +632,19 @@ describe("middleware factory registration order", () => {
     const cls = makeControllerCls("NoMwController");
     attachRoutes(cls, [{ method: "GET", path: "/n", handler: function() {} }]);
 
-    const out = compileHttp([makeControllerReg(cls, { standalone: true })], []);
+    const out = compileHttp([makeControllerReg(cls, { isolated: true })], []);
 
     expect(out.middleware).toEqual([]);
   });
 });
 
 describe("middleware lifecycle hooks and state token requirements", () => {
-  it("standalone controller produces three empty arrays regardless of registered middleware", () => {
+  it("isolated controller produces three empty arrays regardless of registered middleware", () => {
     const M = makeMiddlewareCls("M", { hooks: { before: true } });
     const cls = makeControllerCls("StandaloneOnly");
     attachRoutes(cls, [{ method: "GET", path: "/s", handler: function() {} }]);
 
-    const out = compileHttp([makeControllerReg(cls, { standalone: true })], [makeMwReg(M)]);
+    const out = compileHttp([makeControllerReg(cls, { isolated: true })], [makeMwReg(M)]);
 
     expect(out.pipelines[0]!.execCount).toBe(1); // only handler slot
     expect(out.pipelines[0]!.handlerExecIdx).toBe(0);
@@ -762,7 +762,7 @@ describe("route compilation for methods, parameters, and segments", () => {
     const cls = makeControllerCls("SingleMethod");
     attachRoutes(cls, [{ method: "POST", path: "/sm", handler: function() {} }]);
 
-    const out = compileHttp([makeControllerReg(cls, { standalone: true })], []);
+    const out = compileHttp([makeControllerReg(cls, { isolated: true })], []);
 
     const p = out.pipelines[0]!;
     // POST index in METHOD_IDX_MAP is 1.
@@ -777,7 +777,7 @@ describe("route compilation for methods, parameters, and segments", () => {
       { method: "POST", path: "/x", handler: function postX() {} },
     ]);
 
-    const out = compileHttp([makeControllerReg(cls, { standalone: true })], []);
+    const out = compileHttp([makeControllerReg(cls, { isolated: true })], []);
 
     expect(out.pipelines).toHaveLength(1);
     const p = out.pipelines[0]!;
@@ -792,7 +792,7 @@ describe("route compilation for methods, parameters, and segments", () => {
       { method: "GET", path: "/d", handler: function b() {} },
     ]);
 
-    expect(() => compileHttp([makeControllerReg(cls, { standalone: true })], [])).toThrow(
+    expect(() => compileHttp([makeControllerReg(cls, { isolated: true })], [])).toThrow(
       "Duplicate route registration for GET /d. Each route can only have one handler per HTTP method.",
     );
   });
@@ -806,7 +806,7 @@ describe("route compilation for methods, parameters, and segments", () => {
     const cls = makeControllerCls("FloatRouteController", [], contract);
     attachRoutes(cls, [{ method: "GET", path: "/amount/:amount", handler: function handler() {} }]);
 
-    expect(() => compileHttp([makeControllerReg(cls, { standalone: true })], [])).toThrow(
+    expect(() => compileHttp([makeControllerReg(cls, { isolated: true })], [])).toThrow(
       `Handler handler defines a route parameter "amount" with unsupported type "float". Route parameters can only be string or integer primitives.`,
     );
   });
@@ -815,7 +815,7 @@ describe("route compilation for methods, parameters, and segments", () => {
     const cls = makeControllerCls("ParamCountController");
     attachRoutes(cls, [{ method: "GET", path: "/users/:id/files/*rest", handler: function() {} }]);
 
-    const out = compileHttp([makeControllerReg(cls, { standalone: true })], []);
+    const out = compileHttp([makeControllerReg(cls, { isolated: true })], []);
 
     expect(out.pipelines[0]!.flareRoute.paramCount).toBe(2);
   });
@@ -824,7 +824,7 @@ describe("route compilation for methods, parameters, and segments", () => {
     const cls = makeControllerCls("SegCtl");
     attachRoutes(cls, [{ method: "GET", path: "/a/b", handler: function() {} }]);
 
-    const out = compileHttp([makeControllerReg(cls, { standalone: true })], []);
+    const out = compileHttp([makeControllerReg(cls, { isolated: true })], []);
 
     const segs = out.pipelines[0]!.flareRoute.segments;
     // Path "/a/b": segments are "a" [1..2) and "b" [3..4).
@@ -838,7 +838,7 @@ describe("route compilation for methods, parameters, and segments", () => {
       { method: "GET", path: "/api/:id/items/*rest", handler: function() {} },
     ]);
 
-    const out = compileHttp([makeControllerReg(cls, { standalone: true })], []);
+    const out = compileHttp([makeControllerReg(cls, { isolated: true })], []);
 
     const route = out.pipelines[0]!.flareRoute;
     expect(route.paramCount).toBe(2);
@@ -852,7 +852,7 @@ describe("query parameter primitive coercion", () => {
     const cls = makeControllerCls("NoQueryController");
     attachRoutes(cls, [{ method: "GET", path: "/nq", handler: function() {} }]);
 
-    const out = compileHttp([makeControllerReg(cls, { standalone: true })], []);
+    const out = compileHttp([makeControllerReg(cls, { isolated: true })], []);
 
     expect(out.pipelines[0]!.compiledQueryPrimitives[0]).toBeUndefined();
   });
@@ -866,7 +866,7 @@ describe("query parameter primitive coercion", () => {
     const cls = makeControllerCls("QueryController", [], contract);
     attachRoutes(cls, [{ method: "GET", path: "/q", handler: function getQ() {} }]);
 
-    const out = compileHttp([makeControllerReg(cls, { standalone: true })], []);
+    const out = compileHttp([makeControllerReg(cls, { isolated: true })], []);
 
     const entry = out.pipelines[0]!.compiledQueryPrimitives[0];
     expect(entry).toBeDefined();
@@ -883,7 +883,7 @@ describe("response serializer compilation by status code", () => {
     const cls = makeControllerCls("NoRespController");
     attachRoutes(cls, [{ method: "GET", path: "/r", handler: function() {} }]);
 
-    const out = compileHttp([makeControllerReg(cls, { standalone: true })], []);
+    const out = compileHttp([makeControllerReg(cls, { isolated: true })], []);
 
     expect(out.pipelines[0]!.responseSerializers).toBeUndefined();
   });
@@ -897,7 +897,7 @@ describe("response serializer compilation by status code", () => {
     const cls = makeControllerCls("RespSerializerController", [], contract);
     attachRoutes(cls, [{ method: "GET", path: "/dual", handler: function dualStatus() {} }]);
 
-    const out = compileHttp([makeControllerReg(cls, { standalone: true })], []);
+    const out = compileHttp([makeControllerReg(cls, { isolated: true })], []);
 
     const serializers = out.pipelines[0]!.responseSerializers!;
     // ResponseSerializers is a sparse Array<Record<number, Serializer>>
@@ -914,7 +914,7 @@ describe("route specificity scoring", () => {
   function scoreOf(routePath: string): number {
     const cls = makeControllerCls(`Ctl_${routePath.replace(/[^a-z0-9]/gi, "_")}`);
     attachRoutes(cls, [{ method: "GET", path: routePath, handler: function() {} }]);
-    return compileHttp([makeControllerReg(cls, { standalone: true })], [])
+    return compileHttp([makeControllerReg(cls, { isolated: true })], [])
       .pipelines[0]!.flareRoute.score;
   }
 
@@ -923,7 +923,7 @@ describe("route specificity scoring", () => {
     // path. Use empty path on a controller with basePath "/" to reach the root.
     const cls = makeControllerCls("RootController");
     attachRoutes(cls, [{ method: "GET", path: "", handler: function() {} }]);
-    const out = compileHttp([makeControllerReg(cls, { standalone: true, path: "/" })], []);
+    const out = compileHttp([makeControllerReg(cls, { isolated: true, path: "/" })], []);
     expect(out.pipelines[0]!.flareRoute.score).toBe(0);
   });
 

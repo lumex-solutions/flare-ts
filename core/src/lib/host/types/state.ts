@@ -13,3 +13,16 @@
  * - `"stopped"` - Teardown is complete.
  */
 export type HostState = "starting" | "ready" | "draining" | "stopped";
+
+/**
+ * Total order of the lifecycle states; the runtime only advances forward through it.
+ * `FlareHost.whenState` resolves a waiter once the host is at or past its state.
+ *
+ * @internal
+ */
+export const HOST_STATE_ORDER: Record<HostState, number> = {
+  starting: 0,
+  ready: 1,
+  draining: 2,
+  stopped: 3,
+};

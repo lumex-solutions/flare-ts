@@ -60,6 +60,7 @@ import {
   SET_HOST_STATE,
   UNSAFE_CONFIG_ENV_KEYS,
 } from "./types/const.js";
+import { HOST_STATE_ORDER } from "./types/state.js";
 
 type AdapterLifecycle<TAdapter> = TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTransportClass, infer TLifecycle>
   ? TLifecycle
@@ -150,6 +151,8 @@ export interface IFlareHost<TLifecycle extends HostRuntimeLifecycle = HostRuntim
   ws: WebSocketArc;
   logging: Logging;
   state: HostState;
+  /** Resolves when the host reaches (or has already passed) the given lifecycle state. */
+  whenState(state: HostState): Promise<void>;
   /** Runtime this host's adapter targets (e.g. `"node"`, `"cloudflare"`). */
   runtime: HostRuntime;
   config: Readonly<FlareConfig>;
@@ -209,6 +212,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
   #scoped: FlareRegistrationMap = new FlareRegistrationMap();
   #singletons: Map<ServiceToken<FlareService>, FlareService> = new Map();
   #state: HostState = "starting";
+  #stateWaiters: Array<{ order: number; resolve: () => void; }> | undefined;
 
   #adapter: TAdapter;
   #testMode: boolean;
@@ -298,6 +302,27 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
     return this.#state;
   }
 
+  /**
+   * Resolves when the host reaches (or has already passed) the given lifecycle state.
+   *
+   * States advance one way (`starting -> ready -> draining -> stopped`), so a waiter for a state
+   * the host is already past resolves immediately. Useful for graceful-shutdown coordination, e.g.
+   * deregistering from a load balancer the moment draining begins. On a runtime whose lifecycle
+   * never leaves `"ready"` (Cloudflare Workers), a `"draining"`/`"stopped"` waiter never resolves.
+   *
+   * @example
+   * ```ts
+   * void host.whenState("draining").then(() => registry.deregister(instanceId));
+   * ```
+   */
+  public whenState(state: HostState): Promise<void> {
+    const target = HOST_STATE_ORDER[state];
+    if (HOST_STATE_ORDER[this.#state] >= target) return Promise.resolve();
+    return new Promise((resolve) => {
+      (this.#stateWaiters ??= []).push({ order: target, resolve });
+    });
+  }
+
   /** Runtime this host's adapter targets. */
   public get runtime(): HostRuntime {
     return this.#adapter.runtime;
@@ -356,9 +381,17 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
     return this.#singletons;
   }
 
-  /** @internal Advances host state. Invoked by the runtime at lifecycle transitions. */
+  /** @internal Advances host state and settles whenState waiters at or below it. Invoked by the runtime at lifecycle transitions. */
   [SET_HOST_STATE](state: HostState): void {
     this.#state = state;
+    if (!this.#stateWaiters) return;
+    const reached = HOST_STATE_ORDER[state];
+    const pending = this.#stateWaiters.filter((w) => {
+      if (w.order > reached) return true;
+      w.resolve();
+      return false;
+    });
+    this.#stateWaiters = pending.length > 0 ? pending : undefined;
   }
 
   /**

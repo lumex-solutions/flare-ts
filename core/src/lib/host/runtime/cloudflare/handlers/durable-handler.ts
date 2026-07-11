@@ -69,9 +69,10 @@ export class DurableHandler extends CfHandlerBase {
 
   protected override readInbound(request: Request, ctx: FlareHttpContext): string | undefined {
     // Rehydrate state from the ORIGINAL (pre-strip) headers. The x-flare-state header is trusted only
-    // because the blessed forwarding seams (DurableHandle.mount via applyInboundEnvelope, and forwardDurable)
-    // unconditionally sanitize client-supplied reserved headers before encoding framework state.
-    // Raw-fetch misuse (durable(...).fetch(rawClientRequest) bypassing the seams) is documented on durable().
+    // because the blessed forwarding seams (DurableHandle.mount via applyInboundEnvelope, stub.forward,
+    // and stub.fetch's raw tunnel) unconditionally sanitize client-supplied reserved headers before any
+    // framework state is encoded. See state-crossing.ts's header for the full trust model; the exposure
+    // that remains is app code forwarding raw client requests over the binding OUTSIDE these seams.
     decodeStateEnvelope(request.headers.get(RESERVED_STATE_HEADER), this.#cls, ctx);
     return request.headers.get(RESERVED_TRACE_HEADER) ?? undefined;
   }

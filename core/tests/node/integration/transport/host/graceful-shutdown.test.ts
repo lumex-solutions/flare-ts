@@ -256,11 +256,10 @@ describe("signal-triggered shutdown", () => {
       // level listeners the test runner has installed.
       frameworkSignalListener("SIGTERM")("SIGTERM");
 
-      // The signal listener fires #shutdown without awaiting it; poll the
-      // captured exit list to detect when the IIFE has reached process.exit.
-      for (let i = 0; i < 200 && exitCapture.getCalls().length === 0; i++) {
-        await new Promise((r) => setTimeout(r, 5));
-      }
+      // The signal listener fires #shutdown without awaiting it. #shutdown calls the
+      // (captured) process.exit synchronously after advancing the state to "stopped",
+      // so awaiting the state waiter resumes strictly after the exit call.
+      await ctx.host.whenState("stopped");
       expect(exitCapture.getCalls()).toEqual([0]);
       expect(events).toContain("probe:onStop");
       expect(ctx.host.state).toBe("stopped");
@@ -272,9 +271,7 @@ describe("signal-triggered shutdown", () => {
 
     frameworkSignalListener("SIGINT")("SIGINT");
 
-    for (let i = 0; i < 200 && exitCapture.getCalls().length === 0; i++) {
-      await new Promise((r) => setTimeout(r, 5));
-    }
+    await ctx.host.whenState("stopped");
     expect(exitCapture.getCalls()).toEqual([0]);
     expect(ctx.host.state).toBe("stopped");
   });
@@ -455,11 +452,9 @@ describe("request rejection during drain", () => {
       const slow = httpGet(ctx.port, "/slow");
       await entered;
 
-      // Begin shutdown; do not await.
+      // Begin shutdown; do not await. The drain signal marks the moment the 503 gate is up.
       const shutdown = ctx.handle.stop();
-      for (let i = 0; i < 200 && ctx.host.state !== "draining"; i++) {
-        await new Promise((r) => setTimeout(r, 5));
-      }
+      await ctx.host.whenState("draining");
       expect(ctx.host.state).toBe("draining");
 
       // A new request while draining: must be 503, connection close. Retry while
@@ -501,9 +496,7 @@ describe("process error handler shutdown", () => {
       const fakeErr = new Error("synthetic uncaught");
       frameworkUncaughtListener()(fakeErr, "uncaughtException");
 
-      for (let i = 0; i < 200 && exitCapture.getCalls().length === 0; i++) {
-        await new Promise((r) => setTimeout(r, 5));
-      }
+      await ctx.host.whenState("stopped");
       expect(exitCapture.getCalls()).toEqual([1]);
 
       // A fatal-level record carrying the synthetic error must have been
@@ -518,16 +511,14 @@ describe("process error handler shutdown", () => {
   );
 
   it("unhandledRejection triggers shutdown with exit code 1", async () => {
-    await startApp();
+    const ctx = await startApp();
 
     // Node would normally pass (reason, promise). The framework only reads
     // `reason`; the second arg is unused. Invoke directly to bypass other
     // listeners (including vitest's).
     frameworkUnhandledRejectionListener()(new Error("synthetic rejection"), Promise.resolve());
 
-    for (let i = 0; i < 200 && exitCapture.getCalls().length === 0; i++) {
-      await new Promise((r) => setTimeout(r, 5));
-    }
+    await ctx.host.whenState("stopped");
     expect(exitCapture.getCalls()).toEqual([1]);
   });
 });
@@ -549,9 +540,7 @@ describe("stopAsync failure during shutdown", () => {
       // exitProcess: true path: the runtime swallows the stopAsync rejection
       // internally (logged as "Error during shutdown") and calls process.exit(1).
       frameworkSignalListener("SIGTERM")("SIGTERM");
-      for (let i = 0; i < 200 && exitCapture.getCalls().length === 0; i++) {
-        await new Promise((r) => setTimeout(r, 5));
-      }
+      await ctx.host.whenState("stopped");
 
       expect(exitCapture.getCalls()).toEqual([1]);
       expect(ctx.host.state).toBe("stopped");
@@ -568,17 +557,24 @@ describe("shutdown timeout with exitProcess false", () => {
       + "'Graceful shutdown timeout exceeded after <N>ms.'",
     async () => {
       const neverResolve = new Promise<FlareResponse>(() => {});
+      // The handler signals when it has actually been ENTERED, so the hanging request is
+      // provably active before stop() (a fixed sleep is flaky under full-suite CPU load).
+      let enteredResolve!: () => void;
+      const entered = new Promise<void>((r) => (enteredResolve = r));
       const ctx = await startApp({
         // /ping is already registered by startApp; only add the hang route.
         routes: (h) => {
-          h.http.get("/hang", () => neverResolve);
+          h.http.get("/hang", () => {
+            enteredResolve();
+            return neverResolve;
+          });
         },
         shutdownTimeout: 30,
       });
 
-      // Start the hanging request and let it land on the server.
+      // Start the hanging request and wait until it has landed on the server.
       const hung = httpGet(ctx.port, "/hang").catch(() => null);
-      await new Promise((r) => setTimeout(r, 20));
+      await entered;
 
       // exitProcess === false because handle.stop() supplies it.
       await expect(ctx.handle.stop()).rejects.toThrow(
@@ -731,11 +727,13 @@ describe("server listening through drain", () => {
       const slow = httpGet(ctx.port, "/slow");
       await entered;
 
-      // Begin shutdown; do not await yet.
+      // Begin shutdown; do not await yet. Anchor the sampling window to the moment
+      // drain provably began, then sample listening state across it. The sampling
+      // itself stays time-based: the assertion is a negative over a window (the
+      // server must NEVER stop listening while the drain gate is held).
       const shutdown = ctx.handle.stop();
+      await ctx.host.whenState("draining");
 
-      // Sample listening state across the drain window. The server must stay
-      // listening for the entire time the drain gate is held.
       let stillListeningDuringDrain = true;
       for (let i = 0; i < 20; i++) {
         await new Promise((r) => setTimeout(r, 10));

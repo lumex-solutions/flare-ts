@@ -77,7 +77,7 @@ function ctrlReg(
     factory: ((_c: Container, _ctx: FlareHttpContext) => instance as unknown as CtlBase) as HttpFactory<CtlBase>,
     cls,
     path: "",
-    standalone: true,
+    isolated: true,
   };
 }
 

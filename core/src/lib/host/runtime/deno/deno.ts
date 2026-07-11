@@ -21,8 +21,7 @@ import { singletonExtension } from "../../extensions/singleton";
  * Placeholder Deno runtime adapter. Reads `flare.json` and exposes `Deno.env`, but
  * `createApp` and `createTestRequest` throw because the Deno runtime is not yet supported.
  */
-// TODO: replace `any` with the concrete FlareAppDeno class once the Deno runtime is implemented.
-export const deno: HostRuntimeAdapter<any, LoggerTransportClass, "async", SingletonExtension> = {
+export const deno: HostRuntimeAdapter<never, LoggerTransportClass, "async", SingletonExtension> = {
   runtime: "deno",
   lifecycle: "async",
   get flareJsonFile() {

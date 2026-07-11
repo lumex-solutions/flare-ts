@@ -22,7 +22,7 @@ function namedHandler(name: string): RouteMetadata["handler"] {
 }
 
 function makeReg(cls: Function, path: string): ControllerRegistration {
-  return { factory: (() => undefined) as never, cls: cls as never, path, standalone: false };
+  return { factory: (() => undefined) as never, cls: cls as never, path, isolated: false };
 }
 
 function ctx(wsPatterns: string[], httpControllers: ControllerRegistration[] = []): WsValidationContext {

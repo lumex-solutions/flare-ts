@@ -174,7 +174,7 @@ export abstract class HttpBase {
       factory: (container, req) => new controller(container, req),
       cls: controller,
       path: fullPath,
-      standalone: false,
+      isolated: controller.isolated ?? false,
     });
   }
 
@@ -481,7 +481,7 @@ export abstract class HttpBase {
       factory: (container, req) => new SyntheticController(container, req),
       cls: SyntheticController as ControllerClass,
       path: fullPath,
-      standalone: options.isolated ?? false,
+      isolated: options.isolated ?? false,
     };
 
     this.#syntheticControllers.set(fullPath, {

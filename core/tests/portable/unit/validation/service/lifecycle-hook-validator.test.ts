@@ -75,7 +75,7 @@ function makeControllerReg(cls: ControllerClass): ControllerRegistration {
     }) as never,
     cls,
     path: "",
-    standalone: false,
+    isolated: false,
   };
 }
 

@@ -1,5 +1,15 @@
 /**
  * State crossing between the front door and Durable Object instances: envelope encode/decode over declared tokens.
+ *
+ * TRUST MODEL (sender-side, by design): the receiving Durable Object decodes `x-flare-state`
+ * WITHOUT verifying its origin. This is safe because every blessed path to a DO sanitizes
+ * client-supplied reserved headers before encoding framework state (the mount forward, `stub.forward`,
+ * and `stub.fetch`'s raw tunnel), and DO bindings are not internet-reachable. The exposure that
+ * remains is app code forwarding a RAW client request over the namespace binding outside these
+ * seams (e.g. `env.NS.get(id).fetch(request)` in hand-written Worker code): a client-forged
+ * `x-flare-state` would then be trusted. Route DO traffic through the flare seams, or strip the
+ * reserved headers yourself before a raw forward. Receiver-side verification (an HMAC envelope
+ * seal keyed by a configured secret) is a known candidate hardening, deliberately not implemented.
  */
 import type { JsonValue } from "@flare-ts/lib/schema";
 import type { FlareHttpContext } from "../../../../arcs/http/transport/flare-http-context.js";

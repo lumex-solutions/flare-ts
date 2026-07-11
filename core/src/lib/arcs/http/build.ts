@@ -176,7 +176,7 @@ function getMiddlewareIdxs(
   afterFactoryIdxs: number[];
   finallyFactoryIdxs: number[];
 } {
-  if (controller.standalone) {
+  if (controller.isolated) {
     return { beforeFactoryIdxs: [], afterFactoryIdxs: [], finallyFactoryIdxs: [] };
   }
 
