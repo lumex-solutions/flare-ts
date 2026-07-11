@@ -2,7 +2,6 @@
  * The structured logger service: level filtering, context stamping, transport fan-out,
  * and the transport lifecycle it drives.
  */
-import type { JsonValue } from "@flare-ts/lib";
 import type { Container } from "../services/container.js";
 import type { LoggerTransport } from "./transport.js";
 import { LOG_CONFIG } from "../config/flare-config.js";
@@ -18,10 +17,8 @@ import { LOG_LEVELS, type LogLevel, type LogMeta, type LogRecord } from "./types
  * Filters records below the configured minimum level globally and per-transport,
  * attaches request context from {@link loggerALS} when context capture is enabled,
  * and drives transport startup and shutdown in registration order.
- *
- * @typeParam T - Shape of the `meta` object accepted by log methods.
  */
-export class Logger<T extends Record<string, JsonValue> = Record<string, JsonValue>> extends FlareService {
+export class Logger extends FlareService {
   static readonly deps = [] as const;
   static readonly config = [LOG_CONFIG] as const;
 
@@ -67,6 +64,31 @@ export class Logger<T extends Record<string, JsonValue> = Record<string, JsonVal
   }
 
   /** @internal */
+  protected emitTransportStartupStart(transport: LoggerTransport): number {
+    const start = Date.now();
+    // Startup traces go through the bootstrap buffer (_log): the transports are not
+    // ready yet, so these records surface in the post-start flush.
+    _log("trace", "Lifecycle event", {
+      phase: "startup",
+      component: "transport",
+      event: "start",
+      name: getTransportName(transport),
+    });
+    return start;
+  }
+
+  /** @internal */
+  protected emitTransportStartupReady(transport: LoggerTransport, start: number): void {
+    _log("trace", "Lifecycle event", {
+      phase: "startup",
+      component: "transport",
+      event: "ready",
+      name: getTransportName(transport),
+      durationMs: Date.now() - start,
+    });
+  }
+
+  /** @internal */
   protected emitTransportShutdownStart(transport: LoggerTransport, transportLimit: number): number {
     const transportName = getTransportName(transport);
     const start = Date.now();
@@ -103,19 +125,19 @@ export class Logger<T extends Record<string, JsonValue> = Record<string, JsonVal
   }
 
   /** Emits a record at trace level. */
-  trace(message: string, meta?: LogMeta<T>): void {
+  trace(message: string, meta?: LogMeta): void {
     this.#emit("trace", message, meta);
   }
   /** Emits a record at debug level. */
-  debug(message: string, meta?: LogMeta<T>): void {
+  debug(message: string, meta?: LogMeta): void {
     this.#emit("debug", message, meta);
   }
   /** Emits a record at info level. */
-  info(message: string, meta?: LogMeta<T>): void {
+  info(message: string, meta?: LogMeta): void {
     this.#emit("info", message, meta);
   }
   /** Emits a record at warn level. */
-  warn(message: string, meta?: LogMeta<T>): void {
+  warn(message: string, meta?: LogMeta): void {
     this.#emit("warn", message, meta);
   }
   /**
@@ -124,13 +146,13 @@ export class Logger<T extends Record<string, JsonValue> = Record<string, JsonVal
    * Pass an error value as the first argument to attach a structured `error` field
    * assembled via {@link toErrorField}.
    */
-  error(message: string, meta?: LogMeta<T>): void;
-  error(error: unknown, message: string, meta?: LogMeta<T>): void;
-  error(messageOrError: string | unknown, messageOrMeta?: string | LogMeta<T>, meta?: LogMeta<T>): void {
+  error(message: string, meta?: LogMeta): void;
+  error(error: unknown, message: string, meta?: LogMeta): void;
+  error(messageOrError: string | unknown, messageOrMeta?: string | LogMeta, meta?: LogMeta): void {
     if (typeof messageOrError === "string") {
       // The string overload's second parameter is the meta object; the union type of the
       // implementation signature cannot see which overload the caller took.
-      this.#emit("error", messageOrError, messageOrMeta as LogMeta<T> | undefined);
+      this.#emit("error", messageOrError, messageOrMeta as LogMeta | undefined);
       return;
     }
 
@@ -143,12 +165,12 @@ export class Logger<T extends Record<string, JsonValue> = Record<string, JsonVal
    * Pass an error value as the first argument to attach a structured `error` field
    * assembled via {@link toErrorField}.
    */
-  fatal(message: string, meta?: LogMeta<T>): void;
-  fatal(error: unknown, message: string, meta?: LogMeta<T>): void;
-  fatal(messageOrError: string | unknown, messageOrMeta?: string | LogMeta<T>, meta?: LogMeta<T>): void {
+  fatal(message: string, meta?: LogMeta): void;
+  fatal(error: unknown, message: string, meta?: LogMeta): void;
+  fatal(messageOrError: string | unknown, messageOrMeta?: string | LogMeta, meta?: LogMeta): void {
     if (typeof messageOrError === "string") {
       // Same overload-erasure narrowing as error() above.
-      this.#emit("fatal", messageOrError, messageOrMeta as LogMeta<T> | undefined);
+      this.#emit("fatal", messageOrError, messageOrMeta as LogMeta | undefined);
       return;
     }
 
@@ -208,22 +230,9 @@ export class Logger<T extends Record<string, JsonValue> = Record<string, JsonVal
     this.configure();
 
     for (const transport of this.transports) {
-      const transportName = getTransportName(transport);
-      const start = Date.now();
-      _log("trace", "Lifecycle event", {
-        phase: "startup",
-        component: "transport",
-        event: "start",
-        name: transportName,
-      });
+      const start = this.emitTransportStartupStart(transport);
       await transport.onStart?.();
-      _log("trace", "Lifecycle event", {
-        phase: "startup",
-        component: "transport",
-        event: "ready",
-        name: transportName,
-        durationMs: Date.now() - start,
-      });
+      this.emitTransportStartupReady(transport, start);
     }
 
     this.flushBootstrapBuffer();

@@ -39,7 +39,7 @@ export abstract class MiddlewareBase extends FlareBase {
   public static provides?: StateToken[];
 
   constructor(
-    protected override container: Container,
+    protected override readonly container: Container,
     protected ctx: FlareHttpContext,
   ) {
     super(container);

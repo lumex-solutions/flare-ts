@@ -70,6 +70,34 @@ describe("synchronous logger lifecycle", () => {
     expect(buffered).toBeGreaterThan(i2);
   });
 
+  it("onStart() emits the per-transport startup trace pair through the bootstrap flush", () => {
+    class CfRec extends CfLoggerTransport {
+      static override readonly transportName = "cf-rec-start";
+      static override deps: never[] = [];
+      records: LogRecord[] = [];
+      override write(record: LogRecord): void {
+        this.records.push({ ...record });
+      }
+    }
+
+    const container = makeContainer({ level: "trace" });
+    const t = new CfRec(container);
+    const logger = new CfLogger([t], container);
+
+    logger.onStart();
+
+    // The startup traces are bootstrap-buffered while the transport starts, so they
+    // arrive in the post-start flush: one start/ready pair, in order.
+    const pair = t.records.filter(
+      (r) =>
+        r.meta
+        && r.meta["phase"] === "startup"
+        && r.meta["component"] === "transport"
+        && r.meta["name"] === "cf-rec-start",
+    );
+    expect(pair.map((r) => r.meta!["event"])).toEqual(["start", "ready"]);
+  });
+
   it("onStop() returns undefined and calls transport onStop in reverse order", () => {
     const events: string[] = [];
     const container = makeContainer({ level: "trace" });

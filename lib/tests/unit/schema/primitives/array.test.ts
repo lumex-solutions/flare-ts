@@ -13,9 +13,7 @@ describe("array primitive parsing", () => {
 
   it("maps over an existing string array ['1','2'] with int as [1,2]", () => {
     const ints = array(int);
-    // `array(int)` declares its input as string but accepts string[] at
-    // runtime; cast to bypass the declared narrower type.
-    expect(ints(["1", "2"] as unknown as string)).toEqual([1, 2]);
+    expect(ints(["1", "2"])).toEqual([1, 2]);
   });
 
   it("returns [] for empty string", () => {

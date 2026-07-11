@@ -33,7 +33,7 @@ export abstract class FlareBase {
    */
   public static config?: readonly ConfigToken<unknown>[] | undefined;
 
-  constructor(protected container: Container) {}
+  constructor(protected readonly container: Container) {}
 
   /**
    * Resolves a dependency declared on `static deps`, returning the service with framework
@@ -44,7 +44,7 @@ export abstract class FlareBase {
   public inject<T extends FlareService>(token: ServiceToken<T>): Injected<T> {
     // `constructor` is typed as plain Function; the subclass's statics live on the
     // concrete class, which the cast restates.
-    const deps = (this.constructor as typeof FlareService).deps;
+    const deps = (this.constructor as typeof FlareBase).deps;
     if (!deps || !deps.includes(token)) {
       throw new Error(
         `[flare] ${this.constructor.name} called inject("${token.name}") but "${token.name}" is not declared in ${this.constructor.name}.deps. Add it to the static deps array.`,

@@ -3,9 +3,7 @@
  * transport constructor type host composition consumes.
  */
 import type { JsonValue } from "@flare-ts/lib";
-import type { FlareService } from "../services/composition/flare-service.js";
 import type { Container } from "../services/container.js";
-import type { ServiceToken } from "../services/types/token.js";
 import type { LogError } from "./fields.js";
 import type { LoggerTransport } from "./transport.js";
 
@@ -30,12 +28,12 @@ export const LOG_LEVELS: Record<LogLevel, number> = {
 export type LogContext = HostLogContext | HttpLogContext | WebSocketLogContext;
 
 /** Context attached to records emitted from host lifecycle code. */
-export type HostLogContext<T extends LogMeta = LogMeta> = T & {
+export type HostLogContext = LogMeta & {
   source: "flare:host";
 };
 
 /** Context attached to records emitted from inside an HTTP request scope. */
-export type HttpLogContext<T extends LogMeta = LogMeta> = T & {
+export type HttpLogContext = LogMeta & {
   source: "flare:http";
   requestId: string;
   method: string;
@@ -50,7 +48,7 @@ export type HttpLogContext<T extends LogMeta = LogMeta> = T & {
  * One context spans the connection's whole life, keyed by the connection id (not an
  * HTTP requestId).
  */
-export type WebSocketLogContext<T extends LogMeta = LogMeta> = T & {
+export type WebSocketLogContext = LogMeta & {
   source: "flare:ws";
   /** The connection id (minted at upgrade), correlating every log from this connection. */
   connectionId: string;
@@ -59,13 +57,13 @@ export type WebSocketLogContext<T extends LogMeta = LogMeta> = T & {
 };
 
 /** Extension of {@link HttpLogContext} carrying stage and target metadata for error records. */
-export type HttpErrorContext<T extends LogMeta = LogMeta> = HttpLogContext<T> & {
+export type HttpErrorContext = HttpLogContext & {
   stage?: string;
   target?: string;
 };
 
 /** Free-form structured metadata attached to a single log call. */
-export type LogMeta<T extends Record<string, JsonValue> = Record<string, JsonValue>> = T;
+export type LogMeta = Record<string, JsonValue>;
 
 /** Ambient state attached to every record emitted within a request scope. */
 export type LogState = Record<string, JsonValue>;
@@ -85,7 +83,8 @@ export type LogRecord = {
 export type LoggerTransportClass = {
   new(container: Container): LoggerTransport;
   readonly transportName: string;
-  deps?: readonly ServiceToken<FlareService>[];
+  /** Transports cannot inject services; the base pins `deps` to `never[]`, restated here. */
+  deps?: readonly never[];
 };
 
 export type { LogError } from "./fields.js";

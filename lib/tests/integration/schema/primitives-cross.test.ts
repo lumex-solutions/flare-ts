@@ -146,10 +146,7 @@ describe("Edge Cases", () => {
     const ints = array(int);
 
     const fromString = ints("1,2,3");
-    // `array(int)` declares its input as string but accepts string[] at
-    // runtime (the test asserts that contract). Cast to bypass the declared
-    // narrower type.
-    const fromArray = ints(["1", "2", "3"] as unknown as string);
+    const fromArray = ints(["1", "2", "3"]);
 
     expect(fromString).toEqual([1, 2, 3]);
     expect(fromArray).toEqual([1, 2, 3]);

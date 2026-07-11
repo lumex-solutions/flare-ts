@@ -37,7 +37,14 @@ export type JsonSchema =
   | { type: "object"; properties: Record<string, JsonSchema>; required?: string[]; }
   | { type: "object"; additionalProperties: JsonSchema; }
   | { type: "array"; items: JsonSchema; }
-  | { type: "string"; format?: string; enum?: readonly string[]; }
+  | {
+    type: "string";
+    format?: string;
+    enum?: readonly string[];
+    minLength?: number;
+    maxLength?: number;
+    pattern?: string;
+  }
   | { type: "integer" | "number"; minimum?: number; maximum?: number; }
   | { type: "boolean"; }
   | { anyOf: JsonSchema[]; }

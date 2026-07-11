@@ -8,6 +8,17 @@
   with no alias. Only the type name changes; `compileSerializer` and the compiled
   functions it returns are unchanged.
 
+### Fixed
+
+- Calling an `array(...)` primitive with a pre-split string array now type-checks.
+  The parser always accepted `string | string[]` at runtime, but its declared type
+  (`TypedPrimitive<T[]>`) was string-only; `array()` now returns the
+  `ArrayTypedPrimitive<T>` shape that spells both calling conventions.
+
+- `toJsonSchema()`'s declared return type now includes the `minLength`/`maxLength`/
+  `pattern` fields it emits for constrained `str`/`text` primitives; previously
+  reading them off the result required a cast.
+
 ### Internal
 
 - Restructured the schema subsystem: the `internal/` and `json/` folders dissolved

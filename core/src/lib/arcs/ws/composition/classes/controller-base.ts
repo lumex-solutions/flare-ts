@@ -56,7 +56,7 @@ export abstract class WebSocketControllerBase<T extends WebSocketDescriptor = We
   public static contract?: WebSocketToken | undefined;
 
   constructor(
-    protected override container: Container,
+    protected override readonly container: Container,
     /** The live connection (the `ws` the function form receives): send/close/state over the socket. */
     protected socket: FlareWebSocketContext<WebSocketOutgoing<T>>,
     /** Connect-time typed input: the upgrade path params and query (stable for the connection's life). */

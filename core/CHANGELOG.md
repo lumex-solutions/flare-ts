@@ -240,6 +240,11 @@ host extensions are coming soon.
 - The `inject: [Token]` array form and the `scope.inject(token)` call, replaced by the
   named map above.
 
+- `Logger`'s meta-shape type parameter (and the matching parameter on the log-context
+  types). It defaulted everywhere and the host offered no way to specialize it, so
+  `Logger<MyMeta>` never changed what a log call accepted. The log method signatures
+  are unchanged; write `Logger` where you wrote `Logger<...>`.
+
 ### Fixed
 
 - `scope.config(token)` now works in function-form middleware and error handlers.

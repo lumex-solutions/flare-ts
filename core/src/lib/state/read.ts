@@ -18,33 +18,15 @@ import {
 
 /** @internal Returns the log mapper registered on a token, if any. */
 export function getTokenLogMapper<T>(token: TypedStateToken<T>): StateLogMapper<T> | undefined {
-  try {
-    return (token as InternalToken<T>)[_LOG_MAPPER];
-  } catch (err) {
-    throw new Error(
-      `Error retrieving log mapper for token ${token.name}. Check that the token was created with flareState() and that withLogging() was called correctly.`,
-    );
-  }
+  return (token as InternalToken<T>)[_LOG_MAPPER];
 }
 
 /** @internal Returns the default value registered on a token, if any. */
 export function getTokenDefault<T>(token: TypedStateToken<T>): T | undefined {
-  try {
-    return (token as InternalToken<T>)[_DEFAULT];
-  } catch (err) {
-    throw new Error(
-      `Error retrieving default value for token ${token.name}. Check that the token was created with flareState() and that withDefault() was called correctly.`,
-    );
-  }
+  return (token as InternalToken<T>)[_DEFAULT];
 }
 
 /** @internal Returns the derivation function registered on a token, if any. */
 export function getTokenDerivation<T>(token: TypedStateToken<T>): ((ctx: StateGetter) => T) | undefined {
-  try {
-    return (token as InternalToken<T>)[_DERIVATION];
-  } catch (err) {
-    throw new Error(
-      `Error retrieving derivation for token ${token.name}. Check that the token was created with flareState() and that from() was called correctly.`,
-    );
-  }
+  return (token as InternalToken<T>)[_DERIVATION];
 }

@@ -37,7 +37,7 @@ export abstract class ControllerBase extends FlareBase {
   public static contract?: ContractToken | undefined;
 
   constructor(
-    protected override container: Container,
+    protected override readonly container: Container,
     protected ctx: FlareHttpContext,
   ) {
     super(container);

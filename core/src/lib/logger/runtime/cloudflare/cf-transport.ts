@@ -1,16 +1,15 @@
 /**
  * The synchronous Cloudflare Workers variant of the log transport base.
  */
-import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { Container } from "../../../services/container.js";
-import type { ServiceToken } from "../../../services/types/token.js";
 import { LoggerTransport } from "../../transport.js";
 
 /** Constructor type for concrete {@link CfLoggerTransport} subclasses. */
 export type CfLoggerTransportClass = {
   new(container: Container): CfLoggerTransport;
   readonly transportName: string;
-  deps?: readonly ServiceToken<FlareService>[];
+  /** Transports cannot inject services; the base pins `deps` to `never[]`, restated here. */
+  deps?: readonly never[];
 };
 
 /**

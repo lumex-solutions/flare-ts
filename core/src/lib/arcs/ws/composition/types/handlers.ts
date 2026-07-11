@@ -2,12 +2,12 @@
  * Handler-facing types for the WebSocket authoring surface: the per-connection `scope` and the handler
  * signatures (the `WebSocketRouteHandle` registrar these attach through has its own class module).
  *
- * These mirror the HTTP arc's handler scope: the DI/config machinery (`InjectMap`, `InjectedMap`,
- * `ScopeConfig`) is reused verbatim so a WS handler's `scope` resolves services exactly like an HTTP
- * handler's, and only the `input` shape differs (it is typed from the WS descriptor, not a request).
+ * These mirror the HTTP arc's handler scope: both build on the shared {@link HandlerScope} DI/config
+ * base, so a WS handler's `scope` resolves services exactly like an HTTP handler's, and only the
+ * `input` shape differs (it is typed from the WS descriptor, not a request).
  */
-import type { InjectedMap, InjectMap } from "../../../../services/types/inject.js";
-import type { ScopeConfig } from "../../../../services/types/scope.js";
+import type { InjectMap } from "../../../../services/types/inject.js";
+import type { HandlerScope } from "../../../../services/types/scope.js";
 import type { FlareWebSocketContext } from "../../transport/flare-web-socket-context.js";
 import type {
   WebSocketDescriptor,
@@ -23,8 +23,7 @@ import type {
  * {@link HttpHandlerScope}.
  */
 export type WebSocketHandlerScope<D extends InjectMap = {}, T extends WebSocketDescriptor = {}> =
-  & { config: ScopeConfig; }
-  & InjectedMap<D>
+  & HandlerScope<D>
   & { input: WebSocketInput<T>; };
 
 /**
@@ -32,8 +31,7 @@ export type WebSocketHandlerScope<D extends InjectMap = {}, T extends WebSocketD
  * inbound `message` (typed from the descriptor's `incoming`), mirroring HTTP's `scope.input.body`.
  */
 export type WebSocketMessageHandlerScope<D extends InjectMap = {}, T extends WebSocketDescriptor = {}> =
-  & { config: ScopeConfig; }
-  & InjectedMap<D>
+  & HandlerScope<D>
   & { input: WebSocketMessageInput<T>; };
 
 /** `open` handler: runs once when the connection reaches OPEN. May be async (messages wait for it). */

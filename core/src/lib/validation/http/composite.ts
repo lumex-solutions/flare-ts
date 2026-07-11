@@ -27,11 +27,11 @@ import { SignedCookiesValidator } from "./signed-cookies-validator.js";
  */
 export type HttpValidationContext = {
   /** All controllers, top-level and from every registered group. */
-  readonly controllers: ControllerRegistration[];
+  readonly controllers: readonly ControllerRegistration[];
   /** Global (top-level) middleware registrations. */
-  readonly globalMiddleware: MiddlewareRegistration[];
+  readonly globalMiddleware: readonly MiddlewareRegistration[];
   /** All registered route groups. */
-  readonly groups: GroupRegistration[];
+  readonly groups: readonly GroupRegistration[];
   /** Arc-level CORS policy, if configured via `host.http.cors()`. */
   readonly corsConfig?: CorsConfig | undefined;
   /**

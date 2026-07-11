@@ -23,12 +23,12 @@ import { ServiceRegistrationValidator } from "./service-registration-validator.j
  * @internal
  */
 export type ServiceValidationContext = {
-  readonly scoped: ServiceRegistration<FlareService>[];
-  readonly singletons: ServiceRegistration<FlareService>[];
+  readonly scoped: readonly ServiceRegistration<FlareService>[];
+  readonly singletons: readonly ServiceRegistration<FlareService>[];
   /** All controllers, top-level and from every registered group. */
-  readonly controllers: ControllerRegistration[];
+  readonly controllers: readonly ControllerRegistration[];
   /** Global (top-level) middleware registrations. */
-  readonly middleware: MiddlewareRegistration[];
+  readonly middleware: readonly MiddlewareRegistration[];
   /** WebSocket registrations (both authoring forms), so WS entry-point deps are checked like HTTP's. */
   readonly wsRegistrations: readonly WsRegistration[];
   /**

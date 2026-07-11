@@ -1,7 +1,7 @@
 /**
  * Build-time validator for config-key and required-field presence in the config validation pipeline.
  */
-import type { DescriptorValue, TypedPrimitive } from "@flare-ts/lib/schema";
+import type { DescriptorValue, JsonObject, TypedPrimitive } from "@flare-ts/lib/schema";
 import type { IValidator, ValidationError } from "../types.js";
 import type { ConfigValidationContext } from "./composite.js";
 
@@ -39,10 +39,9 @@ export class MissingConfigKeyValidator implements IValidator<ConfigValidationCon
       if (ctx.defaultTokens.has(token) || !token.descriptor) continue;
 
       const section = ctx.resolvedConfig[token.key];
-      // The guard proves the JsonValue is a plain object; the cast restates it as an
-      // indexable record for the field-presence reads below.
-      const sectionObj = typeof section === "object" && section !== null && !Array.isArray(section)
-        ? (section as Record<string, unknown>)
+      // The guard narrows the JsonValue to its object arm for the field-presence reads below.
+      const sectionObj: JsonObject = typeof section === "object" && section !== null && !Array.isArray(section)
+        ? section
         : {};
 
       for (const field of Object.keys(token.descriptor)) {

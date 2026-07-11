@@ -22,11 +22,11 @@ export class Container {
   #resolving = new Set<ServiceToken<FlareService>>();
 
   constructor(
-    private registry: Pick<FlareRegistrationMap, "get"> = new FlareRegistrationMap(),
+    private readonly registry: Pick<FlareRegistrationMap, "get"> = new FlareRegistrationMap(),
     /** Pre-created singleton instances checked before scoped resolution. */
-    private singletons: ReadonlyMap<ServiceToken<FlareService>, FlareService> = new Map(),
+    private readonly singletons: ReadonlyMap<ServiceToken<FlareService>, FlareService> = new Map(),
     /** Resolved config object produced by resolveFlareConfig() during host.build(). */
-    private config: JsonObject = {},
+    private readonly config: JsonObject = {},
   ) {}
 
   /** The pre-created singleton instances this container resolves before scoped services. */
