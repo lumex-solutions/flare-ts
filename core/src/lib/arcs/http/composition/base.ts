@@ -64,6 +64,7 @@ const REQUEST_FIELDS = ["body", "route", "query", "response", "maxBodyBytes", "s
  */
 export abstract class HttpBase {
   /**
+   * @internal
    * Returns `this` when the instance is an {@link HttpGroup}, otherwise `undefined`.
    * Overridden by `HttpGroup` to return `this`, avoiding a circular runtime import.
    */
@@ -71,11 +72,15 @@ export abstract class HttpBase {
     return undefined;
   }
 
+  /** @internal Raw registrations in authoring order; read by build and validation. */
   readonly mwRegistrations: MiddlewareRegistration[] = [];
+  /** @internal Raw registrations in authoring order; read by build and validation. */
   readonly conRegistrations: ControllerRegistration[] = [];
+  /** @internal Raw registrations in authoring order; read by build and validation. */
   readonly errorHandlers: ErrorHandlerRegistration[] = [];
   readonly #syntheticControllers = new Map<string, SyntheticEntry>();
 
+  /** @internal Arc-level CORS policy set via {@link cors}; read by build and validation. */
   corsConfig: CorsConfig | undefined = undefined;
 
   /**

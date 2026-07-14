@@ -235,6 +235,7 @@ export class FlareHttpContext {
     return perStatus && perStatus[status];
   }
 
+  /** @internal Seeds the parsed request context; invoked by the exec pipeline. */
   [SET_REQ_CTX](
     body?: RequestContext["body"],
     route?: RequestContext["route"],

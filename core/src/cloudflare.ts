@@ -4,6 +4,8 @@
  * KV-only fakes). Requires a Workers environment: `cloudflare:workers` is
  * imported at module scope (the {@link FlareDurableObject} base class and the
  * request adapter's `waitUntil`).
+ *
+ * @packageDocumentation
  */
 
 export {

@@ -85,10 +85,13 @@ export class WebSocketArc extends WebSocketBase {
   #registry: WsChannelRegistry | undefined;
   #driverAccess: WsDriverAccess | undefined;
 
-  constructor(readonly host: IFlareHost) {
+  constructor(
+    /** @internal The owning host; composition wiring, not application API. */ readonly host: IFlareHost,
+  ) {
     super();
   }
 
+  /** @internal Compiles registrations into routes/pipelines; invoked by host.build(). */
   [COMPILE_WS_ARC](): void {
     const compiled = compileWsRoutes(this.registrations, this.host.config.websockets);
     this.#pipelines = compiled.pipelines;
@@ -97,6 +100,7 @@ export class WebSocketArc extends WebSocketBase {
     this.#acceptOptionsBase = compiled.acceptOptions;
   }
 
+  /** @internal Matches an upgrade path and prepares the connection; invoked by the transports. */
   [UPGRADE_WS](
     pathname: string,
     query: URLSearchParams,
@@ -126,10 +130,12 @@ export class WebSocketArc extends WebSocketBase {
     );
   }
 
+  /** @internal Raw registrations view for build validation. */
   [WS_REGISTRATIONS](): readonly WsRegistration[] {
     return this.registrations;
   }
 
+  /** @internal Driver seam for the runtime transports. */
   [WS_DRIVER_ACCESS](): WsDriverAccess {
     // `self` gives the literal's `pipelines` getter access to the LIVE compiled list ([COMPILE_WS_ARC]
     // reassigns it), while the memoized access object itself stays stable.
@@ -149,6 +155,7 @@ export class WebSocketArc extends WebSocketBase {
     });
   }
 
+  /** @internal The arc-owned channel domain (Worker/Node contexts without a DO backend). */
   [WS_CHANNEL_REGISTRY](): IWsChannelDomain {
     return this.#channelRegistry();
   }

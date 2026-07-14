@@ -33,7 +33,10 @@ export abstract class FlareBase {
    */
   public static config?: readonly ConfigToken<unknown>[] | undefined;
 
-  constructor(protected readonly container: Container) {}
+  constructor(
+    /** @internal The DI container; subclasses resolve through `this.inject` / `this.config`, never directly. */
+    protected readonly container: Container,
+  ) {}
 
   /**
    * Resolves a dependency declared on `static deps`, returning the service with framework

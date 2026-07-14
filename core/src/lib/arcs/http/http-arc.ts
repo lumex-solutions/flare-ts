@@ -66,14 +66,18 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
   /** Cached at compile time; stamped onto each ctx only when a cookie secret is configured. */
   #cookieSigner: CookieSigner | undefined;
 
+  /** @internal Raw group registrations in authoring order; read by build and validation. */
   readonly groups: GroupRegistration[] = [];
   readonly #onStartCallbacks: Array<LifecycleCallback<TLifecycle>> = [];
   readonly #onStopCallbacks: Array<LifecycleCallback<TLifecycle>> = [];
 
-  constructor(readonly host: IFlareHost<TLifecycle>) {
+  constructor(
+    /** @internal The owning host; composition wiring, not application API. */ readonly host: IFlareHost<TLifecycle>,
+  ) {
     super();
   }
 
+  /** @internal Sync-driver arc start: runs the registered onStart callbacks. */
   [START_HTTP_ARC](): void {
     for (const fn of this.#onStartCallbacks) {
       const result = fn();
@@ -83,12 +87,14 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
     }
   }
 
+  /** @internal Async-driver arc start: awaits the registered onStart callbacks. */
   async [START_HTTP_ARC_ASYNC](): Promise<void> {
     for (const fn of this.#onStartCallbacks) {
       await fn();
     }
   }
 
+  /** @internal Sync-driver arc stop: runs the registered onStop callbacks. */
   [STOP_HTTP_ARC](): void {
     for (const fn of this.#onStopCallbacks) {
       const result = fn();
@@ -98,18 +104,21 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
     }
   }
 
+  /** @internal Async-driver arc stop: awaits the registered onStop callbacks. */
   async [STOP_HTTP_ARC_ASYNC](): Promise<void> {
     for (const fn of this.#onStopCallbacks) {
       await fn();
     }
   }
 
-  // Invoked by FlareHost.build() to compile the http arc into pipelines / router / middleware.
-  //
-  // `providedAtEntry` is an optional, opaque list of state tokens treated as provided before any
-  // middleware runs (i.e. seeded into the per-controller provided-state set). The Cloudflare
-  // adapter passes a Durable Object's `static state` tokens here so DO routes consuming forwarded
-  // state validate clean; the generic arc attaches no DO/CF meaning to them.
+  /**
+   * @internal Invoked by FlareHost.build() to compile the http arc into pipelines / router / middleware.
+   *
+   * `providedAtEntry` is an optional, opaque list of state tokens treated as provided before any
+   * middleware runs (i.e. seeded into the per-controller provided-state set). The Cloudflare
+   * adapter passes a Durable Object's `static state` tokens here so DO routes consuming forwarded
+   * state validate clean; the generic arc attaches no DO/CF meaning to them.
+   */
   [COMPILE_HTTP_ARC](providedAtEntry: readonly StateToken[] = []): void {
     const controllers = [...this.conRegistrations];
 
@@ -138,13 +147,15 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
     }
   }
 
-  // In test mode, scoped registration is deferred from host.build() to
-  // app.test() so replace({}) can substitute classes before any instance is
-  // built. By the time [COMPILE_HTTP_ARC] runs, scopedServices is empty and a
-  // shared container is incorrectly installed. After scoped registration
-  // becomes visible, the host calls this to redo just the container-strategy
-  // decision: drop the shared container so per-request isolation (and
-  // disposal) kick back in when scoped services are present.
+  /**
+   * @internal In test mode, scoped registration is deferred from host.build() to
+   * app.test() so replace({}) can substitute classes before any instance is
+   * built. By the time [COMPILE_HTTP_ARC] runs, scopedServices is empty and a
+   * shared container is incorrectly installed. After scoped registration
+   * becomes visible, the host calls this to redo just the container-strategy
+   * decision: drop the shared container so per-request isolation (and
+   * disposal) kick back in when scoped services are present.
+   */
   [REEVALUATE_CONTAINER_STRATEGY](): void {
     if (this.host.scopedServices.length === 0) {
       this.#sharedContainer ??= new Container(this.host.scopedServices, this.host.singletonServices, this.host.config);
@@ -235,7 +246,8 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
   }
 
   /**
-   * Dispatches an inbound request through the compiled pipeline.
+   * @internal Dispatches an inbound request through the compiled pipeline. Invoked by the
+   * runtime transports, never by application code.
    *
    * Matches the request path against the router, validates the method, applies
    * HEAD-to-GET fallback, runs CORS preflight when applicable, parses route and

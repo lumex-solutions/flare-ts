@@ -161,6 +161,7 @@ export interface IFlareHost<TLifecycle extends HostRuntimeLifecycle = HostRuntim
   cookieSigner: CookieSigner | undefined;
   scopedServices: ScopedServicesView;
   singletonServices: ReadonlyMap<ServiceToken<FlareService>, FlareService>;
+  /** @internal Advances host lifecycle state; invoked by the runtime. */
   [SET_HOST_STATE](state: HostState): void;
   /**
    * @internal Registers a framework-provided (custom-factory) service. Used by a runtime adapter's
@@ -1010,11 +1011,14 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
 /**
  * Composition root of a Flare application. `new FlareHost(adapter)` returns the host plus any members
  * the adapter stamps via `extendHost`.
+ *
+ * @class
  */
 // The cast is type-only and the value IS the class: a class declaration cannot type its
 // own constructor as returning the instance PLUS the adapter- and extension-stamped members,
 // which the constructor genuinely installs at runtime (#stampMembers). The construct-signature
-// interface restates that runtime fact; flare-host-types.test.ts pins it.
+// interface restates that runtime fact; flare-host-types.test.ts pins it. The @class tag makes
+// documentation generators render this const as the class it is at runtime.
 export const FlareHost = FlareHostBase as unknown as FlareHostConstructor;
 
 /**

@@ -7,6 +7,7 @@ export const WS_SEND_RAW: unique symbol = Symbol("WS_SEND_RAW");
 
 /** Broadcast recipient: a connection the domain can push raw bytes to. Implemented by `FlareWebSocketContext`. */
 export interface IWsBroadcastTarget {
+  /** @internal Raw frame send used by channel fan-out; bypasses the typed send surface. */
   [WS_SEND_RAW](data: string | Uint8Array): void;
 }
 

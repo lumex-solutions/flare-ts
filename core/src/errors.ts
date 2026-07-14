@@ -1,4 +1,6 @@
-/** `@flare-ts/core/errors`: the full error vocabulary apps catch and inspect. */
+/** `@flare-ts/core/errors`: the full error vocabulary apps catch and inspect. *
+ * @packageDocumentation
+ */
 export { flareErrorCodes } from "./lib/errors/codes.js";
 export type { ErrorCodesToken } from "./lib/errors/codes.js";
 export { FlareError } from "./lib/errors/flare-error.js";

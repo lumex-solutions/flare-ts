@@ -4,6 +4,8 @@
  * Runtime adapters and testing helpers live on their own subpaths (`./node`, `./cloudflare`,
  * `./testing`, ...). Exports are grouped by concern; within a group they are alphabetical by source
  * module, value exports before types.
+ *
+ * @packageDocumentation
  */
 
 // Host

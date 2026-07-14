@@ -132,6 +132,7 @@ export class FlareCookies {
     return (this.#parsed = out);
   }
 
+  /** @internal Drains the buffered Set-Cookie headers for the response writer. */
   [DRAIN_SET_COOKIES](): string[] | null {
     return this.#setCookies ?? null;
   }

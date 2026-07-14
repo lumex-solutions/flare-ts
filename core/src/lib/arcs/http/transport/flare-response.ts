@@ -69,7 +69,7 @@ export class FlareResponse {
   }
 
   /**
-   * Stores the already-serialized JSON payload (string) and fills in `Content-Length`.
+   * @internal Stores the already-serialized JSON payload (string) and fills in `Content-Length`.
    * Called by `normalizeHandlerResult` after running the per-status serializer.
    */
   [FINALIZE_JSON_BODY](payload: string): void {

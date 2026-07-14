@@ -1,4 +1,6 @@
-/** `@flare-ts/lib/schema`: the schema surface - primitives, `schema`/`model`, and JSON Schema serialization. */
+/** `@flare-ts/lib/schema`: the schema surface - primitives, `schema`/`model`, and JSON Schema serialization. *
+ * @packageDocumentation
+ */
 
 // Primitives
 export {

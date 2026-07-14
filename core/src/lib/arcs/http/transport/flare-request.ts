@@ -177,14 +177,17 @@ export class FlareRequest {
     return this.#streamIterable;
   }
 
+  /** @internal Seeds the buffered raw body; invoked by the transport. */
   [SET_RAW_BODY](body: ArrayBuffer | null): void {
     this.#rawBody = body;
   }
 
+  /** @internal Applies the route-declared body-size cap; invoked at dispatch. */
   [SET_MAX_BODY_BYTES](maxBytes: number): void {
     this.#maxBodyBytes = maxBytes;
   }
 
+  /** @internal Seeds the matched route params; invoked by the router. */
   [SET_ROUTE_PARAMS](params: Record<string, string>): void {
     this.#routeParams = params;
   }

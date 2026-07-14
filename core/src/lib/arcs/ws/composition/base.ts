@@ -53,7 +53,7 @@ const SUBPROTOCOL_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
  * {@link compileWsRoutes}'s job at `host.build()`.
  */
 export abstract class WebSocketBase {
-  /** Raw registrations in authoring order; `host.build()` compiles them (see `compileWsRoutes`). */
+  /** @internal Raw registrations in authoring order; `host.build()` compiles them (see `compileWsRoutes`). */
   protected readonly registrations: WsRegistration[] = [];
 
   /** Registers a connection route at `path`, returning a {@link WebSocketRouteHandle} to attach behaviors to. */
