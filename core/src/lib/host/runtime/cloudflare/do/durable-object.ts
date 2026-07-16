@@ -48,7 +48,9 @@ export type SeedMap = Map<ServiceToken<FlareService>, (container: Container) => 
  * @internal Users extend `FlareDurableObject`, not this.
  */
 export type FlareDurableObjectClass = {
-  new(...args: any[]): object;
+  // Accept-only class token: the Workers runtime constructs the class via the module
+  // export, never flare through this type, so `never[]` keeps the ctor uncallable here.
+  new(...args: never[]): object;
   readonly deps?: readonly ServiceToken<FlareService>[];
   readonly name: string;
 };

@@ -3,7 +3,7 @@
  * and the static COMPILED_SERIALIZER symbol.
  */
 import { describe, expect, it } from "vitest";
-import { compileSerializer, int, model, schema, str, uuid } from "../../../src/schema/index.js";
+import { compileSerializer, model, schema, str, uuid } from "../../../src/schema/index.js";
 // The three seams below are asserted via their well-known Symbol.for keys, the
 // documented external access pattern, never lib-internal imports.
 const COMPILED_SERIALIZER = Symbol.for("@flare-ts/schema/compiled-serializer");
@@ -95,40 +95,6 @@ describe("Primary Behavior", () => {
 });
 
 describe("Edge Cases", () => {
-  it(
-    "a model declared with the discriminated-union overload supports parsing each branch",
-    () => {
-      type Cat = { kind: "cat"; lives: number; };
-      type Dog = { kind: "dog"; breed: string; };
-      type Pet = Cat | Dog;
-
-      // TS forbids `extends` over a class whose instance type is a discriminated
-      // union ("Base constructor return type 'Pet' is not an object type ..."),
-      // so we capture the base and cast both the constructor (for `extends`)
-      // and the resulting class (to keep the static `safeParse` surface).
-      const PetBase = model<Pet, "union">("kind", {
-        cat: { lives: int },
-        dog: { breed: str },
-      });
-      type PetModelStatics = typeof PetBase;
-      const PetModel = class extends (PetBase as unknown as new() => object) {} as unknown as PetModelStatics;
-
-      const cat = PetModel.safeParse({ kind: "cat", lives: 9 });
-      expect(cat.success).toBe(true);
-      if (!cat.success) return;
-      // Narrow on the discriminant for typed access to `lives` requires the
-      // parser to have correctly routed through the `cat` branch.
-      if (cat.data.kind !== "cat") throw new Error("expected cat branch");
-      expect(cat.data.lives).toBe(9);
-
-      const dog = PetModel.safeParse({ kind: "dog", breed: "corgi" });
-      expect(dog.success).toBe(true);
-      if (!dog.success) return;
-      if (dog.data.kind !== "dog") throw new Error("expected dog branch");
-      expect(dog.data.breed).toBe("corgi");
-    },
-  );
-
   it(
     "two distinct model classes built from the same descriptor have independent `COMPILED_SERIALIZER` symbols (compiled eagerly per class)",
     () => {

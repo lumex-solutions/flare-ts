@@ -233,6 +233,7 @@ export const cf: CloudflareAdapter = {
  * On Cloudflare there is no filesystem, so the config is supplied at module scope rather than read
  * from disk.
  */
+// TODO: Anaylize the necessity of the env param and why its used
 export function buildCf(flareJsonFile: JsonObject, env: Record<string, string | undefined> = {}): CloudflareAdapter {
   return {
     runtime: cf.runtime,

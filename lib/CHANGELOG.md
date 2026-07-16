@@ -8,6 +8,13 @@
   with no alias. Only the type name changes; `compileSerializer` and the compiled
   functions it returns are unchanged.
 
+- The discriminated-union `model()` overload is removed, and `model(schemaToken)` now
+  rejects union-typed tokens at the call site with an error-message literal. A class
+  cannot carry a union instance type, so the union form could never be extended (the
+  one capability `model()` adds over `schema()`), and compiled serializers for
+  discriminated descriptors are the `JSON.stringify` fallback either way. Use
+  `schema<T, "union">(discriminant, branches)` directly.
+
 ### Fixed
 
 - Calling an `array(...)` primitive with a pre-split string array now type-checks.

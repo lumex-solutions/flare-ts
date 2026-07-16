@@ -2,16 +2,14 @@
  * Unit suite for the model() factory (src/schema/model.ts).
  *
  * Overload acceptance: each call form model() accepts (descriptor, existing
- * schema token, discriminated union) is driven directly and the produced
- * token's shape is pinned via the schema symbols and the compiled-serializer
- * symbol. Parse and serialize behavior across the parser stays in the
- * integration suites.
+ * schema token) is driven directly and the produced token's shape is pinned
+ * via the schema symbols and the compiled-serializer symbol. Parse and
+ * serialize behavior across the parser stays in the integration suites.
  */
 
 import { describe, expect, it } from "vitest";
 import { model } from "../../../src/schema/model.js";
 import { COMPILED_SERIALIZER } from "../../../src/schema/model.js";
-import { int } from "../../../src/schema/primitives/int.js";
 import { str } from "../../../src/schema/primitives/str.js";
 import { uuid } from "../../../src/schema/primitives/uuid.js";
 import { SCHEMA_BRAND, SCHEMA_DESCRIPTOR, SCHEMA_REQUIRED } from "../../../src/schema/schema.js";
@@ -93,21 +91,5 @@ describe("model token from existing schema", () => {
     const sourceRecord = SourceToken as unknown as Record<symbol, unknown>;
     const fromTokenRecord = FromToken as unknown as Record<symbol, unknown>;
     expect(fromTokenRecord[SCHEMA_DESCRIPTOR]).toBe(sourceRecord[SCHEMA_DESCRIPTOR]);
-  });
-});
-
-describe("discriminated union model token", () => {
-  type Cat = { kind: "cat"; lives: number; };
-  type Dog = { kind: "dog"; breed: string; };
-  type Pet = Cat | Dog;
-
-  it("discriminated union model tokens expose a compiled serializer", () => {
-    const PetModel = model<Pet, "union">("kind", {
-      cat: { lives: int },
-      dog: { breed: str },
-    });
-
-    const modelRecord = PetModel as unknown as Record<symbol, unknown>;
-    expect(typeof modelRecord[COMPILED_SERIALIZER]).toBe("function");
   });
 });

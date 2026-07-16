@@ -3,9 +3,7 @@
  * so DTOs can be named by extension, and owns the compiled-serializer static seam.
  */
 import {
-  type BranchShape,
   type DescriptorValue,
-  type DiscriminantValues,
   type JsonValue,
   type SafeParseResult,
   SCHEMA_BRAND,
@@ -47,10 +45,22 @@ export const COMPILED_SERIALIZER: unique symbol = Symbol.for(
  */
 export type ModelTokenBuilder<T> = (abstract new(...args: never[]) => T) & SchemaToken<T>;
 
+/** Function-parameter contravariance collapses a union into an intersection. */
+type UnionToIntersection<U> = (U extends unknown ? (x: U) => void : never) extends (x: infer I) => void ? I
+  : never;
+
+/**
+ * Rejects union-typed schema tokens at the `model()` call site: a class cannot carry a
+ * union instance type, so a union has no extendable face. Resolves to `unknown` (no
+ * added constraint) for object shapes and to an error-message literal for unions.
+ */
+type NonUnionGuard<T> = [T] extends [UnionToIntersection<T>] ? unknown
+  : "model() cannot wrap a union schema: a class cannot carry a union instance type. Use the schema token directly.";
+
 /**
  * Creates an extendable schema token for naming and authoring model classes.
  *
- * Three calling forms are supported:
+ * Two calling forms are supported:
  *
  * **From a descriptor** - define field shapes inline:
  * ```ts
@@ -66,45 +76,27 @@ export type ModelTokenBuilder<T> = (abstract new(...args: never[]) => T) & Schem
  * class UserModel extends model(UserSchema) {}
  * ```
  *
- * **Discriminated union** - branch on a string discriminant key (TypeScript cannot
- * `extends` a union; use a const base class and cast the union branch):
- * ```ts
- * const PetBase = model<Cat | Dog, "union">("kind", {
- *   cat: { lives: int },
- *   dog: { breed: str },
- * });
- * class PetModel extends (PetBase as ModelTokenBuilder<Cat | Dog>) {}
- * ```
+ * Discriminated unions have no model form: a class cannot carry a union instance type,
+ * so the extendable face `model()` exists for is unavailable to them. Use
+ * `schema<T, "union">(discriminant, branches)` directly; a union-typed schema token is
+ * rejected at the `model()` call site.
  *
  * The returned token also satisfies {@link SchemaToken}`<T>`, so it can be used
  * as a nested field value inside other schema descriptors.
  */
-export function model<T extends object>(schema: SchemaToken<T>): ModelTokenBuilder<T>;
+export function model<T extends object>(schema: SchemaToken<T> & NonUnionGuard<T>): ModelTokenBuilder<T>;
 export function model<T extends object>(descriptor: { [K in keyof T]: DescriptorValue<T[K]>; }): ModelTokenBuilder<T>;
-export function model<T extends object, _ extends "union", K extends keyof T & string = keyof T & string>(
-  discriminant: K,
-  branches: {
-    [V in DiscriminantValues<T, K>]: { [F in keyof BranchShape<T, K, V>]: DescriptorValue<BranchShape<T, K, V>[F]>; };
-  },
-): ModelTokenBuilder<T>;
 export function model<T extends object>(
-  descriptorOrDiscriminant: SchemaToken<T> | { [K in keyof T]: DescriptorValue<T[K]>; } | (keyof T & string),
-  branches?: { [key: string]: { [field: string]: DescriptorValue<T[keyof T]>; }; },
+  tokenOrDescriptor: SchemaToken<T> | { [K in keyof T]: DescriptorValue<T[K]>; },
 ): ModelTokenBuilder<T> {
   let token: SchemaToken<T>;
-  if (typeof descriptorOrDiscriminant === "object" && SCHEMA_BRAND in (descriptorOrDiscriminant as object)) {
-    token = descriptorOrDiscriminant as SchemaToken<T>;
+  if (SCHEMA_BRAND in (tokenOrDescriptor as object)) {
+    token = tokenOrDescriptor as SchemaToken<T>;
   } else {
-    // The implementation signature of schema() is not among its public overloads; this
-    // local view lets model() forward either calling form to the single implementation.
-    type SchemaImpl = (
-      descriptorOrDiscriminant: { [K in keyof T]: DescriptorValue<T[K]>; } | (keyof T & string),
-      branches?: { [key: string]: { [field: string]: DescriptorValue<T[keyof T]>; }; },
-    ) => SchemaToken<T>;
-    token = (schema as SchemaImpl)(
-      descriptorOrDiscriminant as { [K in keyof T]: DescriptorValue<T[K]>; } | (keyof T & string),
-      branches,
-    );
+    // The descriptor overload of schema() infers its own shape; this local view lets
+    // model() forward the already-constrained descriptor to the single implementation.
+    type SchemaImpl = (descriptor: { [K in keyof T]: DescriptorValue<T[K]>; }) => SchemaToken<T>;
+    token = (schema as SchemaImpl)(tokenOrDescriptor as { [K in keyof T]: DescriptorValue<T[K]>; });
   }
 
   // The descriptor store is the declared SCHEMA_DESCRIPTOR erasure seam; the symbol
