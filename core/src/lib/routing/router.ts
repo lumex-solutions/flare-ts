@@ -19,9 +19,8 @@
  *
  * `W = ceil(N / 32)` is the number of 32-bit words needed to represent the
  * full route set. The generated {@link generateMatchFunction | match function}
- * bakes `W` as a closure constant so V8 constant-folds all `W`-dependent
- * branches at JIT time, producing machine code equivalent to hand-written,
- * width-specific code.
+ * bakes `W` as a closure constant, emitting width-specific straight-line code
+ * the runtime can optimize similarly to hand-written specialized code.
  *
  * Supports up to {@link MAX_ROUTES} (1024) routes.
  */
@@ -449,9 +448,9 @@ function countTrailingZeros(n: number): number {
  * via `new Function`, capturing the pre-built bitmask tables in its closure.
  *
  * The generated body contains exactly `W` named locals (`w0`..`w{W-1}`), one
- * per bitmask word. V8 sees these as constants at JIT time and eliminates all
- * width-dependent branches: the compiled machine code is identical to
- * hand-written, `W`-specific code.
+ * per bitmask word, and no width-dependent branches: width-specific
+ * straight-line code the runtime can optimize similarly to hand-written
+ * specialized code.
  *
  * The discriminator loop is a fixed template identical for every `W`.
  */
@@ -533,19 +532,33 @@ function generateMatchFunction(
 
   const src = lines.join("\n");
 
-  return new Function(
-    "depthMask",
-    "anyMask",
-    "discMasks",
-    "discs",
-    "staticMap",
-    "segStart",
-    "segEnd",
-    "ctz32fn",
-    `return function matchFlare(path) {\n${src}\n//# sourceURL=flare://router/matchFlare\n};`,
-    // new Function's call result is untyped; the cast restates the signature the
-    // assembled source above is built to satisfy.
-  )(depthMask, anyMask, discMasks, discs, staticMap, segStart, segEnd, countTrailingZeros) as (
-    path: string,
-  ) => number;
+  try {
+    return new Function(
+      "depthMask",
+      "anyMask",
+      "discMasks",
+      "discs",
+      "staticMap",
+      "segStart",
+      "segEnd",
+      "ctz32fn",
+      `return function matchFlare(path) {\n${src}\n//# sourceURL=flare://router/matchFlare\n};`,
+      // new Function's call result is untyped; the cast restates the signature the
+      // assembled source above is built to satisfy.
+    )(depthMask, anyMask, discMasks, discs, staticMap, segStart, segEnd, countTrailingZeros) as (
+      path: string,
+    ) => number;
+  } catch (err) {
+    // On Workers, new Function() during startup requires a compatibility date of
+    // 2025-06-01 or later (or the allow_eval_during_startup flag); when the runtime
+    // blocks it, name the real cause instead of surfacing a generic boot failure.
+    if (err instanceof EvalError || (err instanceof Error && /eval|code generation/i.test(err.message))) {
+      throw new Error(
+        "[flare] router compilation uses new Function() at startup. On Cloudflare Workers this requires "
+          + "compatibility_date >= 2025-06-01 or the allow_eval_during_startup compatibility flag. "
+          + `Original error: ${(err as Error).message}`,
+      );
+    }
+    throw err;
+  }
 }

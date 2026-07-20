@@ -15,6 +15,7 @@ import { DeadMiddlewareValidator } from "./dead-middleware-validator.js";
 import { DuplicateRouteValidator } from "./duplicate-route-validator.js";
 import { MiddlewareStateCycleValidator } from "./middleware-state-cycle-validator.js";
 import { RouteParamValidator } from "./route-param-validator.js";
+import { RoutePriorityAmbiguityValidator } from "./route-priority-ambiguity-validator.js";
 import { RouteSyntaxValidator } from "./route-syntax-validator.js";
 import { SignedCookiesValidator } from "./signed-cookies-validator.js";
 
@@ -44,7 +45,8 @@ export type HttpValidationContext = {
 /**
  * Creates the composite validator for the HTTP arc layer.
  *
- * Runs in order: CORS -> route syntax -> route params -> duplicate routes -> middleware state cycles -> contracts -> dead middleware -> signed cookies.
+ * Runs in order: CORS -> route syntax -> route params -> duplicate routes -> route priority
+ * ambiguity -> middleware state cycles -> contracts -> dead middleware -> signed cookies.
  * All validators run and collect their results; build does not halt on the first error.
  */
 export function createHttpValidator(): CompositeValidator<HttpValidationContext> {
@@ -53,6 +55,7 @@ export function createHttpValidator(): CompositeValidator<HttpValidationContext>
     new RouteSyntaxValidator(),
     new RouteParamValidator(),
     new DuplicateRouteValidator(),
+    new RoutePriorityAmbiguityValidator(),
     new MiddlewareStateCycleValidator(),
     new ContractValidator(),
     new DeadMiddlewareValidator(),

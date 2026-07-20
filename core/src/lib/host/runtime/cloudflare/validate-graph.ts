@@ -27,6 +27,7 @@ import { LifecycleHookValidator } from "../../../validation/service/lifecycle-ho
 import { ServiceRegistrationValidator } from "../../../validation/service/service-registration-validator.js";
 import { WsConfigValidator } from "../../../validation/ws/config-validator.js";
 import { WsRouteConflictValidator } from "../../../validation/ws/route-conflict-validator.js";
+import { WsRoutePriorityAmbiguityValidator } from "../../../validation/ws/route-priority-ambiguity-validator.js";
 import { WsRouteSyntaxValidator } from "../../../validation/ws/route-syntax-validator.js";
 import { Bindings } from "./bindings.js";
 import { DurableState } from "./do/durable-state.js";
@@ -279,6 +280,7 @@ function wsValidationErrors(graph: CfValidationGraph): ValidationError[] {
   const wsConfig = (graph.resolvedConfig as { websockets?: WebSocketsConfig; }).websockets;
   const syntax = new WsRouteSyntaxValidator();
   const conflict = new WsRouteConflictValidator();
+  const ambiguity = new WsRoutePriorityAmbiguityValidator();
   const results: ValidationError[] = [];
 
   const contexts: ReadonlyArray<{ ws: WebSocketArc; http: HttpArc<"sync">; }> = [
@@ -292,7 +294,7 @@ function wsValidationErrors(graph: CfValidationGraph): ValidationError[] {
       httpControllers: arcControllers(http),
       config: wsConfig,
     };
-    results.push(...syntax.validate(ctx), ...conflict.validate(ctx));
+    results.push(...syntax.validate(ctx), ...conflict.validate(ctx), ...ambiguity.validate(ctx));
   }
 
   // Channels need a broadcast domain, and the front-door Worker has none: workerd pins each connection

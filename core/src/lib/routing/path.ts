@@ -27,14 +27,26 @@ export function assertRegistrationPath(path: string, label = "Path"): void {
 }
 
 /**
+ * Longest inbound pathname accepted for matching. Far below the router's Int16Array
+ * segment-offset scratch bound (32,767) and typical platform URL limits, so the
+ * offset invariant is owned here rather than inherited from whatever transport
+ * fronted the request.
+ *
+ * @internal
+ */
+export const MAX_INBOUND_PATH_LENGTH = 8192;
+
+/**
  * Returns whether an inbound request pathname is safe to match.
  *
  * Rejects the same shapes blocked at route registration ({@link assertRegistrationPath}): paths that
- * do not start with `/`, end with `/` (except `/`), or contain `//`.
+ * do not start with `/`, end with `/` (except `/`), or contain `//`. Also rejects pathnames longer
+ * than {@link MAX_INBOUND_PATH_LENGTH}.
  *
  * @internal
  */
 export function isValidInboundPath(path: string): boolean {
+  if (path.length > MAX_INBOUND_PATH_LENGTH) return false;
   if (!path.startsWith("/")) return false;
   if (path.length > 1 && path.endsWith("/")) return false;
   if (path.includes("//")) return false;

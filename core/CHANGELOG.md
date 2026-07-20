@@ -54,6 +54,15 @@ host extensions are coming soon.
 
 ### Added
 
+- `host.build()` reports a `ROUTE_PRIORITY_AMBIGUITY` warning when two routes have equal
+  specificity scores and can match the same path (for example `/a/:v/c` and `/a/b/:v`),
+  and a `WS_ROUTE_PRIORITY_AMBIGUITY` warning for the same tie between WebSocket routes.
+  Both arcs share one specificity rule and one overlap definition. The outcome was
+  already deterministic (registration order decides via the matcher's stable ordering);
+  the warning names both routes, the shared score, and the winner so the ambiguity is
+  visible at build instead of discovered in production. On Cloudflare the checks run per
+  arc: the front door and every per-DO `.http` / `.ws` arc.
+
 - `FlareApp`, `HostState`, and `ScopedServicesView` are exported from `@flare-ts/core`,
   and `FlareAppNode` is exported as a type from `@flare-ts/core/node` (parity with
   `FlareAppCF` on the cloudflare entry), so helpers can name `host.build()`'s return
@@ -261,6 +270,23 @@ host extensions are coming soon.
 - `scope.config(token)` now works in function-form middleware and error handlers.
   Previously it always threw a missing-static-config error; only route handlers could
   read config through the scope.
+
+- A `before` or `after` hook written as a plain (non-`async`) function that returns a
+  Promise now fails with a coded error naming the hook: function color is the
+  compiler's only async signal, so such a hook cannot be compiled as an awaited step.
+  Previously the returned Promise was treated as a short-circuit override, which
+  skipped the handler and misattributed the failure to it. Declare the hook `async`
+  to have the pipeline await it.
+
+- When the Workers runtime blocks `new Function()` at startup (compatibility date
+  before 2025-06-01 without `allow_eval_during_startup`), router and route compilation
+  now fail with an error naming the compatibility requirement instead of a generic
+  boot error.
+
+- Inbound pathnames longer than 8192 characters are rejected with the standard
+  invalid-path 400 before matching. The router's segment-offset scratch buffers are
+  16-bit; the bound was previously inherited from transport URL limits rather than
+  owned by the framework.
 
 - A state token derivation (`.from()`) that throws now surfaces as
   `State derivation for token "X" threw: <message>` with the original error preserved

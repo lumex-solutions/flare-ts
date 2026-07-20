@@ -278,9 +278,13 @@ function _buildShapeFactory(
         );
         return stmts;
       }
+      // Same non-async-Promise guard as the sync before slots; see genBeforeChain.
       stmts.push(
         `{ const _am = ${cacheRefA(i)};`,
-        `  try { const _ar = _am.after(${rv}); if (_ar !== undefined) ${rv} = _ar; }`,
+        `  try { const _ar = _am.after(${rv}); if (_ar !== undefined) {`,
+        `    if (_ar instanceof Promise) throw new Error("[flare] after hook '" + stageNames[${execIdx}] + `
+          + `"' returned a Promise from a non-async function. Declare the hook async so the pipeline awaits it.");`,
+        `    ${rv} = _ar; } }`,
         `  catch (err) { ${retErr("after", execIdx)} } }`,
       );
     }
@@ -357,11 +361,19 @@ function _buildShapeFactory(
   function genBeforeChain(fromIdx: number): string[] {
     const stmts: string[] = [];
     let i = fromIdx;
-    // Emit consecutive sync befores inline.
+    // Emit consecutive sync befores inline. A sync-classified hook is compiled without
+    // an await; function color is the only compile-time async signal, so a Promise
+    // returned here means an async-behaving hook the compiler cannot see. Treating it
+    // as a short-circuit override would skip the handler and misattribute the failure,
+    // so it fails loud with the hook named. The check sits inside the rare
+    // non-undefined-return branch: the common continue path never pays for it.
     while (i < B && !bAsync[i]) {
       stmts.push(
         `{ const _bm = ${cacheRefB(i)};`,
-        `  try { const _br = _bm.before(); if (_br !== undefined) { ${retFin("_br")} } }`,
+        `  try { const _br = _bm.before(); if (_br !== undefined) {`,
+        `    if (_br instanceof Promise) throw new Error("[flare] before hook '" + stageNames[${i}] + `
+          + `"' returned a Promise from a non-async function. Declare the hook async so the pipeline awaits it.");`,
+        `    ${retFin("_br")} } }`,
         `  catch (err) { ${retErr("before", i)} } }`,
       );
       i++;
@@ -401,11 +413,25 @@ function _buildShapeFactory(
     `//# sourceURL=flare://exec-shape/${shapeKey}`,
   ].join("\n");
 
-  return new Function("_dispatchError", "_prepareRequestBody", "_he", src)(
-    dispatchErrorHandlers,
-    prepareRequestBody,
-    HANDLER_ERRORED,
-  ) as (...args: unknown[]) => ExecFn;
+  try {
+    return new Function("_dispatchError", "_prepareRequestBody", "_he", src)(
+      dispatchErrorHandlers,
+      prepareRequestBody,
+      HANDLER_ERRORED,
+    ) as (...args: unknown[]) => ExecFn;
+  } catch (err) {
+    // On Workers, new Function() during startup requires a compatibility date of
+    // 2025-06-01 or later (or the allow_eval_during_startup flag); when the runtime
+    // blocks it, name the real cause instead of surfacing a generic boot failure.
+    if (err instanceof EvalError || (err instanceof Error && /eval|code generation/i.test(err.message))) {
+      throw new Error(
+        "[flare] route compilation uses new Function() at startup. On Cloudflare Workers this requires "
+          + "compatibility_date >= 2025-06-01 or the allow_eval_during_startup compatibility flag. "
+          + `Original error: ${(err as Error).message}`,
+      );
+    }
+    throw err;
+  }
 }
 
 function _isAsyncFn(fn: Function): boolean {

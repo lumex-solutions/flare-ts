@@ -490,4 +490,54 @@ describe("Cross-Feature Interactions", () => {
       }
     },
   );
+
+  it(
+    "a sync-classified before hook that returns a Promise fails with a coded error instead of skipping the handler",
+    async () => {
+      const host = testHost();
+      let seen: string | undefined;
+      host.http.error((err) => {
+        seen = err.message;
+        return new FlareResponse(500, { error: "hook misuse" });
+      });
+      // Function color is the compiler's only async signal, so a plain function
+      // returning a Promise cannot be compiled as an awaited step; the generated
+      // slot rejects it with the hook named rather than treating the Promise as a
+      // short-circuit override (which would skip the handler and blame it).
+      host.http.before(() => Promise.resolve(undefined));
+      host.http.get("/guard", () => new FlareResponse(200, { ran: true }));
+
+      const app = await host.build().test();
+      try {
+        const res = await app.fetch("GET /guard");
+        expect(res.status).toBe(500);
+        expect(seen).toContain("returned a Promise from a non-async function");
+      } finally {
+        await app.stop();
+      }
+    },
+  );
+
+  it(
+    "a sync-classified after hook that returns a Promise fails with the same coded error",
+    async () => {
+      const host = testHost();
+      let seen: string | undefined;
+      host.http.error((err) => {
+        seen = err.message;
+        return new FlareResponse(500, { error: "hook misuse" });
+      });
+      host.http.after(() => Promise.resolve(undefined));
+      host.http.get("/guard", () => new FlareResponse(200, { ran: true }));
+
+      const app = await host.build().test();
+      try {
+        const res = await app.fetch("GET /guard");
+        expect(res.status).toBe(500);
+        expect(seen).toContain("returned a Promise from a non-async function");
+      } finally {
+        await app.stop();
+      }
+    },
+  );
 });

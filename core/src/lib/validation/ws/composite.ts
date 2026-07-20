@@ -7,6 +7,7 @@ import type { WebSocketsConfig } from "../../config/flare-config.js";
 import { CompositeValidator } from "../composite-validator.js";
 import { WsConfigValidator } from "./config-validator.js";
 import { WsRouteConflictValidator } from "./route-conflict-validator.js";
+import { WsRoutePriorityAmbiguityValidator } from "./route-priority-ambiguity-validator.js";
 import { WsRouteSyntaxValidator } from "./route-syntax-validator.js";
 
 /**
@@ -28,13 +29,15 @@ export type WsValidationContext = {
 /**
  * Creates the composite validator for the WebSocket arc layer.
  *
- * Runs in order: route syntax -> route conflicts (WS-internal duplicates + HTTP/WS cross-arc) -> config
- * sanity. All validators run and collect their results; the build does not halt on the first error.
+ * Runs in order: route syntax -> route conflicts (WS-internal duplicates + HTTP/WS cross-arc) -> route
+ * priority ambiguity -> config sanity. All validators run and collect their results; the build does
+ * not halt on the first error.
  */
 export function createWsValidator(): CompositeValidator<WsValidationContext> {
   return new CompositeValidator<WsValidationContext>([
     new WsRouteSyntaxValidator(),
     new WsRouteConflictValidator(),
+    new WsRoutePriorityAmbiguityValidator(),
     new WsConfigValidator(),
   ]);
 }
