@@ -267,6 +267,14 @@ host extensions are coming soon.
 
 ### Fixed
 
+- The HTTP error responses returned before the pipeline runs (invalid route or query
+  parameters, invalid request path, the not-ready 503) previously sent an empty body
+  with `Content-Type: application/json`: they skip the pipeline's JSON serialization,
+  so the payload was never written and the reason reached only the server log. Each now
+  ships its body: route and query contract failures respond `{"error": "..."}` like
+  body-contract failures; the invalid-path 400, the not-ready 503, and decode failures
+  on routes without a contract respond plain text like 404/405.
+
 - `scope.config(token)` now works in function-form middleware and error handlers.
   Previously it always threw a missing-static-config error; only route handlers could
   read config through the scope.

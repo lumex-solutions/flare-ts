@@ -18,10 +18,8 @@ export function joinRoutePath(basePath: string, routePath: string): string {
 }
 
 /**
- * HTTP response body for inbound pathnames that violate Flare path rules. The validity check itself
- * ({@link isValidInboundPath}) is generic and lives in `lib/routing/path.ts`.
+ * HTTP response body for inbound pathnames that violate Flare path rules. The validity check
+ * itself ({@link isValidInboundPath}) is generic and lives in `lib/routing/path.ts`.
  */
-export const INVALID_REQUEST_PATH_BODY = {
-  error:
-    'Invalid request path. Paths must start with "/", must not contain empty segments ("//"), and must not end with a trailing slash except for "/".',
-} as const;
+export const INVALID_REQUEST_PATH_MESSAGE =
+  'Invalid request path. Paths must start with "/", must not contain empty segments ("//"), and must not end with a trailing slash except for "/".';

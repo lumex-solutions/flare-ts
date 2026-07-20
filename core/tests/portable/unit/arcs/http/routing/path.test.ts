@@ -1,12 +1,12 @@
-/** Unit tests for joinRoutePath and INVALID_REQUEST_PATH_BODY. */
+/** Unit tests for joinRoutePath and INVALID_REQUEST_PATH_MESSAGE. */
 import { describe, expect, it } from "vitest";
-import { INVALID_REQUEST_PATH_BODY, joinRoutePath } from "../../../../../../src/lib/arcs/http/routing/path.js";
+import { INVALID_REQUEST_PATH_MESSAGE, joinRoutePath } from "../../../../../../src/lib/arcs/http/routing/path.js";
 
-describe("INVALID_REQUEST_PATH_BODY", () => {
-  it("documents the client-facing 400 shape", () => {
-    expect(INVALID_REQUEST_PATH_BODY.error).toMatch(/start with "\/"/);
-    expect(INVALID_REQUEST_PATH_BODY.error).toMatch(/trailing slash/);
-    expect(INVALID_REQUEST_PATH_BODY.error).toMatch(/empty segment/);
+describe("INVALID_REQUEST_PATH_MESSAGE", () => {
+  it("documents the client-facing 400 text", () => {
+    expect(INVALID_REQUEST_PATH_MESSAGE).toMatch(/start with "\/"/);
+    expect(INVALID_REQUEST_PATH_MESSAGE).toMatch(/trailing slash/);
+    expect(INVALID_REQUEST_PATH_MESSAGE).toMatch(/empty segment/);
   });
 });
 

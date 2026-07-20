@@ -28,11 +28,11 @@ import { stream } from "./composition/contract/http-contract.js";
 import { HttpGroup } from "./composition/group.js";
 import { applyActualCorsHeaders, buildCorsPreflightResponse, checkOriginAllowed } from "./cors.js";
 import { deriveAllowedMethods } from "./routing/allow-methods.js";
-import { INVALID_REQUEST_PATH_BODY } from "./routing/path.js";
+import { INVALID_REQUEST_PATH_MESSAGE } from "./routing/path.js";
 import { METHOD_IDX_MAP } from "./routing/types/methods.js";
 import { INSTANCE_SINGLETONS, SET_REQ_CTX } from "./transport/flare-http-context.js";
 import { type FlareRequest, SET_MAX_BODY_BYTES, SET_ROUTE_PARAMS } from "./transport/flare-request.js";
-import { FlareResponse } from "./transport/flare-response.js";
+import { FINALIZE_JSON_BODY, FlareResponse } from "./transport/flare-response.js";
 import { normalizeHandlerResult } from "./transport/normalize.js";
 import { COOKIE_SIGNER } from "./transport/types/cookies.js";
 
@@ -259,13 +259,13 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
    */
   public fetch(ctx: FlareHttpContext): ResponseLike | Promise<ResponseLike> {
     if (!this.#router) {
-      return new FlareResponse(503, { error: "Application not ready. Call host.build() before handling requests." });
+      return new FlareResponse(503, "Application not ready. Call host.build() before handling requests.");
     }
 
     const request = ctx.req;
 
     if (!isValidInboundPath(request.path)) {
-      return new FlareResponse(400, INVALID_REQUEST_PATH_BODY);
+      return new FlareResponse(400, INVALID_REQUEST_PATH_MESSAGE);
     }
 
     const idx = this.#router.match(request.path);
@@ -355,9 +355,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
           );
         } catch (err) {
           this.host.logger.warn("Route parameter parsing failed", { error: toErrorField(err) });
-          return new FlareResponse(400, {
-            error: "Invalid route parameters. Check that your URL path matches the expected format.",
-          });
+          return contractRejection("Invalid route parameters. Check that your URL path matches the expected format.");
         }
       } else {
         // If no route contract provided, still need to extract raw route params for controller
@@ -376,9 +374,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
             );
           } catch (err) {
             this.host.logger.warn("Route parameter parsing failed", { error: toErrorField(err) });
-            return new FlareResponse(400, {
-              error: "Invalid route parameters. Check that your URL path matches the expected format.",
-            });
+            return new FlareResponse(400, "Invalid route parameters. Check that your URL path matches the expected format.");
           }
         }
       }
@@ -389,9 +385,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
           queryParams = this.#extractQueryParams(request.url, compiledQuery);
         } catch (err) {
           this.host.logger.warn("Query parameter parsing failed", { error: toErrorField(err) });
-          return new FlareResponse(400, {
-            error: "Invalid query parameters. Check that your URL query string matches the expected format.",
-          });
+          return contractRejection("Invalid query parameters. Check that your URL query string matches the expected format.");
         }
       }
 
@@ -416,9 +410,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
           );
         } catch (err) {
           this.host.logger.warn("Route parameter parsing failed", { error: toErrorField(err) });
-          return new FlareResponse(400, {
-            error: "Invalid route parameters. Check that your URL path matches the expected format.",
-          });
+          return new FlareResponse(400, "Invalid route parameters. Check that your URL path matches the expected format.");
         }
       }
     }
@@ -716,4 +708,15 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
     if (results.length === 1) return results[0]!;
     return results;
   }
+}
+
+/**
+ * 400 carrying the contract-failure `{ error }` envelope, serialized at
+ * construction: these returns exit fetch before the pipeline, so nothing
+ * downstream runs `normalizeHandlerResult` for them.
+ */
+function contractRejection(message: string): FlareResponse {
+  const response = new FlareResponse(400, { error: message });
+  response[FINALIZE_JSON_BODY](JSON.stringify({ error: message }));
+  return response;
 }

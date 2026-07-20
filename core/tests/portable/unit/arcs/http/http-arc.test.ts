@@ -18,7 +18,7 @@ import {
   STOP_HTTP_ARC,
   STOP_HTTP_ARC_ASYNC,
 } from "../../../../../src/lib/arcs/http/http-arc.js";
-import { INVALID_REQUEST_PATH_BODY } from "../../../../../src/lib/arcs/http/routing/path.js";
+import { INVALID_REQUEST_PATH_MESSAGE } from "../../../../../src/lib/arcs/http/routing/path.js";
 import { DECORATOR_METADATA_SYMBOL, ROUTE_STORE } from "../../../../../src/lib/arcs/http/routing/route-store.js";
 import { FlareHttpContext } from "../../../../../src/lib/arcs/http/transport/flare-http-context.js";
 import { FlareRequest } from "../../../../../src/lib/arcs/http/transport/flare-request.js";
@@ -367,7 +367,7 @@ describe("HttpArc.fetch", () => {
     for (const url of ["/users/", "/users//1", "//users"]) {
       const res = arc.fetch(makeCtx("GET", url)) as FlareResponse;
       expect(res.status).toBe(400);
-      expect(res.jsonBody).toEqual(INVALID_REQUEST_PATH_BODY);
+      expect(res.body).toBe(INVALID_REQUEST_PATH_MESSAGE);
     }
 
     const ok = arc.fetch(makeCtx("GET", "/users")) as FlareResponse;
@@ -389,7 +389,7 @@ describe("HttpArc.fetch", () => {
 
     const res = arc.fetch(makeCtx("GET", "")) as FlareResponse;
     expect(res.status).toBe(400);
-    expect(res.jsonBody).toEqual(INVALID_REQUEST_PATH_BODY);
+    expect(res.body).toBe(INVALID_REQUEST_PATH_MESSAGE);
   });
 
   it("returns 400 when route parameter decoding fails", () => {
@@ -409,9 +409,7 @@ describe("HttpArc.fetch", () => {
 
     const res = arc.fetch(makeCtx("GET", "/items/%ZZ")) as FlareResponse;
     expect(res.status).toBe(400);
-    expect(res.jsonBody).toEqual({
-      error: "Invalid route parameters. Check that your URL path matches the expected format.",
-    });
+    expect(res.body).toBe("Invalid route parameters. Check that your URL path matches the expected format.");
   });
 
   it("OPTIONS without origin and no OPTIONS handler returns the auto-Allow 204 response", () => {
