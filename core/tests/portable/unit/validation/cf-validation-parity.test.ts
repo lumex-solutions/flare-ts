@@ -31,11 +31,12 @@ function innerValidatorNames(composite: object): string[] {
  * CF_EXCLUDED_VALIDATORS with a comment explaining why.
  */
 const CF_COVERED_VALIDATORS = new Set<string>([
-  // HTTP composite (all 8 -- createHttpValidator() is called per arc)
+  // HTTP composite (all 9 -- createHttpValidator() is called per arc)
   "CorsValidator",
   "RouteSyntaxValidator",
   "RouteParamValidator",
   "DuplicateRouteValidator",
+  "RoutePriorityAmbiguityValidator",
   "MiddlewareStateCycleValidator",
   "ContractValidator",
   "DeadMiddlewareValidator",

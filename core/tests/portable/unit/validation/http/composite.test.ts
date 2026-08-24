@@ -12,6 +12,7 @@ import { DeadMiddlewareValidator } from "../../../../../src/lib/validation/http/
 import { DuplicateRouteValidator } from "../../../../../src/lib/validation/http/duplicate-route-validator.js";
 import { MiddlewareStateCycleValidator } from "../../../../../src/lib/validation/http/middleware-state-cycle-validator.js";
 import { RouteParamValidator } from "../../../../../src/lib/validation/http/route-param-validator.js";
+import { RoutePriorityAmbiguityValidator } from "../../../../../src/lib/validation/http/route-priority-ambiguity-validator.js";
 import { RouteSyntaxValidator } from "../../../../../src/lib/validation/http/route-syntax-validator.js";
 import { SignedCookiesValidator } from "../../../../../src/lib/validation/http/signed-cookies-validator.js";
 
@@ -26,19 +27,20 @@ function innerValidators<T>(
 }
 
 describe("createHttpValidator", () => {
-  it("composes exactly [CorsValidator, RouteSyntaxValidator, RouteParamValidator, DuplicateRouteValidator, MiddlewareStateCycleValidator, ContractValidator, DeadMiddlewareValidator, SignedCookiesValidator] in that order", () => {
+  it("composes exactly [CorsValidator, RouteSyntaxValidator, RouteParamValidator, DuplicateRouteValidator, RoutePriorityAmbiguityValidator, MiddlewareStateCycleValidator, ContractValidator, DeadMiddlewareValidator, SignedCookiesValidator] in that order", () => {
     const composite = createHttpValidator();
     const inner = innerValidators(composite);
 
-    expect(inner).toHaveLength(8);
+    expect(inner).toHaveLength(9);
     expect(inner[0]).toBeInstanceOf(CorsValidator);
     expect(inner[1]).toBeInstanceOf(RouteSyntaxValidator);
     expect(inner[2]).toBeInstanceOf(RouteParamValidator);
     expect(inner[3]).toBeInstanceOf(DuplicateRouteValidator);
-    expect(inner[4]).toBeInstanceOf(MiddlewareStateCycleValidator);
-    expect(inner[5]).toBeInstanceOf(ContractValidator);
-    expect(inner[6]).toBeInstanceOf(DeadMiddlewareValidator);
-    expect(inner[7]).toBeInstanceOf(SignedCookiesValidator);
+    expect(inner[4]).toBeInstanceOf(RoutePriorityAmbiguityValidator);
+    expect(inner[5]).toBeInstanceOf(MiddlewareStateCycleValidator);
+    expect(inner[6]).toBeInstanceOf(ContractValidator);
+    expect(inner[7]).toBeInstanceOf(DeadMiddlewareValidator);
+    expect(inner[8]).toBeInstanceOf(SignedCookiesValidator);
   });
 
   it("invokes every inner validator when .validate() runs and concatenates their errors in order", () => {
@@ -51,6 +53,7 @@ describe("createHttpValidator", () => {
       "route-syntax",
       "route-param",
       "duplicate-route",
+      "route-priority-ambiguity",
       "middleware-state-cycle",
       "contract",
       "dead-middleware",
@@ -84,6 +87,7 @@ describe("createHttpValidator", () => {
       "STUB_ROUTE-SYNTAX",
       "STUB_ROUTE-PARAM",
       "STUB_DUPLICATE-ROUTE",
+      "STUB_ROUTE-PRIORITY-AMBIGUITY",
       "STUB_MIDDLEWARE-STATE-CYCLE",
       "STUB_CONTRACT",
       "STUB_DEAD-MIDDLEWARE",
@@ -91,7 +95,7 @@ describe("createHttpValidator", () => {
     ]);
   });
 
-  it("constructs inner validators in the order described by the source JSDoc (CORS -> route syntax -> route params -> duplicate routes -> middleware state cycles -> contracts -> dead middleware -> signed cookies)", () => {
+  it("constructs inner validators in the order described by the source JSDoc (CORS -> route syntax -> route params -> duplicate routes -> route priority ambiguity -> middleware state cycles -> contracts -> dead middleware -> signed cookies)", () => {
     // This pins the runtime run-order to the documented order. If either drifts,
     // this test fails and the divergence must be reconciled.
     const composite = createHttpValidator();
@@ -103,6 +107,7 @@ describe("createHttpValidator", () => {
       "RouteSyntaxValidator",
       "RouteParamValidator",
       "DuplicateRouteValidator",
+      "RoutePriorityAmbiguityValidator",
       "MiddlewareStateCycleValidator",
       "ContractValidator",
       "DeadMiddlewareValidator",

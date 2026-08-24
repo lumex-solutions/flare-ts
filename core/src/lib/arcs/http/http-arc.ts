@@ -374,7 +374,10 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
             );
           } catch (err) {
             this.host.logger.warn("Route parameter parsing failed", { error: toErrorField(err) });
-            return new FlareResponse(400, "Invalid route parameters. Check that your URL path matches the expected format.");
+            return new FlareResponse(
+              400,
+              "Invalid route parameters. Check that your URL path matches the expected format.",
+            );
           }
         }
       }
@@ -385,7 +388,9 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
           queryParams = this.#extractQueryParams(request.url, compiledQuery);
         } catch (err) {
           this.host.logger.warn("Query parameter parsing failed", { error: toErrorField(err) });
-          return contractRejection("Invalid query parameters. Check that your URL query string matches the expected format.");
+          return contractRejection(
+            "Invalid query parameters. Check that your URL query string matches the expected format.",
+          );
         }
       }
 
@@ -410,7 +415,10 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
           );
         } catch (err) {
           this.host.logger.warn("Route parameter parsing failed", { error: toErrorField(err) });
-          return new FlareResponse(400, "Invalid route parameters. Check that your URL path matches the expected format.");
+          return new FlareResponse(
+            400,
+            "Invalid route parameters. Check that your URL path matches the expected format.",
+          );
         }
       }
     }

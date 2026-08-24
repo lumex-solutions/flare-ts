@@ -39,7 +39,7 @@ describe("Fetch error responses", () => {
     const res = await app.fetch("GET /users/banana?n=1");
     expect(res.status).toBe(400);
     expect(res.headers.get("Content-Type")).toBe("application/json");
-    const body = (await res.json()) as { error: string };
+    const body = (await res.json()) as { error: string; };
     expect(body.error).toContain("Invalid route parameters");
   });
 
@@ -47,7 +47,7 @@ describe("Fetch error responses", () => {
     const res = await app.fetch("GET /users/7?n=banana");
     expect(res.status).toBe(400);
     expect(res.headers.get("Content-Type")).toBe("application/json");
-    const body = (await res.json()) as { error: string };
+    const body = (await res.json()) as { error: string; };
     expect(body.error).toContain("Invalid query parameters");
   });
 

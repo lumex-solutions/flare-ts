@@ -20,12 +20,6 @@ export function toOverlapPattern(path: string): OverlapPattern {
   return { segments, wild, prefixLen: wild ? segments.length - 1 : segments.length };
 }
 
-/** Whether one concrete segment string could satisfy both pattern segments. */
-function segmentsUnify(x: string, y: string): boolean {
-  if (x[0] === ":" || y[0] === ":") return true;
-  return x === y;
-}
-
 /** Whether some concrete path can match both patterns. */
 export function patternsOverlap(a: OverlapPattern, b: OverlapPattern): boolean {
   if (!a.wild && !b.wild) {
@@ -51,4 +45,10 @@ export function patternsOverlap(a: OverlapPattern, b: OverlapPattern): boolean {
     if (!segmentsUnify(wild.segments[k]!, other.segments[k]!)) return false;
   }
   return true;
+}
+
+/** Whether one concrete segment string could satisfy both pattern segments. */
+function segmentsUnify(x: string, y: string): boolean {
+  if (x[0] === ":" || y[0] === ":") return true;
+  return x === y;
 }

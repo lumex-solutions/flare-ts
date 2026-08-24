@@ -31,6 +31,18 @@ export const COMPILED_SERIALIZER: unique symbol = Symbol.for(
   "@flare-ts/schema/compiled-serializer",
 ) as never;
 
+/** Function-parameter contravariance collapses a union into an intersection. */
+type UnionToIntersection<U> = (U extends unknown ? (x: U) => void : never) extends (x: infer I) => void ? I
+  : never;
+
+/**
+ * Rejects union-typed schema tokens at the `model()` call site: a class cannot carry a
+ * union instance type, so a union has no extendable face. Resolves to `unknown` (no
+ * added constraint) for object shapes and to an error-message literal for unions.
+ */
+type NonUnionGuard<T> = [T] extends [UnionToIntersection<T>] ? unknown
+  : "model() cannot wrap a union schema: a class cannot carry a union instance type. Use the schema token directly.";
+
 /**
  * Schema token that also acts as an abstract base class for DTO authoring.
  *
@@ -44,18 +56,6 @@ export const COMPILED_SERIALIZER: unique symbol = Symbol.for(
  * values from {@link schema} are intentionally not extendable.
  */
 export type ModelTokenBuilder<T> = (abstract new(...args: never[]) => T) & SchemaToken<T>;
-
-/** Function-parameter contravariance collapses a union into an intersection. */
-type UnionToIntersection<U> = (U extends unknown ? (x: U) => void : never) extends (x: infer I) => void ? I
-  : never;
-
-/**
- * Rejects union-typed schema tokens at the `model()` call site: a class cannot carry a
- * union instance type, so a union has no extendable face. Resolves to `unknown` (no
- * added constraint) for object shapes and to an error-message literal for unions.
- */
-type NonUnionGuard<T> = [T] extends [UnionToIntersection<T>] ? unknown
-  : "model() cannot wrap a union schema: a class cannot carry a union instance type. Use the schema token directly.";
 
 /**
  * Creates an extendable schema token for naming and authoring model classes.
