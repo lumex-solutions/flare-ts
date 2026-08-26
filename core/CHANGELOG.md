@@ -1,5 +1,11 @@
 # @flare-ts/core
 
+## 0.4.1
+
+### Added
+
+- New `log.unhandledErrors` config field (default `true`): an error that reaches the framework's fallback response is now logged at `error` level, on both the `FlareError` and plain `Error` branches, before the response envelope replaces it. Previously the error object was dropped, so a throwing route returned its envelope with nothing logged anywhere. Set `false` to own that reporting entirely from an error handler.
+
 ## 0.3.0
 
 Durable Objects and WebSockets become first-class Flare primitives, function-handler dependency injection moves to a named map, and a route's request shape is declared inline or with a branded contract. Full guides for Durable Objects, WebSockets, and host extensions are coming soon.

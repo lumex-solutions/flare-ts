@@ -26,6 +26,7 @@ import {
   execShapeCacheSize,
 } from "../../../../../src/lib/arcs/http/exec-codegen.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
+import { LOG_CONFIG } from "../../../../../src/lib/config/flare-config.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";
 
 function makeControllerCls(
@@ -81,7 +82,7 @@ function ctrlReg(
   };
 }
 
-/** Returns a minimal {@link Container} stub that resolves {@link Logger}. */
+/** Returns a minimal {@link Container} stub that resolves {@link Logger} and the `log` config section. */
 function makeFakeContainer(): Container {
   const logger = {
     warn() {},
@@ -95,6 +96,12 @@ function makeFakeContainer(): Container {
     resolveDep(token: unknown) {
       if (token === Logger) return logger;
       throw new Error(`Unexpected token requested: ${String(token)}`);
+    },
+    // dispatchErrorHandlers reads `unhandledErrors` off the resolved `log` section; a built
+    // container always carries one (defaults filled), so the stub defaults it the same way.
+    resolveCfg(token: unknown) {
+      if (token === LOG_CONFIG) return { unhandledErrors: true };
+      throw new Error(`Unexpected config token requested: ${String(token)}`);
     },
   } as unknown as Container;
 }

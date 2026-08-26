@@ -141,6 +141,12 @@ export type LogConfig = {
   format: "pretty" | "json";
   /** When `true`, the logger uses AsyncLocalStorage to stamp all LogRecords with a source and id. Defaults to `false`. */
   enableContext: boolean;
+  /**
+   * When `true` (the default), an error that reaches the framework's fallback response is logged at
+   * `error` before the envelope replaces it: the request errored and no registered error handler
+   * produced a response for it. Set `false` to own that reporting entirely from an error handler.
+   */
+  unhandledErrors: boolean;
   /** Per-transport minimum level overrides. Keys are transport `static name` values. */
   transports?: Record<string, { level: LogLevel; }>;
 };
@@ -287,5 +293,6 @@ export const LOG_CONFIG: ConfigToken<LogConfig> = flareConfig("log", {
   level: defaultTo("info", enums(["trace", "debug", "info", "warn", "error", "fatal"])),
   format: defaultTo("json", enums(["pretty", "json"])),
   enableContext: defaultTo(false, bool),
+  unhandledErrors: defaultTo(true, bool),
   transports: schema([{ $record: TRANSPORT_SCHEMA }]).optional(),
 });

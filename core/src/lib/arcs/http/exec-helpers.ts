@@ -12,6 +12,7 @@ import type { FlareHttpContext } from "./transport/flare-http-context.js";
 import type { ResponseLike } from "./transport/types/response.js";
 import type { Pipeline } from "./types/pipeline.js";
 import type { ErrorHandlerRegistration } from "./types/registration.js";
+import { LOG_CONFIG } from "../../config/flare-config.js";
 import { FlareError } from "../../errors/flare-error.js";
 import { ErrorCategories } from "../../errors/types.js";
 import { toErrorField } from "../../logger/fields.js";
@@ -90,6 +91,9 @@ export function prepareRequestBody(
  * Each handler invocation is wrapped in its own try-catch so a throwing handler
  * never propagates out of this function: it logs and falls through to the next handler.
  * This prevents the pipeline's outer try-catches from re-entering dispatch and cascading.
+ *
+ * Reaching the fallback means no handler produced a response: handleControllerError logs the error
+ * before the synthesized envelope replaces it (unless `log.unhandledErrors` is off).
  */
 export function dispatchErrorHandlers(
   err: FlareError | Error,
@@ -98,10 +102,11 @@ export function dispatchErrorHandlers(
   context: HttpErrorContext,
 ): ResponseLike | Promise<ResponseLike> {
   const logger = container.resolveDep(Logger);
+  const logCfg = container.resolveCfg(LOG_CONFIG);
 
   function tryNext(idx: number): ResponseLike | Promise<ResponseLike> {
     if (idx >= handlers.length) {
-      return handleControllerError(err);
+      return handleControllerError(err, logger, logCfg.unhandledErrors, context);
     }
 
     let handler: ErrorHandlerBase;
@@ -139,7 +144,16 @@ export function dispatchErrorHandlers(
   return tryNext(0);
 }
 
-export function handleControllerError(err: FlareError | Error): ResponseLike {
+export function handleControllerError(
+  err: FlareError | Error,
+  logger: Logger,
+  unhandledErrors: boolean,
+  context: HttpErrorContext,
+): ResponseLike {
+  if (unhandledErrors !== false) {
+    logger.error(err, "Unhandled error", _errorContextMeta(context));
+  }
+
   if (err instanceof FlareError) {
     const detail = err.detail;
     const body: Record<string, JsonValue> = { error: err.name };

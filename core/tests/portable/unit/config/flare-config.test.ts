@@ -101,11 +101,11 @@ describe("HOST_CONFIG", () => {
 });
 
 describe("LOG_CONFIG", () => {
-  it("declares the four log-config fields: level, format, enableContext, transports", () => {
+  it("declares the five log-config fields: level, format, enableContext, unhandledErrors, transports", () => {
     expect(LOG_CONFIG.descriptor).toBeDefined();
     const fields = Object.keys(LOG_CONFIG.descriptor!).sort();
 
-    expect(fields).toEqual(["enableContext", "format", "level", "transports"]);
+    expect(fields).toEqual(["enableContext", "format", "level", "transports", "unhandledErrors"]);
   });
 
   it("yields documented defaults when each scalar descriptor entry is parsed with an empty string", () => {
@@ -114,6 +114,7 @@ describe("LOG_CONFIG", () => {
     expect(field(d, "level")("")).toBe("info");
     expect(field(d, "format")("")).toBe("json");
     expect(field(d, "enableContext")("")).toBe(false);
+    expect(field(d, "unhandledErrors")("")).toBe(true);
   });
 
   it("accepts every LogLevel value for `level` and rejects unknown levels via the enums parser", () => {

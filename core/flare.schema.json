@@ -94,6 +94,11 @@
           "description": "When true, the logger uses AsyncLocalStorage to attach request context (source, requestId) to every log record emitted inside a request.",
           "default": false
         },
+        "unhandledErrors": {
+          "type": "boolean",
+          "description": "When true, an error that reaches the framework's fallback response is logged at error level: the request errored and no registered error handler produced a response for it. Set false to own that reporting from an error handler.",
+          "default": true
+        },
         "transports": {
           "type": "object",
           "description": "Per-transport configuration keyed by the transport's static transportName.",

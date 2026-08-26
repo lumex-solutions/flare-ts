@@ -9,6 +9,7 @@ import type { FlareHttpContext } from "../../../../../src/lib/arcs/http/transpor
 import type { ResponseLike } from "../../../../../src/lib/arcs/http/transport/types/response.js";
 import type { Pipeline } from "../../../../../src/lib/arcs/http/types/pipeline.js";
 import type { ErrorHandlerRegistration } from "../../../../../src/lib/arcs/http/types/registration.js";
+import type { LogConfig } from "../../../../../src/lib/config/flare-config.js";
 import type { HttpErrorContext } from "../../../../../src/lib/logger/types.js";
 import type { Container } from "../../../../../src/lib/services/container.js";
 import { stream } from "../../../../../src/index.js";
@@ -20,6 +21,7 @@ import {
 import { SET_PARSED_BODY } from "../../../../../src/lib/arcs/http/transport/flare-http-context.js";
 import { ContentTooLarge } from "../../../../../src/lib/arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
+import { LOG_CONFIG } from "../../../../../src/lib/config/flare-config.js";
 import { flareErrorCodes } from "../../../../../src/lib/errors/codes.js";
 import { FlareError } from "../../../../../src/lib/errors/flare-error.js";
 import { errorSchema } from "../../../../../src/lib/errors/schema.js";
@@ -48,11 +50,17 @@ function makeFakeLogger(): { logger: Logger; records: Recorded[]; } {
   return { logger, records };
 }
 
-function makeFakeContainer(logger: Logger): Container {
+function makeFakeContainer(logger: Logger, log?: Partial<LogConfig>): Container {
   return {
     resolveDep(token: unknown) {
       if (token === Logger) return logger;
       throw new Error(`Unexpected token requested: ${String(token)}`);
+    },
+    // dispatchErrorHandlers reads `unhandledErrors` off the resolved `log` section; a built
+    // container always carries one (defaults filled), so the fake defaults it the same way.
+    resolveCfg(token: unknown) {
+      if (token === LOG_CONFIG) return { unhandledErrors: true, ...log };
+      throw new Error(`Unexpected config token requested: ${String(token)}`);
     },
   } as unknown as Container;
 }
@@ -80,6 +88,12 @@ function ehReg(handler: ErrorHandlerBase, factoryThrows = false): ErrorHandlerRe
 }
 
 describe("handleControllerError", () => {
+  function callWith(err: FlareError | Error, unhandledErrors = true) {
+    const { logger, records } = makeFakeLogger();
+    const response = handleControllerError(err, logger, unhandledErrors, makeContext("GET", "/x"));
+    return { response, records };
+  }
+
   it("uses the ErrorCategories status, includes error, code (when defined), and detail (when expose=true)", () => {
     const codes = flareErrorCodes({
       not_found: {
@@ -92,7 +106,7 @@ describe("handleControllerError", () => {
     });
     const err = new FlareError(codes.not_found.ITEM_GONE, { id: "abc" });
 
-    const response = handleControllerError(err);
+    const { response } = callWith(err);
 
     expect(response).toBeInstanceOf(FlareResponse);
     const resp = response as FlareResponse;
@@ -111,18 +125,39 @@ describe("handleControllerError", () => {
     });
     const err = new FlareError(codes.fault.DB_DOWN, { host: "internal" });
 
-    const response = handleControllerError(err);
+    const { response } = callWith(err);
     const resp = response as FlareResponse;
     expect(resp.status).toBe(500); // fault -> 500
     expect(resp.jsonBody).toEqual({ error: "DB_DOWN" });
   });
 
   it("returns a 500 with `{ error: 'Internal Server Error' }` for a plain Error", () => {
-    const response = handleControllerError(new Error("oops"));
+    const { response } = callWith(new Error("oops"));
 
     const resp = response as FlareResponse;
     expect(resp.status).toBe(500);
     expect(resp.jsonBody).toEqual({ error: "Internal Server Error" });
+  });
+
+  it("logs the error object once on both branches by default", () => {
+    const err = new Error("boom");
+    const plain = callWith(err);
+    expect(plain.records).toHaveLength(1);
+    expect(plain.records[0]!.level).toBe("error");
+    // The error object itself is the first argument, so the transport gets a structured `error`
+    // field with name/message/stack; without it the throw is dropped and the 500 is undiagnosable.
+    expect(plain.records[0]!.args[0]).toBe(err);
+    expect(plain.records[0]!.args[2]).toMatchObject({ stage: "handler", target: "TestController" });
+
+    const codes = flareErrorCodes({ not_found: { ITEM_GONE: { expose: true } } });
+    const flare = callWith(new FlareError(codes.not_found.ITEM_GONE));
+    expect(flare.records).toHaveLength(1);
+  });
+
+  it("stays silent when log.unhandledErrors is false", () => {
+    const { response, records } = callWith(new Error("boom"), false);
+    expect((response as FlareResponse).status).toBe(500);
+    expect(records).toHaveLength(0);
   });
 });
 
@@ -136,6 +171,21 @@ describe("dispatchErrorHandlers", () => {
 
     expect(result).toBeInstanceOf(FlareResponse);
     expect((result as FlareResponse).status).toBe(500);
+  });
+
+  it("logs the unanswered error through the fallback, and stays silent when log.unhandledErrors is false", () => {
+    const on = makeFakeLogger();
+    dispatchErrorHandlers(new Error("boom"), [], makeFakeContainer(on.logger), makeContext("GET", "/x"));
+    expect(on.records.filter((r) => r.level === "error")).toHaveLength(1);
+
+    const off = makeFakeLogger();
+    dispatchErrorHandlers(
+      new Error("boom"),
+      [],
+      makeFakeContainer(off.logger, { unhandledErrors: false }),
+      makeContext("GET", "/x"),
+    );
+    expect(off.records).toHaveLength(0);
   });
 
   it("returns the handler's ResponseLike when the (sync) handler produces one", () => {
