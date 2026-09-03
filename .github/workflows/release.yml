@@ -86,10 +86,10 @@ jobs:
         working-directory: lib
         run: |
           pnpm pack --pack-destination .
-          npm publish flare-ts-lib-*.tgz --tag ${{ steps.dist_tag.outputs.tag }}
+          npm stage publish flare-ts-lib-*.tgz --tag ${{ steps.dist_tag.outputs.tag }}
 
       - name: Publish @flare-ts/core
         working-directory: core
         run: |
           pnpm pack --pack-destination .
-          npm publish flare-ts-core-*.tgz --tag ${{ steps.dist_tag.outputs.tag }}
+          npm stage publish flare-ts-core-*.tgz --tag ${{ steps.dist_tag.outputs.tag }}
