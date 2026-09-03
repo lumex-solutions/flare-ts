@@ -131,6 +131,17 @@ host.ws.route("/ws-echo").message((ws, scope) => {
 // can assert the server saw the negotiated value.
 host.ws.route("/ws-proto", { subprotocols: ["chat.v1", "chat.v2"] }).message((ws) => ws.send(`proto:${ws.protocol}`));
 
+// Worker-hosted WebSocket behind an async pre-handshake `upgrade` hook: denies without the token
+// header (a real 401, not connect-then-close), and hands the derived identity to open via ws.state.
+const WS_USER = flareState<{ id: string; }>("WS_USER");
+host.ws.route("/ws-gated")
+  .upgrade({ provides: [WS_USER] }, async (upgrade, scope) => {
+    const token = upgrade.header("x-ws-token");
+    if (token === undefined) return new FlareResponse(401, { error: "token required" });
+    scope.state.set(WS_USER, { id: `user:${token}` });
+  })
+  .open((ws) => ws.send(`hello:${ws.state.get(WS_USER)?.id}`));
+
 // Routes read and write storage directly so that state persists across
 // requests regardless of the per-request scope of Counter. Counter is used as
 // a hydration helper in the DO constructor; the routes bypass in-memory state
@@ -228,8 +239,9 @@ room.ws.route("/resident", { hibernate: false }).message((ws, scope) => {
 // Worker (host.ws), this DO hibernating (default), and this DO resident (`hibernate: false`). The Node
 // pool registers the identical set, so all four backings run the same handlers.
 registerParityRoutes(host.ws, "/parity");
-registerParityRoutes(room.ws, "/parity");
-registerParityRoutes(room.ws, "/parity-res", { hibernate: false });
+// The DO legs skip the upgrade-hook routes: a hook on a DO WS route is a build error by design.
+registerParityRoutes(room.ws, "/parity", {}, { upgradeHook: false });
+registerParityRoutes(room.ws, "/parity-res", { hibernate: false }, { upgradeHook: false });
 
 room.mount("/testroom/:name");
 

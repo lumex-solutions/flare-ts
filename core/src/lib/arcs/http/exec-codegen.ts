@@ -206,8 +206,7 @@ function _buildShapeFactory(
       ? `return _fin(${rv}, cache, container, ctx, 0);`
       : `return ${rv};`;
 
-  // Error exit: mark the context as having errored (suppresses DO outbound state
-  // encoding for mutations made before the throw), then dispatch and route through finally.
+  // Error exit: mark the context as having errored, then dispatch and route through finally.
   const retErr = (stage: string, nameIdx: number): string =>
     retFin(
       `(ctx[_he] = true, _dispatchError(err, errorHandlers, container, { source: "flare:http", `

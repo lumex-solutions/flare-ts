@@ -17,6 +17,7 @@ import type {
 } from "./types/route-options.js";
 import { assertRegistrationPath } from "../../../routing/path.js";
 import { assertInjectKeys } from "../../../services/scope.js";
+import { WebSocketControllerHandle } from "./web-socket-controller-handle.js";
 import { WebSocketRouteHandle } from "./web-socket-route-handle.js";
 
 /** Recovers the inject map from a route-options object (defaults to `{}`). */
@@ -61,22 +62,27 @@ export abstract class WebSocketBase {
   route<O extends WebSocketRouteOptions>(path: string, opts: O): WebSocketRouteHandle<InjectOf<O>, DescriptorOf<O>>;
   route(path: string, opts?: WebSocketRouteOptions): WebSocketRouteHandle<InjectMap, WebSocketDescriptor> {
     const behaviors: WsHandlerFns = {};
-    this.registrations.push({ kind: "handlers", behaviors, ...this.#prepare(path, opts, undefined) });
-    return new WebSocketRouteHandle(behaviors);
+    const registration: WsRegistration = { kind: "handlers", behaviors, ...this.#prepare(path, opts, undefined) };
+    this.registrations.push(registration);
+    // The handle live-writes `behaviors` AND the registration's `upgrade` slot (both post-route() attach points).
+    return new WebSocketRouteHandle(behaviors, registration);
   }
 
-  /** Registers a controller class at `path` (one instance per connection). */
-  controller<T extends WebSocketDescriptor>(path: string, cls: WebSocketControllerClass<T>): void;
+  /** Registers a controller class at `path` (one instance per connection), returning a {@link WebSocketControllerHandle} for the `upgrade` hook. */
+  controller<T extends WebSocketDescriptor>(
+    path: string,
+    cls: WebSocketControllerClass<T>,
+  ): WebSocketControllerHandle<T>;
   controller<O extends WebSocketControllerRouteOptions>(
     path: string,
     opts: O,
     cls: WebSocketControllerClass<DescriptorOf<O>>,
-  ): void;
+  ): WebSocketControllerHandle<DescriptorOf<O>>;
   controller(
     path: string,
     optsOrCls: WebSocketRouteOptions | WebSocketControllerClass,
     maybeCls?: WebSocketControllerClass,
-  ): void {
+  ): WebSocketControllerHandle<WebSocketDescriptor> {
     // Overload resolution: the class is either the second arg or the sole arg when opts are omitted.
     const cls = (typeof optsOrCls === "function" ? optsOrCls : maybeCls) as WebSocketControllerClass | undefined;
     const opts = typeof optsOrCls === "function" ? undefined : optsOrCls;
@@ -89,7 +95,10 @@ export abstract class WebSocketBase {
     // declaration satisfies the structural type without a value, so the requirement is enforced here.
     // `static state` is NOT required - the class form may carry state in the route options instead.
     if (cls.deps === undefined) throw new Error(`[flare] ${cls.name} is missing static 'deps'.`);
-    this.registrations.push({ kind: "controller", cls, ...this.#prepare(path, opts, cls) });
+    const registration: WsRegistration = { kind: "controller", cls, ...this.#prepare(path, opts, cls) };
+    this.registrations.push(registration);
+    // The handle live-writes the registration's `upgrade` slot (the post-controller() attach point).
+    return new WebSocketControllerHandle(registration);
   }
 
   /** Validates path + subprotocols + inject keys and resolves the descriptor/inject/state (merging controller statics). */
@@ -115,6 +124,8 @@ export abstract class WebSocketBase {
       channel: opts?.channel,
       // Hibernate by default on a Durable Object; `hibernate: false` opts into the resident backing.
       hibernate: opts?.hibernate !== false,
+      // Undefined until a handle's `upgrade` registrar writes the slot (both forms attach post-registration).
+      upgrade: undefined,
     };
   }
 }

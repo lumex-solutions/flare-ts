@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
 import { DurableState, FlareDurableObject } from "../../../../../src/cloudflare.js";
-import { FlareHost, FlareResponse } from "../../../../../src/index.js";
+import { FlareHost, FlareResponse, WebSocketControllerBase } from "../../../../../src/index.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 
 function cfJson(): JsonObject {
@@ -31,5 +31,48 @@ describe("WebSocket dependency build-time validation (per execution context)", (
     const handle = host.durableObject(Room);
     handle.ws.route("/chat/:room", { inject: { state: DurableState } }).open(() => {});
     expect(() => host.build()).not.toThrow();
+  });
+
+  it("a front-door WS route with an upgrade hook builds cleanly (Worker context)", () => {
+    const host = new FlareHost(cfProdAdapter(cfJson()));
+    host.http.get("/_", () => new FlareResponse(200));
+    host.ws.route("/gated").upgrade(() => {}).open(() => {});
+    expect(() => host.build()).not.toThrow();
+  });
+
+  it("a per-DO WS route with an upgrade hook fails host.build() (front-door only)", () => {
+    class Room extends FlareDurableObject {
+      static override deps = [];
+    }
+    const host = new FlareHost(cfProdAdapter(cfJson()));
+    host.http.get("/_", () => new FlareResponse(200));
+    const handle = host.durableObject(Room);
+    handle.ws.route("/chat/:room").upgrade(() => {}).open(() => {});
+    expect(() => host.build()).toThrow(/declares an upgrade hook, which only front-door/);
+  });
+
+  it("a per-DO WS controller route with an upgrade hook fails host.build() the same way", () => {
+    class Room extends FlareDurableObject {
+      static override deps = [];
+    }
+    class Ctl extends WebSocketControllerBase {
+      static override deps = [];
+      static override state = [];
+      override open(): void {}
+    }
+    const host = new FlareHost(cfProdAdapter(cfJson()));
+    host.http.get("/_", () => new FlareResponse(200));
+    const handle = host.durableObject(Room);
+    handle.ws.controller("/chat/:room", Ctl).upgrade(() => {});
+    expect(() => host.build()).toThrow(/declares an upgrade hook, which only front-door/);
+  });
+
+  it("an upgrade hook's own inject of an unregistered service fails host.build()", () => {
+    const host = new FlareHost(cfProdAdapter(cfJson()));
+    host.http.get("/_", () => new FlareResponse(200));
+    host.ws.route("/gated")
+      .upgrade({ inject: { state2: DurableState } }, () => {})
+      .open(() => {});
+    expect(() => host.build()).toThrow(/upgrade hook injects unregistered service DurableState/);
   });
 });

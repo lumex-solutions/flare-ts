@@ -11,20 +11,31 @@
 import { int, schema, str } from "@flare-ts/lib/schema";
 import type { FlareWebSocketMessage } from "../../../src/lib/arcs/ws/transport/flare-web-socket-message.js";
 import type { WebSocketArc } from "../../../src/lib/arcs/ws/ws-arc.js";
-import { flareState } from "../../../src/index.js";
+import { FlareResponse, flareState, WebSocketRefusal } from "../../../src/index.js";
 import { WebSocketControllerBase } from "../../../src/lib/arcs/ws/composition/classes/controller-base.js";
 
 /** Counter carried by `ws.state` across messages (survives hibernation wakes via the attachment). */
 const Hits = flareState<{ n: number; }>("ParityHits");
+
+/** Identity the `/gated` route's upgrade hook derives from the ticket and provides to the connection. */
+const GateUser = flareState<{ id: string; }>("ParityGateUser");
 
 /** Incoming-message schema for the typed route; anything else closes 1008. */
 const Msg = schema({ v: str });
 
 /**
  * Registers the parity routes on `ws` under `prefix`, with `base` merged into every route's options
- * (the Durable Object resident backing passes `{ hibernate: false }`).
+ * (the Durable Object resident backing passes `{ hibernate: false }`). Routes carrying an `upgrade`
+ * hook register only when `caps.upgradeHook` is not false: a hook on a Durable Object WS route is a
+ * build error (the mount's `resolve` handler is the DO's gate), so the DO legs pass false and their
+ * scenario arms assert the unmatched-path contract instead.
  */
-export function registerParityRoutes(ws: WebSocketArc, prefix = "", base: { hibernate?: boolean; } = {}): void {
+export function registerParityRoutes(
+  ws: WebSocketArc,
+  prefix = "",
+  base: { hibernate?: boolean; } = {},
+  caps: { upgradeHook?: boolean; } = {},
+): void {
   // Raw echo: text stays text, binary stays binary.
   ws.route(`${prefix}/echo`, { ...base }).message((socket, scope) => socket.send(scope.input.message.raw));
 
@@ -86,6 +97,35 @@ export function registerParityRoutes(ws: WebSocketArc, prefix = "", base: { hibe
   // Controller form (greeting + echo), and a controller whose constructor throws.
   ws.controller(`${prefix}/ctrl`, { ...base }, CtrlEcho);
   ws.controller(`${prefix}/ctor-throw`, { ...base }, CtorBoom);
+
+  if (caps.upgradeHook === false) return;
+
+  // Pre-handshake gate (async hook): denies without a ticket, otherwise derives the identity from it
+  // and provides it to the connection through ws.state. The ticket travels in the query because the
+  // scenario clients cannot set headers.
+  ws.route(`${prefix}/gated`)
+    .upgrade({ provides: [GateUser] }, async (_upgrade, scope) => {
+      const ticket = scope.input.query.get("ticket");
+      if (ticket === null) return new FlareResponse(401, { error: "ticket required" });
+      scope.state.set(GateUser, { id: `user:${ticket}` });
+    })
+    .open((socket) => socket.send(`gate:${socket.state.get(GateUser)?.id}`));
+
+  // Accept-then-close: the hook's refusal completes the handshake, then closes with the application
+  // code + reason the client reads from its close event (the redirect-on-miss delivery channel).
+  // Registered through the CONTROLLER form (the gate route covers the function form), so the matrix
+  // pins one hook per authoring form, the same split /echo and /ctrl give the connection behaviors.
+  ws.controller(`${prefix}/moved`, { ...base }, MovedCtrl)
+    .upgrade(() => new WebSocketRefusal(4302, "/relocated"));
+}
+
+/** Controller behind the accept-then-close route: its open must never run (the hook refuses first). */
+class MovedCtrl extends WebSocketControllerBase {
+  static override deps = [];
+  static override state = [];
+  override open(): void {
+    this.socket.send("never");
+  }
 }
 
 /** Controller whose constructor throws: every backing must contain it as close 1011, never a crash. */

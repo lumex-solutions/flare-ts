@@ -6,6 +6,7 @@ import {
   isValidCloseCode,
   WS_CLOSE,
   WS_CLOSE_NO_STATUS,
+  WS_MAX_CLOSE_REASON_BYTES,
   WS_OPCODE,
 } from "./protocol.js";
 
@@ -172,11 +173,11 @@ export function encodePong(payload: Uint8Array): Uint8Array {
 
 /**
  * Encodes a close frame carrying the 2-byte status code and an optional UTF-8 reason.
- * The reason is truncated to 123 bytes so the control-frame payload stays within 125 bytes.
+ * The reason is truncated to the wire limit so the control-frame payload stays within 125 bytes.
  */
 export function encodeClose(code: number, reason = ""): Uint8Array {
   let reasonBytes = encoder.encode(reason);
-  if (reasonBytes.length > 123) reasonBytes = reasonBytes.subarray(0, 123);
+  if (reasonBytes.length > WS_MAX_CLOSE_REASON_BYTES) reasonBytes = reasonBytes.subarray(0, WS_MAX_CLOSE_REASON_BYTES);
   const payload = new Uint8Array(2 + reasonBytes.length);
   payload[0] = (code >> 8) & 0xff;
   payload[1] = code & 0xff;

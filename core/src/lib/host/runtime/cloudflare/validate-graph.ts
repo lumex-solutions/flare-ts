@@ -174,6 +174,7 @@ export function validateCfGraph(graph: CfValidationGraph): ValidationError[] {
   // CF-specific reachability + DO static-dep checks.
   results.push(...reachabilityErrors(graph));
   results.push(...durableDepErrors(graph));
+  results.push(...durableWsUpgradeErrors(graph));
 
   // WebSocket arcs: route syntax + WS-internal / WS-vs-HTTP conflicts per context (host.ws against the
   // front door, each per-DO ws arc against its own http arc), then config sanity once (host-global).
@@ -242,6 +243,30 @@ function closureReaches(
     if (reg) { for (const dep of reg.cls.deps) stack.push(dep); }
   }
   return false;
+}
+
+/**
+ * Rejects the `upgrade` hook on Durable Object WS routes. The hook is a front-door moment: the
+ * resident and hibernating DO accept paths never run one, and allowing it would also put an async arm
+ * into the DO's synchronous upgrade path. Gate a DO's WS routes with the mount's `resolve` handler,
+ * which already runs in the Worker before the DO is entered.
+ */
+function durableWsUpgradeErrors(graph: CfValidationGraph): ValidationError[] {
+  const errors: ValidationError[] = [];
+  for (const { cls, ws } of graph.durables) {
+    for (const reg of wsRegs(ws)) {
+      if (reg.upgrade === undefined) continue;
+      errors.push({
+        severity: "error",
+        code: "WS_UPGRADE_IN_DURABLE_OBJECT",
+        message:
+          `${cls.name} WebSocket route "${reg.pattern}" declares an upgrade hook, which only front-door (host.ws) routes support.`,
+        hint:
+          `Gate the mount with its resolve handler instead; it runs in the Worker before the upgrade reaches the Durable Object.`,
+      });
+    }
+  }
+  return errors;
 }
 
 /** Validates each DO's static deps against registered services + DO-context framework tokens. */
@@ -358,9 +383,11 @@ function reachabilityErrors(graph: CfValidationGraph): ValidationError[] {
   const frontDoorRoots = [
     ...arcControllers(graph.frontDoor).flatMap((c) => c.cls.deps),
     ...arcMiddleware(graph.frontDoor).flatMap((m) => m.cls.deps),
-    // Front-door WS handlers run in the same Worker context: their deps are entries too.
+    // Front-door WS handlers run in the same Worker context: their deps are entries too, as are the
+    // deps of a route's `upgrade` hook (it runs in the Worker at upgrade time).
     ...wsRegs(graph.frontDoorWs).flatMap((r) => [
       ...Object.values(r.inject),
+      ...(r.upgrade ? Object.values(r.upgrade.inject) : []),
       ...(r.kind === "controller" ? r.cls.deps : []),
     ]),
   ];

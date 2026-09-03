@@ -1,13 +1,14 @@
 /** Unit tests for WebSocketArc route registration, compile, and upgrade matching. */
 import { describe, expect, it } from "vitest";
 import type { FlareWebSocketMessage } from "../../../../../src/lib/arcs/ws/transport/flare-web-socket-message.js";
-import type { IFlareWebSocket } from "../../../../../src/lib/arcs/ws/transport/socket.js";
 import type { IFlareHost } from "../../../../../src/lib/host/flare-host.js";
 import { WebSocketControllerBase } from "../../../../../src/lib/arcs/ws/composition/classes/controller-base.js";
 import { socketContract } from "../../../../../src/lib/arcs/ws/composition/contract/ws-contract.js";
+import { WsConnection } from "../../../../../src/lib/arcs/ws/connection.js";
 import { COMPILE_WS_ARC, UPGRADE_WS, WebSocketArc, WS_REGISTRATIONS } from "../../../../../src/lib/arcs/ws/ws-arc.js";
 import { FlareService } from "../../../../../src/lib/services/composition/flare-service.js";
 import { FlareRegistrationMap } from "../../../../../src/lib/services/registration-map.js";
+import { FakeSocket } from "../../../helpers/ws-fixtures.js";
 
 function fakeHost(): IFlareHost {
   const host = {
@@ -21,15 +22,12 @@ function fakeHost(): IFlareHost {
 
 const Q = new URLSearchParams();
 
-class FakeSocket implements IFlareWebSocket {
-  readyState: 0 | 1 | 2 | 3 = 1;
-  bufferedAmount = 0;
-  protocol = "";
-  sent: Array<string | Uint8Array> = [];
-  send(d: string | Uint8Array): void {
-    this.sent.push(d);
-  }
-  close(): void {}
+/** Narrows the outcome a hookless route produces: never denied, never async, so connection-or-null. */
+function upgrade(host: IFlareHost, path: string, q: URLSearchParams = Q): WsConnection | null {
+  const outcome = host.ws[UPGRADE_WS](path, q);
+  if (outcome instanceof Promise) throw new Error("unexpected async upgrade outcome");
+  if (outcome !== null && !(outcome instanceof WsConnection)) throw new Error("unexpected upgrade denial");
+  return outcome;
 }
 
 describe("WebSocketArc registration + upgrade", () => {
@@ -42,14 +40,14 @@ describe("WebSocketArc registration + upgrade", () => {
     const host = fakeHost();
     host.ws.route("/chat/:room");
     host.ws[COMPILE_WS_ARC]();
-    expect(host.ws[UPGRADE_WS]("/chat/lobby", Q)?.params).toEqual({ room: "lobby" });
-    expect(host.ws[UPGRADE_WS]("/nope", Q)).toBeNull();
+    expect(upgrade(host, "/chat/lobby")?.params).toEqual({ room: "lobby" });
+    expect(upgrade(host, "/nope")).toBeNull();
   });
 
   it("throws if upgraded before compile", () => {
     const host = fakeHost();
     host.ws.route("/x");
-    expect(() => host.ws[UPGRADE_WS]("/x", Q)).toThrow(/build/);
+    expect(() => upgrade(host, "/x")).toThrow(/build/);
   });
 
   it("prefers a literal route, decodes params, and rejects a wrong segment count", () => {
@@ -57,16 +55,16 @@ describe("WebSocketArc registration + upgrade", () => {
     host.ws.route("/chat/:room");
     host.ws.route("/chat/admin");
     host.ws[COMPILE_WS_ARC]();
-    expect(host.ws[UPGRADE_WS]("/chat/admin", Q)?.params).toEqual({}); // literal match yields empty params
-    expect(host.ws[UPGRADE_WS]("/chat/a%20b", Q)?.params).toEqual({ room: "a b" }); // percent-decoded
-    expect(host.ws[UPGRADE_WS]("/chat/%zz", Q)?.params).toEqual({ room: "%zz" }); // malformed: left intact
-    expect(host.ws[UPGRADE_WS]("/chat/x/y", Q)).toBeNull(); // wrong segment count
+    expect(upgrade(host, "/chat/admin")?.params).toEqual({}); // literal match yields empty params
+    expect(upgrade(host, "/chat/a%20b")?.params).toEqual({ room: "a b" }); // percent-decoded
+    expect(upgrade(host, "/chat/%zz")?.params).toEqual({ room: "%zz" }); // malformed: left intact
+    expect(upgrade(host, "/chat/x/y")).toBeNull(); // wrong segment count
   });
 
   it("returns null after compiling with no routes", () => {
     const host = fakeHost();
     host.ws[COMPILE_WS_ARC]();
-    expect(host.ws[UPGRADE_WS]("/anything", Q)).toBeNull();
+    expect(upgrade(host, "/anything")).toBeNull();
   });
 
   it("returns a connection that drives the registered function-form behaviors", async () => {
@@ -77,7 +75,7 @@ describe("WebSocketArc registration + upgrade", () => {
       ws.send("hi");
     });
     host.ws[COMPILE_WS_ARC]();
-    const conn = host.ws[UPGRADE_WS]("/x", Q)!;
+    const conn = upgrade(host, "/x")!;
     const socket = new FakeSocket();
     await conn.open(socket);
     expect(opened).toBe(true);
@@ -99,7 +97,7 @@ describe("WebSocketArc registration + upgrade", () => {
     }
     host.ws.controller("/ctrl", Ctrl);
     host.ws[COMPILE_WS_ARC]();
-    const conn = host.ws[UPGRADE_WS]("/ctrl", Q)!;
+    const conn = upgrade(host, "/ctrl")!;
     const socket = new FakeSocket();
     await conn.open(socket);
     expect(socket.sent).toEqual(["hello"]);
@@ -111,9 +109,9 @@ describe("WebSocketArc registration + upgrade", () => {
     const host = fakeHost();
     host.ws.route("/a");
     expect(host.ws[WS_REGISTRATIONS]()).toHaveLength(1);
-    expect(() => host.ws[UPGRADE_WS]("/a", Q)).toThrow(/build/); // not available before compile
+    expect(() => upgrade(host, "/a")).toThrow(/build/); // not available before compile
     host.ws[COMPILE_WS_ARC]();
-    const { acceptOptions } = host.ws[UPGRADE_WS]("/a", Q)!;
+    const { acceptOptions } = upgrade(host, "/a")!;
     expect(acceptOptions.limits.maxMessageSize).toBeGreaterThan(0);
     expect(acceptOptions.timings.keepAliveIntervalMs).toBeGreaterThan(0);
     expect(acceptOptions.subprotocols).toEqual([]); // none declared on this route
@@ -124,7 +122,7 @@ describe("WebSocketArc registration + upgrade", () => {
     expect(() => host.ws.route("/bad", { subprotocols: ["a,b"] })).toThrow(/token/); // comma is illegal
     host.ws.route("/chat", { subprotocols: ["chat.v1", "chat.v2"] });
     host.ws[COMPILE_WS_ARC]();
-    expect(host.ws[UPGRADE_WS]("/chat", Q)!.acceptOptions.subprotocols).toEqual(["chat.v1", "chat.v2"]);
+    expect(upgrade(host, "/chat")!.acceptOptions.subprotocols).toEqual(["chat.v1", "chat.v2"]);
   });
 
   it("resolves subprotocols from a contract entry's descriptor, with the same token validation", () => {
@@ -137,7 +135,7 @@ describe("WebSocketArc registration + upgrade", () => {
     // Contract-carried subprotocols go through the same token validation as the loose form.
     expect(() => host.ws.route("/bad", { contract: Chat.bad })).toThrow(/token/);
     host.ws[COMPILE_WS_ARC]();
-    expect(host.ws[UPGRADE_WS]("/desc", Q)!.acceptOptions.subprotocols).toEqual(["chat.v1"]);
+    expect(upgrade(host, "/desc")!.acceptOptions.subprotocols).toEqual(["chat.v1"]);
   });
 
   it("rejects a second call to the same WebSocketRouteHandle registrar (one call each)", () => {

@@ -8,8 +8,11 @@ import type {
   WebSocketErrorHandler,
   WebSocketMessageHandler,
   WebSocketOpenHandler,
+  WebSocketUpgradeHandler,
 } from "./types/handlers.js";
-import type { WsHandlerFns } from "./types/registration.js";
+import type { WsHandlerFns, WsRegistrationBase } from "./types/registration.js";
+import type { WebSocketUpgradeOptions } from "./types/route-options.js";
+import { type ErasedUpgradeHandler, registerUpgradeHook } from "./upgrade-hook.js";
 
 /**
  * The build-time handle `host.ws.route(path, opts)` returns: attach the connection's lifecycle behaviors
@@ -20,12 +23,15 @@ import type { WsHandlerFns } from "./types/registration.js";
  * Two-lifetime split mirrors the Durable Object: the route handle is to the live connection what
  * `DurableHandle` is to the request context - build-time config vs the runtime object. Constructed by
  * the arc only (exported type-only from the package index, like `HttpGroup` it is dev-held, never
- * dev-constructed); it collects behaviors into the registration's shared {@link WsHandlerFns}.
+ * dev-constructed); it collects behaviors into the registration's shared {@link WsHandlerFns}, and the
+ * pre-handshake `upgrade` hook into the registration's `upgrade` slot.
  */
 export class WebSocketRouteHandle<D extends InjectMap = {}, T extends WebSocketDescriptor = {}> {
   readonly #behaviors: WsHandlerFns;
-  constructor(behaviors: WsHandlerFns) {
+  readonly #registration: Pick<WsRegistrationBase, "inject" | "upgrade">;
+  constructor(behaviors: WsHandlerFns, registration: Pick<WsRegistrationBase, "inject" | "upgrade">) {
     this.#behaviors = behaviors;
+    this.#registration = registration;
   }
 
   // Each registrar assigns its fully-typed handler into the erased-`ws`/`scope` slot; the slots are
@@ -57,6 +63,26 @@ export class WebSocketRouteHandle<D extends InjectMap = {}, T extends WebSocketD
   error(handler: WebSocketErrorHandler<D, T>): this {
     this.#assertUnset("error");
     this.#behaviors.error = handler;
+    return this;
+  }
+
+  /**
+   * Registers the pre-handshake `upgrade` hook.
+   *
+   * The one moment with request context, before the handshake completes. The bare form shares the
+   * route's `inject` map (the hook's deps resolve from the same per-connection container the handlers
+   * use); the options form declares the hook's OWN `inject` plus the state tokens it `provides` via
+   * `scope.state`.
+   */
+  upgrade(handler: WebSocketUpgradeHandler<D, T>): this;
+  upgrade<I extends InjectMap>(opts: WebSocketUpgradeOptions<I>, handler: WebSocketUpgradeHandler<I, T>): this;
+  upgrade(
+    // never-typed params make every overload's fully-typed handler assignable here; the registration's
+    // method-syntax slot re-widens it to the erased shape (the same one-boundary erasure as behaviors).
+    optsOrHandler: ErasedUpgradeHandler | WebSocketUpgradeOptions,
+    maybeHandler?: ErasedUpgradeHandler,
+  ): this {
+    registerUpgradeHook(this.#registration, optsOrHandler, maybeHandler);
     return this;
   }
 

@@ -38,6 +38,13 @@ export interface ParityCaps {
    * route closes 1011 at open. Durable Objects exist to own a shared context; Node shares the process.
    */
   readonly crossConnectionChannels: boolean;
+  /**
+   * Whether this backing supports the pre-handshake `upgrade` hook. False on both Durable Object
+   * legs: a hook on a DO WS route is a build error (the mount's `resolve` handler is the DO's gate),
+   * so routes.ts registers the hook routes only where this is true and the scenario arms assert the
+   * unmatched-path contract on the legs without them.
+   */
+  readonly upgradeHook: boolean;
 }
 
 /** One matrix entry: a named, self-asserting scenario run against a backing's {@link Connect}. */
@@ -262,6 +269,33 @@ export const parityScenarios: readonly ParityScenario[] = [
     name: "rejects an upgrade to an unmatched path",
     run: async (connect) => {
       await expect(connect("/nope")).rejects.toThrow();
+    },
+  },
+  {
+    name: "upgrade hook: denies without a ticket, accepts with hook-provided state visible at open",
+    run: async (connect, caps) => {
+      if (!caps.upgradeHook) {
+        // Declared divergence: the hook is front-door-only (a DO WS route with one is a build error),
+        // so the gate route does not exist on this backing and the path is an unmatched upgrade.
+        await expect(connect("/gated?ticket=t1")).rejects.toThrow();
+        return;
+      }
+      await expect(connect("/gated")).rejects.toThrow(); // refused before open: no ticket
+      const c = await connect("/gated?ticket=t1");
+      expect(await c.nextFrame()).toBe("gate:user:t1");
+      c.close();
+    },
+  },
+  {
+    name: "upgrade hook: an accept-then-close refusal's code and reason reach the client",
+    run: async (connect, caps) => {
+      if (!caps.upgradeHook) {
+        // Same declared divergence as the gate scenario: the route exists only where hooks do.
+        await expect(connect("/moved")).rejects.toThrow();
+        return;
+      }
+      const c = await connect("/moved");
+      expect(await c.closed).toEqual({ code: 4302, reason: "/relocated" });
     },
   },
 ];

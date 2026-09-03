@@ -2,21 +2,31 @@
  * The WebSocket arc, exposed as `host.ws`: the {@link WebSocketBase} authoring surface plus
  * compile and per-upgrade execution. Mirrors {@link HttpArc}.
  */
+import type { ConfigToken } from "../../config/flare-config.js";
 import type { IFlareHost } from "../../host/flare-host.js";
 import type { LogContext } from "../../logger/types.js";
 import type { Router } from "../../routing/router.js";
 import type { FlareService } from "../../services/composition/flare-service.js";
 import type { ServiceToken } from "../../services/types/token.js";
 import type { IWsChannelDomain } from "./channels/domain.js";
+import type { WebSocketUpgradeResult } from "./composition/types/handlers.js";
 import type { WsRegistration } from "./composition/types/registration.js";
+import type { WsRawInput, WsTypedInput } from "./pipeline/input.js";
 import type { WsPipeline, WsRoute } from "./pipeline/route.js";
+import type { WebSocketState } from "./transport/flare-web-socket-context.js";
 import type { WsAcceptOptions } from "./transport/socket.js";
+import type { WebSocketUpgrade } from "./transport/web-socket-upgrade.js";
 import { isValidInboundPath } from "../../routing/path.js";
 import { Container } from "../../services/container.js";
+import { attachScopeDeps } from "../../services/scope.js";
+import { StateMap } from "../../state/map.js";
+import { FINALIZE_JSON_BODY, FlareResponse } from "../http/transport/flare-response.js";
 import { WsChannelRegistry } from "./channels/registry.js";
 import { WebSocketBase } from "./composition/base.js";
 import { WsConnection } from "./connection.js";
 import { compileWsRoutes } from "./pipeline/build.js";
+import { buildInput } from "./pipeline/ops.js";
+import { WebSocketRefusal } from "./transport/web-socket-refusal.js";
 
 /** What {@link WS_DRIVER_ACCESS} exposes: everything an external driver needs, nothing more. */
 export type WsDriverAccess = {
@@ -33,12 +43,27 @@ export type WsDriverAccess = {
   readonly host: IFlareHost;
 };
 
+/** The upgrade hook denied this upgrade: the transport sends `response` instead of completing the handshake. */
+export type WsUpgradeDenied = { readonly response: FlareResponse; };
+
+/**
+ * What one {@link UPGRADE_WS} call produces.
+ *
+ * The live {@link WsConnection} to accept, a {@link WsUpgradeDenied} to answer with its HTTP
+ * response, or null when no route matched.
+ */
+export type WsUpgradeOutcome = WsConnection | WsUpgradeDenied | null;
+
 /** @internal Compiles the registered routes into the shared router + accept options. Driven by `host.build()`. */
 export const COMPILE_WS_ARC: unique symbol = Symbol("COMPILE_WS_ARC");
 /**
- * @internal The single upgrade entry: matches a path and returns the live {@link WsConnection} the
- * transport drives, or null when nothing matched. Throws when a declared param/query parser rejects
- * its raw value; the caller rejects the handshake. Driven by the host runtime.
+ * @internal The single upgrade entry, driven by the host runtime.
+ *
+ * Matches a path, runs the route's `upgrade` hook when one is registered, and returns the
+ * {@link WsUpgradeOutcome}. Synchronous unless the matched route has an async hook (the
+ * sync-when-possible split `Container.dispose` also uses), so hookless contexts, the Durable Object
+ * path included, never see the Promise arm. Throws when a declared param/query parser rejects its raw
+ * value or the hook throws; the caller rejects the handshake.
  */
 export const UPGRADE_WS: unique symbol = Symbol("UPGRADE_WS");
 /** @internal Exposes the raw registrations for build-time validation. */
@@ -60,9 +85,10 @@ export const WS_CHANNEL_REGISTRY: unique symbol = Symbol("WS_CHANNEL_REGISTRY");
 /**
  * The WebSocket arc: the {@link WebSocketBase} authoring surface plus compilation and per-upgrade
  * execution. `host.build()` runs {@link COMPILE_WS_ARC}; the host runtime drives {@link UPGRADE_WS},
- * which matches the route and returns the live {@link WsConnection} (or null). Matching, input parsing,
- * and connection construction collapse behind that one entry (the HTTP arc's `fetch` analog), so a bad
- * declared param rejects the upgrade before the handshake completes on every backing.
+ * which matches the route, runs any pre-handshake `upgrade` hook, and returns the
+ * {@link WsUpgradeOutcome}. Matching, input parsing, the hook, and connection construction collapse
+ * behind that one entry (the HTTP arc's `fetch` analog), so a bad declared param or a hook denial
+ * rejects the upgrade before the handshake completes on every backing.
  *
  * The `Symbol`-keyed members are the host-arc seam idiom shared with the HTTP arc: they keep internals
  * off the public authoring surface while staying importable by tests and the host runtime.
@@ -100,10 +126,12 @@ export class WebSocketArc extends WebSocketBase {
     this.#acceptOptionsBase = compiled.acceptOptions;
   }
 
-  /** @internal Matches an upgrade path and prepares the connection; invoked by the transports. */
+  /** @internal Matches an upgrade path, runs any `upgrade` hook, and prepares the connection; invoked by the transports. */
   [UPGRADE_WS](
     pathname: string,
     query: URLSearchParams,
+    // The hook's request view: optional for hookless routes, REQUIRED (throws otherwise) when the route has a hook.
+    upgrade?: WebSocketUpgrade,
     // The host context's per-context singleton services: a context that scopes services per instance
     // passes its own map; everywhere else the host defaults apply.
     singletons: ReadonlyMap<ServiceToken<FlareService>, FlareService> = this.host.singletonServices,
@@ -111,23 +139,51 @@ export class WebSocketArc extends WebSocketBase {
     // share ONE domain with its hibernating ones; defaults to the arc's registry (the host's own domain,
     // the same one the context's `WebSocketChannels` capability publishes into).
     backend?: IWsChannelDomain,
-  ): WsConnection | null {
+  ): WsUpgradeOutcome | Promise<WsUpgradeOutcome> {
     const match = this.#match(pathname);
     if (!match) return null;
     const { pipeline, params } = match;
+    const raw: WsRawInput = { params, query };
+
+    // Read live off the registration, so a hook attached through the handle after route() is honored.
+    const hook = pipeline.registration.upgrade;
+    if (hook === undefined) {
+      const container = new Container(this.host.scopedServices, singletons, this.host.config);
+      return this.#connect(pipeline, pathname, raw, container, backend, undefined);
+    }
+
+    if (upgrade === undefined) {
+      throw new Error(
+        `[flare] WebSocket route "${pipeline.pattern}" has an upgrade hook; the caller must pass a WebSocketUpgrade view.`,
+      );
+    }
+
+    // The state store the hook writes becomes the accepted connection's ws.state.
+    const input = buildInput(pipeline, raw);
+    const state = new StateMap();
     const container = new Container(this.host.scopedServices, singletons, this.host.config);
-    const id = crypto.randomUUID();
-    // Per-connection logger context (opt-in via config), so WS handler logs carry a source + connection
-    // id like HTTP request logs. Every handler runs under it.
-    return new WsConnection(
-      pipeline,
-      { params, query },
-      this.#acceptOptions(pipeline),
-      container,
-      id,
-      backend ?? this.#channelRegistry(),
-      this.#logContext(id, pathname),
-    );
+
+    let result: WebSocketUpgradeResult | Promise<WebSocketUpgradeResult>;
+    try {
+      // buildScope's lazy-getter assembly; the handler slot declared its params erased, so the typed scope widens here.
+      const base = { config: <C>(token: ConfigToken<C>): C => container.resolveCfg(token), input, state };
+      result = hook.handler(upgrade, attachScopeDeps(base, hook.inject, (token) => container.resolveDep(token)));
+    } catch (error) {
+      this.#disposeQuiet(container);
+      throw error;
+    }
+
+    // Only a hooked route can produce the Promise arm; hookless callers (every DO among them) rely on that.
+    if (result instanceof Promise) {
+      return result.then(
+        (settled) => this.#settleHook(settled, pipeline, pathname, raw, container, backend, input, state),
+        (error) => {
+          this.#disposeQuiet(container);
+          throw error;
+        },
+      );
+    }
+    return this.#settleHook(result, pipeline, pathname, raw, container, backend, input, state);
   }
 
   /** @internal Raw registrations view for build validation. */
@@ -158,6 +214,64 @@ export class WebSocketArc extends WebSocketBase {
   /** @internal The arc-owned channel domain (Worker/Node contexts without a DO backend). */
   [WS_CHANNEL_REGISTRY](): IWsChannelDomain {
     return this.#channelRegistry();
+  }
+
+  /**
+   * Maps one settled hook result onto the outcome: a {@link FlareResponse} denies pre-handshake, a
+   * {@link WebSocketRefusal} accepts then immediately closes (a normal connection in close-on-open
+   * mode, so neither transport needs a special path), anything else proceeds.
+   */
+  #settleHook(
+    result: WebSocketUpgradeResult,
+    pipeline: WsPipeline,
+    pathname: string,
+    raw: WsRawInput,
+    container: Container,
+    backend: IWsChannelDomain | undefined,
+    input: WsTypedInput,
+    state: WebSocketState,
+  ): WsUpgradeOutcome {
+    if (result instanceof FlareResponse) return this.#deny(result, container);
+    const closeOnOpen = result instanceof WebSocketRefusal ? result : undefined;
+    return this.#connect(pipeline, pathname, raw, container, backend, { input, state, closeOnOpen });
+  }
+
+  /** Builds the live connection for an accepted upgrade (`prepared` carries a hook run's input + seeded state). */
+  #connect(
+    pipeline: WsPipeline,
+    pathname: string,
+    raw: WsRawInput,
+    container: Container,
+    backend: IWsChannelDomain | undefined,
+    prepared: { input: WsTypedInput; state: WebSocketState; closeOnOpen?: WebSocketRefusal | undefined; } | undefined,
+  ): WsConnection {
+    const id = crypto.randomUUID();
+    // Per-connection logger context (opt-in via config), so WS handler logs carry a source + connection
+    // id like HTTP request logs. Every handler runs under it.
+    return new WsConnection(
+      pipeline,
+      raw,
+      this.#acceptOptions(pipeline),
+      container,
+      id,
+      backend ?? this.#channelRegistry(),
+      this.#logContext(id, pathname),
+      prepared,
+    );
+  }
+
+  /** Finalizes a hook denial and releases the upgrade's DI scope; the connection never existed. */
+  #deny(response: FlareResponse, container: Container): WsUpgradeDenied {
+    try {
+      return { response: finalizeWsDenial(response) };
+    } finally {
+      this.#disposeQuiet(container);
+    }
+  }
+
+  /** Disposes an upgrade-scope container off the return path (dispose logs its own failures and never rejects). */
+  #disposeQuiet(container: Container): void {
+    void container.dispose();
   }
 
   /** This arc's channel registry (one broadcast domain per host), created on first use. */
@@ -215,6 +329,24 @@ export class WebSocketArc extends WebSocketBase {
     const subprotocols = pipeline.registration.subprotocols;
     return subprotocols.length > 0 ? { ...base, subprotocols } : base;
   }
+}
+
+/**
+ * Finalizes a hook's denial response for the transport.
+ *
+ * Serializes a JSON body (the upgrade path has no per-status serializer pipeline) and rejects
+ * streaming bodies, which a pre-handshake denial has no business carrying (the Node transport writes
+ * raw bytes, so a stream would need its own pump).
+ */
+function finalizeWsDenial(response: FlareResponse): FlareResponse {
+  if (response.bodyStream) {
+    throw new Error(
+      "[flare] A WebSocket upgrade denial cannot use a streaming body. Return a JSON, text, or empty response.",
+    );
+  }
+  const json = response.jsonBody;
+  if (json !== null) response[FINALIZE_JSON_BODY](JSON.stringify(json));
+  return response;
 }
 
 /**

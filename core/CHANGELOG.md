@@ -1,8 +1,15 @@
 # @flare-ts/core
 
-## 0.4.1
+## 0.3.1
 
 ### Added
+
+- **WebSocket `upgrade` hook.** A route gains one pre-handshake moment with request context, the WebSocket analog of a Durable Object mount's `resolve` gateway: `host.ws.route(path).upgrade(handler)` (or `.upgrade({ inject, provides }, handler)` with the hook's own dependency map), and `host.ws.controller(path, Class)` now returns a `WebSocketControllerHandle` carrying the same registrar. The hook receives a `WebSocketUpgrade` view of the request (`url`, case-insensitive `header()`) plus the route's typed `scope.input`, may be async, and decides the upgrade by what it returns:
+  - Return nothing to proceed. Values written to `scope.state` seed the accepted connection's `ws.state`, so an identity verified at upgrade reaches every handler without being re-derived in `open`. The hook resolves dependencies from the same per-connection container the handlers use, so a service it touches is an ordinary connection-scoped service, disposed at close (or immediately when the upgrade is refused).
+  - Return a `FlareResponse` to deny BEFORE the handshake with a real HTTP response, the refusal an HTTP-speaking client (curl, a server-side client) can read: on Node it is written on the raw socket in place of the `101`, on Cloudflare it is returned as the fetch response.
+  - Return a `WebSocketRefusal(code, reason)` to accept then immediately close, the one refusal a browser can read: a denied handshake exposes nothing to browser JavaScript, while a close frame's code and reason arrive in the `close` event. The connection skips the route's channels and controller entirely; the code must be `1000` or an application code in `3000`-`4999` and the reason at most 123 bytes of UTF-8 (the wire's control-frame limit), both validated at construction. Redirect-on-miss is the canonical shape: an application code plus the target URL as the reason.
+  - The hook is front-door only. A hooked route on a Durable Object's `.ws` arc fails `host.build()` with `WS_UPGRADE_IN_DURABLE_OBJECT` (gate a DO's WebSocket routes with the mount's `resolve` handler, which already runs in the Worker), and a hook `inject` naming an unregistered service fails with `WS_UPGRADE_UNREGISTERED_DEP`.
+  - New exports: the `WebSocketRefusal` class, plus the `WebSocketUpgrade`, `WebSocketUpgradeHandler`, `WebSocketUpgradeHandlerScope`, `WebSocketUpgradeResult`, `WebSocketUpgradeOptions`, and `WebSocketControllerHandle` types.
 
 - New `log.unhandledErrors` config field (default `true`): an error that reaches the framework's fallback response is now logged at `error` level, on both the `FlareError` and plain `Error` branches, before the response envelope replaces it. Previously the error object was dropped, so a throwing route returned its envelope with nothing logged anywhere. Set `false` to own that reporting entirely from an error handler.
 

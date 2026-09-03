@@ -5,11 +5,12 @@
  */
 import type { AddressInfo } from "node:net";
 import { once } from "node:events";
-import { createServer, type Server } from "node:http";
+import { createServer, request, type Server } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import { int, schema, str } from "@flare-ts/lib/schema";
 import type { FlareWebSocketMessage } from "../../../../../src/lib/arcs/ws/transport/flare-web-socket-message.js";
 import type { IFlareHost } from "../../../../../src/lib/host/flare-host.js";
+import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
 import { WebSocketControllerBase } from "../../../../../src/lib/arcs/ws/composition/classes/controller-base.js";
 import { socketContract } from "../../../../../src/lib/arcs/ws/composition/contract/ws-contract.js";
 import { handleNodeWsUpgrade } from "../../../../../src/lib/arcs/ws/transport/runtime/node/upgrade.js";
@@ -219,6 +220,47 @@ describe("Node WebSocket arc upgrade (end-to-end)", () => {
     expect((msg as { data: unknown; }).data).toBe("42");
     good.close();
   });
+
+  it("denies the handshake with the upgrade hook's HTTP response (async hook, real 401 bytes)", async () => {
+    const host = makeHost();
+    let opened = false;
+    host.ws.route("/gated")
+      .upgrade(async (upgrade) => {
+        if (upgrade.header("x-token") !== "secret") return new FlareResponse(401, { error: "nope" });
+      })
+      .open(() => void (opened = true));
+    const port = await serve(host);
+
+    // Drive the upgrade with a raw HTTP client so the denial's status and body are observable (the
+    // WebSocket client only surfaces an opaque error). The server's 'upgrade' event still fires.
+    const res = await new Promise<{ status: number | undefined; body: string; }>((resolve, reject) => {
+      const req = request({
+        host: "127.0.0.1",
+        port,
+        path: "/gated",
+        headers: {
+          "Connection": "Upgrade",
+          "Upgrade": "websocket",
+          "Sec-WebSocket-Key": "dGhlIHNhbXBsZSBub25jZQ==",
+          "Sec-WebSocket-Version": "13",
+        },
+      });
+      req.on("response", (r) => {
+        let body = "";
+        r.on("data", (chunk: Buffer) => (body += chunk.toString()));
+        r.on("end", () => resolve({ status: r.statusCode, body }));
+      });
+      req.on("error", reject);
+      req.end();
+    });
+    expect(res.status).toBe(401);
+    expect(JSON.parse(res.body)).toEqual({ error: "nope" });
+    expect(opened).toBe(false);
+  });
+
+  // The client-observable hook behaviors (accept with hook-provided state, accept-then-close code +
+  // reason) are pinned by the shared parity matrix (portable/parity), which this backing runs in
+  // parity.test.ts; only the HTTP-observable denial above needs this suite's raw client.
 
   it("decodes a percent-encoded path param", async () => {
     const host = makeHost();

@@ -69,6 +69,6 @@ const connect: Connect = async (path, protocols) => {
 
 describe("WS backing parity: node", () => {
   for (const scenario of parityScenarios) {
-    it(scenario.name, () => scenario.run(connect, { crossConnectionChannels: true }));
+    it(scenario.name, () => scenario.run(connect, { crossConnectionChannels: true, upgradeHook: true }));
   }
 });

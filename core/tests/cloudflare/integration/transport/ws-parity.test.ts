@@ -7,8 +7,8 @@
  */
 import { SELF } from "cloudflare:test";
 import { describe, it } from "vitest";
-import type { Connect, ParityCaps } from "../../../../portable/parity/scenarios.js";
-import { makeParityClient, parityScenarios } from "../../../../portable/parity/scenarios.js";
+import type { Connect, ParityCaps } from "../../../portable/parity/scenarios.js";
+import { makeParityClient, parityScenarios } from "../../../portable/parity/scenarios.js";
 
 function connectVia(base: (path: string) => string): Connect {
   return async (path, protocols) => {
@@ -43,14 +43,15 @@ function runMatrix(backing: string, caps: ParityCaps, base: (path: string, insta
 
 // The plain Worker cannot deliver a publish across connections (workerd request-context pinning; see
 // ParityCaps.crossConnectionChannels) - the matrix asserts the loud-failure contract there instead.
-runMatrix("worker", { crossConnectionChannels: false }, (path) => `/parity${path}`);
+// The DO legs cannot carry an `upgrade` hook (see ParityCaps.upgradeHook) - same loud-arm treatment.
+runMatrix("worker", { crossConnectionChannels: false, upgradeHook: true }, (path) => `/parity${path}`);
 runMatrix(
   "do-hibernating",
-  { crossConnectionChannels: true },
+  { crossConnectionChannels: true, upgradeHook: false },
   (path, instance) => `/testroom/${instance}/parity${path}`,
 );
 runMatrix(
   "do-resident",
-  { crossConnectionChannels: true },
+  { crossConnectionChannels: true, upgradeHook: false },
   (path, instance) => `/testroom/${instance}/parity-res${path}`,
 );

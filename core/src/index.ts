@@ -80,11 +80,17 @@ export type {
   WebSocketMessageHandler,
   WebSocketMessageHandlerScope,
   WebSocketOpenHandler,
+  WebSocketUpgradeHandler,
+  WebSocketUpgradeHandlerScope,
+  WebSocketUpgradeResult,
 } from "./lib/arcs/ws/composition/types/handlers.js";
-export type { WebSocketRouteOptions } from "./lib/arcs/ws/composition/types/route-options.js";
+export type { WebSocketRouteOptions, WebSocketUpgradeOptions } from "./lib/arcs/ws/composition/types/route-options.js";
+export type { WebSocketControllerHandle } from "./lib/arcs/ws/composition/web-socket-controller-handle.js";
 export type { WebSocketRouteHandle } from "./lib/arcs/ws/composition/web-socket-route-handle.js";
 export type { FlareWebSocketContext, WebSocketState } from "./lib/arcs/ws/transport/flare-web-socket-context.js";
 export { FlareWebSocketMessage } from "./lib/arcs/ws/transport/flare-web-socket-message.js";
+export { WebSocketRefusal } from "./lib/arcs/ws/transport/web-socket-refusal.js";
+export type { WebSocketUpgrade } from "./lib/arcs/ws/transport/web-socket-upgrade.js";
 export type { WebSocketArc } from "./lib/arcs/ws/ws-arc.js";
 
 // Errors: the two classes apps catch; the full error vocabulary lives on `./errors`.

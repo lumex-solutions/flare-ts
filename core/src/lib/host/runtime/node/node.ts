@@ -2,6 +2,7 @@
  * The Node runtime: the node adapter and the FlareAppNode server over node:http.
  */
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
+import type { Duplex } from "node:stream";
 import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -294,13 +295,28 @@ export class FlareAppNode extends FlareAppBase<"async"> {
         socket.destroy();
         return;
       }
-      const conn = handleNodeWsUpgrade(this.host, req, socket, head);
-      if (conn) {
-        // Track live connections so graceful shutdown can close them; deregister when the socket dies.
-        this.#wsConnections.add(conn);
-        socket.on("close", () => this.#wsConnections.delete(conn));
+      const result = handleNodeWsUpgrade(this.host, req, socket, head);
+      if (result instanceof Promise) {
+        // Async only when the route has an async `upgrade` hook; the transport maps every failure to a
+        // wire response and resolves null, so this promise never rejects.
+        void result.then((conn) => this.#trackWsConnection(conn, socket));
+      } else {
+        this.#trackWsConnection(result, socket);
       }
     });
+  }
+
+  /** Tracks one accepted WebSocket so graceful shutdown can close it; deregisters when the socket dies. */
+  #trackWsConnection(conn: IFlareWebSocket | null, socket: Duplex): void {
+    if (!conn) return;
+    if (this.#isShuttingDown) {
+      // Shutdown began while an async `upgrade` hook ran: the 1001 sweep already passed this
+      // connection by, so close it here instead of tracking it into a drained set.
+      conn.close(1001, "Server shutting down");
+      return;
+    }
+    this.#wsConnections.add(conn);
+    socket.on("close", () => this.#wsConnections.delete(conn));
   }
 
   #handleIncomingRequest(req: IncomingMessage, res: ServerResponse): void {

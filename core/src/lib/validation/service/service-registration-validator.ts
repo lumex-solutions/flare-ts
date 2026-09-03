@@ -14,9 +14,9 @@ import type { ServiceValidationContext } from "./composite.js";
 export class ServiceRegistrationValidator implements IValidator<ServiceValidationContext> {
   /**
    * Reports `CONTROLLER_UNREGISTERED_DEP`, `MIDDLEWARE_UNREGISTERED_DEP`,
-   * `WS_ROUTE_UNREGISTERED_DEP`, and `WS_CONTROLLER_UNREGISTERED_DEP` for
-   * service tokens referenced by an entry point that are not registered as
-   * scoped, singleton, or prebuilt.
+   * `WS_ROUTE_UNREGISTERED_DEP`, `WS_UPGRADE_UNREGISTERED_DEP`, and
+   * `WS_CONTROLLER_UNREGISTERED_DEP` for service tokens referenced by an
+   * entry point that are not registered as scoped, singleton, or prebuilt.
    */
   validate(ctx: ServiceValidationContext): ValidationError[] {
     const errors: ValidationError[] = [];
@@ -62,6 +62,20 @@ export class ServiceRegistrationValidator implements IValidator<ServiceValidatio
             message: `WebSocket route "${reg.pattern}" injects unregistered service ${dep.name}.`,
             hint: `Register ${dep.name} with host.scoped() or host.singleton() before calling host.build().`,
           });
+        }
+      }
+      // The bare-form upgrade hook shares the route's inject map (same object), already checked above;
+      // only an options-form hook carries its own map to check.
+      if (reg.upgrade !== undefined && reg.upgrade.inject !== reg.inject) {
+        for (const dep of Object.values(reg.upgrade.inject)) {
+          if (!registeredTokens.has(dep)) {
+            errors.push({
+              severity: "error",
+              code: "WS_UPGRADE_UNREGISTERED_DEP",
+              message: `WebSocket route "${reg.pattern}" upgrade hook injects unregistered service ${dep.name}.`,
+              hint: `Register ${dep.name} with host.scoped() or host.singleton() before calling host.build().`,
+            });
+          }
         }
       }
       if (reg.kind !== "controller") continue;

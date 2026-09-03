@@ -5,7 +5,9 @@ import type { Container } from "../../services/container.js";
 import type { IWsChannelDomain } from "./channels/domain.js";
 import type { WsRawInput, WsTypedInput } from "./pipeline/input.js";
 import type { WsController, WsPipeline } from "./pipeline/route.js";
+import type { WebSocketState } from "./transport/flare-web-socket-context.js";
 import type { IFlareWebSocket, WsAcceptOptions } from "./transport/socket.js";
+import type { WebSocketRefusal } from "./transport/web-socket-refusal.js";
 import { _log } from "../../logger/bootstrap.js";
 import { loggerRunner } from "../../logger/context.js";
 import { toErrorField } from "../../logger/fields.js";
@@ -34,6 +36,8 @@ export class WsConnection {
   readonly #id: string;
   readonly #registry: IWsChannelDomain;
   readonly #run: LogRunner;
+  readonly #initialState: WebSocketState | undefined;
+  readonly #closeOnOpen: WebSocketRefusal | undefined;
 
   #ws: FlareWebSocketContext<unknown> | undefined;
   #controller: WsController | undefined;
@@ -46,15 +50,22 @@ export class WsConnection {
     id: string,
     registry: IWsChannelDomain,
     logContext: LogContext | undefined,
+    // An `upgrade` hook run already built the typed input and seeded the state store the hook wrote;
+    // reuse both so declared parsers run once and hook-provided state reaches ws.state. `closeOnOpen`
+    // is the hook's accept-then-close verdict: the handshake completes, then open sends only that
+    // close frame (no channels, no controller), so the client can read the code + reason.
+    prepared?: { input: WsTypedInput; state: WebSocketState; closeOnOpen?: WebSocketRefusal | undefined; },
   ) {
     this.#pipeline = pipeline;
-    this.#input = buildInput(pipeline, raw); // declared parsers may throw: the caller rejects the upgrade
+    this.#input = prepared?.input ?? buildInput(pipeline, raw); // declared parsers may throw: the caller rejects the upgrade
     this.params = raw.params;
     this.acceptOptions = acceptOptions;
     this.#container = container;
     this.#id = id;
     this.#registry = registry;
     this.#run = loggerRunner(logContext);
+    this.#initialState = prepared?.state;
+    this.#closeOnOpen = prepared?.closeOnOpen;
   }
 
   /**
@@ -63,7 +74,20 @@ export class WsConnection {
    * controller. Called exactly once, by the transport, after the handshake.
    */
   async open(socket: IFlareWebSocket): Promise<void> {
-    const ws = new FlareWebSocketContext(this.#id, socket, this.#pipeline.serialize, undefined, this.#registry);
+    if (this.#closeOnOpen) {
+      // Accept-then-close verdict from the upgrade hook: the handshake already completed (that is what
+      // makes the code + reason readable by a browser), so send the close frame and nothing else - no
+      // channel joins, no controller. The transport's terminal close still disposes the DI scope.
+      socket.close(this.#closeOnOpen.code, this.#closeOnOpen.reason);
+      return;
+    }
+    const ws = new FlareWebSocketContext(
+      this.#id,
+      socket,
+      this.#pipeline.serialize,
+      this.#initialState,
+      this.#registry,
+    );
     this.#ws = ws;
     const { channel } = this.#pipeline.registration;
     if (channel) {

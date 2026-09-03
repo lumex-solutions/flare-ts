@@ -102,7 +102,9 @@ export abstract class CfHandlerBase {
     // than escaping the fetch as an unlogged rejection.
     if (this.wsArc && isWebSocketUpgrade(request)) {
       try {
-        const upgraded = handleCfWsUpgrade(
+        // Await covers the async arm a front-door route's `upgrade` hook introduces; a hookless arc
+        // (every DO, by build validation) resolves synchronously and the await is a no-op tick.
+        const upgraded = await handleCfWsUpgrade(
           this.wsArc,
           request,
           this.container.singletonInstances,

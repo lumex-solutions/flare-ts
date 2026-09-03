@@ -4,30 +4,16 @@
  */
 import { describe, expect, it } from "vitest";
 import { schema, str } from "@flare-ts/lib/schema";
-import type { WsConnection } from "../../../../../src/lib/arcs/ws/connection.js";
-import type { IFlareWebSocket } from "../../../../../src/lib/arcs/ws/transport/socket.js";
 import type { IFlareHost } from "../../../../../src/lib/host/flare-host.js";
 import type { FlareService } from "../../../../../src/lib/services/composition/flare-service.js";
 import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
+import { WsConnection } from "../../../../../src/lib/arcs/ws/connection.js";
 import { FlareWebSocketMessage } from "../../../../../src/lib/arcs/ws/transport/flare-web-socket-message.js";
 import { COMPILE_WS_ARC, UPGRADE_WS, WebSocketArc } from "../../../../../src/lib/arcs/ws/ws-arc.js";
 import { FlareRegistrationMap } from "../../../../../src/lib/services/registration-map.js";
+import { FakeSocket } from "../../../helpers/ws-fixtures.js";
 
 const ChatSchema = schema({ type: str, text: str });
-
-class FakeSocket implements IFlareWebSocket {
-  readyState: 0 | 1 | 2 | 3 = 1;
-  bufferedAmount = 0;
-  protocol = "";
-  sent: Array<string | Uint8Array> = [];
-  closed: { code: number | undefined; reason: string | undefined; } | undefined;
-  send(d: string | Uint8Array): void {
-    this.sent.push(d);
-  }
-  close(code?: number, reason?: string): void {
-    this.closed = { code, reason };
-  }
-}
 
 // A bare token + instance: the Container only needs a Map key and a factory, so we skip the real
 // FlareService base and hand it a fabricated instance.
@@ -53,7 +39,11 @@ function roomsRegistry(instance: object): FlareRegistrationMap {
 /** Compiles the host arc and upgrades `/test/lobby?x=1` to params `{ room: "lobby" }`. */
 function connect(host: { ws: WebSocketArc; }): WsConnection {
   host.ws[COMPILE_WS_ARC]();
-  return host.ws[UPGRADE_WS]("/test/lobby", new URLSearchParams("x=1"))!;
+  // These routes carry no upgrade hook, so the outcome is always the connection itself; the check
+  // keeps a regression (a denial or an async arm) failing HERE instead of obscurely downstream.
+  const outcome = host.ws[UPGRADE_WS]("/test/lobby", new URLSearchParams("x=1"));
+  if (!(outcome instanceof WsConnection)) throw new Error("expected an accepted connection");
+  return outcome;
 }
 
 describe("resident connection (UPGRADE_WS)", () => {

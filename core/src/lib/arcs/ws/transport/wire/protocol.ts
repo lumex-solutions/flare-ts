@@ -25,6 +25,12 @@ export const WS_CLOSE = {
   INTERNAL_ERROR: 1011,
 } as const;
 
+/**
+ * @internal The longest close reason the wire allows (RFC 6455 section 5.5): a control frame carries
+ * at most 125 payload bytes, 2 of them spent on the close code.
+ */
+export const WS_MAX_CLOSE_REASON_BYTES = 123;
+
 /** @internal Close code reported up when a peer closes without a status code (RFC 6455 section 7.1.5). */
 export const WS_CLOSE_NO_STATUS = 1005;
 

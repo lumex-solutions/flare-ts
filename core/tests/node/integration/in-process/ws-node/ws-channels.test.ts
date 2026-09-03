@@ -9,21 +9,11 @@
 process.env["FLARE_MODE"] = "test";
 
 import { describe, expect, it } from "vitest";
-import type { IFlareWebSocket } from "../../../../../src/lib/arcs/ws/transport/socket.js";
 import { FlareHost, FlareResponse, WebSocketChannels } from "../../../../../src/index.js";
+import { WsConnection } from "../../../../../src/lib/arcs/ws/connection.js";
 import { UPGRADE_WS } from "../../../../../src/lib/arcs/ws/ws-arc.js";
 import { node } from "../../../../../src/node.js";
-
-class FakeSocket implements IFlareWebSocket {
-  readyState: 0 | 1 | 2 | 3 = 1;
-  bufferedAmount = 0;
-  protocol = "";
-  sent: Array<string | Uint8Array> = [];
-  send(d: string | Uint8Array): void {
-    this.sent.push(d);
-  }
-  close(): void {}
-}
+import { FakeSocket } from "../../../../portable/helpers/ws-fixtures.js";
 
 // The Node adapter binds the injectable WebSocketChannels singleton to the SAME broadcast domain every Node
 // WS connection joins (the arc's default registry), so an HTTP handler publishing through it reaches a
@@ -43,7 +33,10 @@ describe("HTTP publish through injected channels", () => {
     const app = await host.build().test();
 
     // Open a connection through the arc's real upgrade entry (a fake transport socket stands in for TCP).
-    const conn = host.ws[UPGRADE_WS]("/feed", new URLSearchParams())!;
+    // The route carries no upgrade hook, so the outcome is always the connection itself.
+    const outcome = host.ws[UPGRADE_WS]("/feed", new URLSearchParams());
+    if (!(outcome instanceof WsConnection)) throw new Error("expected an accepted connection");
+    const conn = outcome;
     const socket = new FakeSocket();
     await conn.open(socket);
 

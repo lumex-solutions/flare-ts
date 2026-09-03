@@ -54,6 +54,14 @@ export type WebSocketRouteOptions<D extends InjectMap = InjectMap> =
   | LooseWebSocketRouteOptions<D>
   | ContractWebSocketRouteOptions<D>;
 
+/** The options accepted by the two-arg `upgrade` registrar: the hook's own DI map and state provisions. */
+export type WebSocketUpgradeOptions<I extends InjectMap = InjectMap> = {
+  /** DI map for the hook alone; declared services appear on the hook's `scope` by name. */
+  readonly inject?: I;
+  /** State tokens the hook writes via `scope.state`, visible to build-time provision checks. */
+  readonly provides?: readonly StateToken[];
+};
+
 /**
  * Controller-form options for `host.ws.controller`: everything but `inject`, which is forbidden here -
  * a controller class has no `scope` for named deps to attach to; its DI is `static deps`, read with
