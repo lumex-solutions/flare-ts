@@ -256,6 +256,24 @@ describe("asynchronous console transport output", () => {
       expect(visible).toMatch(/─{20,}/);
     });
 
+    it("lists each error in the cause chain after the stack, outermost first", () => {
+      const err: LogError = {
+        name: "LedgerOffline",
+        message: "Ledger unreachable",
+        cause: {
+          name: "TypeError",
+          message: "fetch failed",
+          cause: { name: "Error", message: "connect ECONNREFUSED" },
+        },
+      };
+      prettyTransport().write(makeRecord({ level: "error", message: "m", error: err }));
+      const visible = stripAnsi(capture.error[0]!);
+
+      expect(visible).toContain("caused by TypeError  fetch failed");
+      expect(visible).toContain("caused by Error  connect ECONNREFUSED");
+      expect(visible.indexOf("fetch failed")).toBeLessThan(visible.indexOf("connect ECONNREFUSED"));
+    });
+
     it('error.name defaults to "Error" when absent', () => {
       const err: LogError = { message: "msg-without-name" };
       prettyTransport().write(makeRecord({ level: "error", message: "x", error: err }));

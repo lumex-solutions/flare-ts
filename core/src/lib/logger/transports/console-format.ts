@@ -363,6 +363,13 @@ function errorBlock(
     lines.push(...stack);
   }
 
+  for (let cause = error.cause; cause !== undefined; cause = cause.cause) {
+    lines.push(`  ${border("│")}`);
+    lines.push(
+      `  ${border("│")}  ${A.dim}caused by${A.reset} ${A.red}${cause.name ?? "Error"}${A.reset}  ${cause.message}`,
+    );
+  }
+
   lines.push(`  ${border("└")}${A.red}${bottomRule}${A.reset}`);
   return lines.join("\n");
 }

@@ -10,6 +10,8 @@
 
 ### Added
 
+- Log records follow an error's `cause` chain (up to five deep) into `error.cause`, and the pretty console format prints each cause under the stack.
+
 - **`AppGraph`**: the built app's routes and services, as Flare compiled them. Inject it like any service (`inject: { graph: AppGraph }` or `static deps = [AppGraph]`), or read it in tests as `handle.graph`.
   - `graph.routes()` lists every route: HTTP routes (`HttpRouteNode`, `kind: "http"`) in the order the router tries them, then WebSocket routes (`WebSocketRouteNode`, `kind: "ws"`), the front door's first and then each Durable Object's.
   - An HTTP route reports its id (`GET /api/users/:id`), handler, group, pipeline in run order (each middleware with when it runs and whether it was registered globally or on the group), the JSON Schemas of the route params, query, and body its contract declares, the state it reads and writes, and every service it resolves, directly or through other services.

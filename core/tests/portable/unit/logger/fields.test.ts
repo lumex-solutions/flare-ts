@@ -62,4 +62,27 @@ describe("error field normalization for log records", () => {
   it("undefined input returns message = 'undefined'", () => {
     expect(toErrorField(undefined)).toEqual({ message: "undefined" });
   });
+
+  it("follows the cause chain into nested error fields, a thrown non-Error included", () => {
+    const refused = new Error("connect ECONNREFUSED", { cause: "socket closed" });
+    const failed = new TypeError("fetch failed", { cause: refused });
+    const r = toErrorField(new Error("Ledger unreachable", { cause: failed }));
+
+    expect(r.cause).toMatchObject({
+      name: "TypeError",
+      message: "fetch failed",
+      cause: { message: "connect ECONNREFUSED", cause: { message: "socket closed" } },
+    });
+  });
+
+  it("stops a cause chain that loops back on itself after five causes", () => {
+    const first = new Error("first");
+    const second = new Error("second", { cause: first });
+    Object.defineProperty(first, "cause", { value: second });
+
+    let depth = 0;
+    for (let field = toErrorField(first).cause; field !== undefined; field = field.cause) depth++;
+
+    expect(depth).toBe(5);
+  });
 });
