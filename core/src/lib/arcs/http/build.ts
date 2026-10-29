@@ -2,6 +2,7 @@
  * Compiles registered controllers and middleware into sorted pipelines, the router, and per-route exec functions.
  */
 import { compileSerializer } from "@flare-ts/lib/schema";
+import type { FlareErrorClass } from "../../errors/types.js";
 import type { Router } from "../../routing/router.js";
 import type { StateToken } from "../../state/flare-state.js";
 import type { MiddlewareBase } from "./composition/classes/middleware-base.js";
@@ -114,6 +115,7 @@ function compilePipelines(
   providedAtEntry: readonly StateToken[] = [],
 ): Pipeline[] {
   const pipelines: Pipeline[] = [];
+  const orderedGlobalErrorHandlers = orderErrorHandlers(globalErrorHandlers);
 
   for (let i = 0; i < controllers.length; i++) {
     const registration = controllers[i]!;
@@ -132,8 +134,8 @@ function compilePipelines(
 
     const groupErrorHandlers = registration.group?.errorHandlers ?? [];
     const errorHandlers = groupErrorHandlers.length > 0
-      ? [...globalErrorHandlers, ...groupErrorHandlers]
-      : globalErrorHandlers;
+      ? [...orderedGlobalErrorHandlers, ...orderErrorHandlers(groupErrorHandlers)]
+      : orderedGlobalErrorHandlers;
 
     const routes = compileRoutes(registration);
     const effectiveCors = groups.find((g) => g.controllers.includes(registration))?.corsConfig ?? arcCorsConfig;
@@ -497,4 +499,18 @@ function compileResponseSerializers(
   }
 
   return hasAny ? serializers : undefined;
+}
+
+// Within one scope, keyed handlers run first, the most specific key first (a subclass before the class it
+// extends), then catch-alls; ties keep registration order. Dispatch skips a keyed handler the error is not
+// an instance of, so the first keyed handler that runs is the one closest to the error's own class.
+function orderErrorHandlers(handlers: readonly ErrorHandlerRegistration[]): ErrorHandlerRegistration[] {
+  const depthOf = (key: FlareErrorClass): number => {
+    let depth = 0;
+    for (let cls = Object.getPrototypeOf(key); cls !== null; cls = Object.getPrototypeOf(cls)) depth++;
+    return depth;
+  };
+  const keyed = handlers.filter((handler) => handler.key !== undefined);
+  keyed.sort((a, b) => depthOf(b.key!) - depthOf(a.key!));
+  return [...keyed, ...handlers.filter((handler) => handler.key === undefined)];
 }

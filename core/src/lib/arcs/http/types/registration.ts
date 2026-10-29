@@ -2,6 +2,7 @@
  * The registration vocabulary: the shapes host registration records for controllers, middleware, groups, and error handlers.
  */
 import type { OpaqueConfigToken } from "../../../config/flare-config.js";
+import type { FlareErrorClass } from "../../../errors/types.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { ServiceFactory } from "../../../services/types/registration.js";
 import type { ServiceToken } from "../../../services/types/token.js";
@@ -74,6 +75,8 @@ export type ErrorHandlerRegistration = {
   readonly factory: ServiceFactory<ErrorHandlerBase>;
   readonly deps: readonly ServiceToken<FlareService>[];
   readonly cls: ErrorHandlerClass;
+  /** The error class the handler is keyed to; absent on a catch-all handler. */
+  readonly key?: FlareErrorClass | undefined;
 };
 
 export type GroupRegistration = {

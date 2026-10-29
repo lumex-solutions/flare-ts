@@ -1,8 +1,9 @@
 /**
  * The registration core both authoring forms feed: routes, middleware, groups, and error handlers compile to one shape here.
  */
+import type { JsonValue } from "@flare-ts/lib/schema";
 import type { ConfigToken } from "../../../config/flare-config.js";
-import type { FlareError } from "../../../errors/flare-error.js";
+import type { FlareErrorClass } from "../../../errors/types.js";
 import type { HttpErrorContext } from "../../../logger/types.js";
 import type { InjectMap } from "../../../services/types/inject.js";
 import type { HandlerScope } from "../../../services/types/scope.js";
@@ -34,6 +35,7 @@ import type {
   HttpRouteHandler,
   HttpRouteOptions,
 } from "./types/handlers.js";
+import { FlareError } from "../../../errors/flare-error.js";
 import { assertRegistrationPath } from "../../../routing/path.js";
 import { assertInjectKeys, attachScopeDeps } from "../../../services/scope.js";
 import { REQUEST_INPUT } from "../transport/flare-http-context.js";
@@ -312,10 +314,44 @@ export abstract class HttpBase {
       scope: HandlerScope<D>,
     ) => ResponseLike | void | Promise<ResponseLike | void>,
   ): void;
+  /** Handles only errors of class `key` and its subclasses; keyed handlers run before catch-alls. */
+  public error<E extends FlareError<JsonValue | undefined>>(key: FlareErrorClass<E>, handler: ErrorHandlerClass): void;
+  public error<E extends FlareError<JsonValue | undefined>>(
+    key: FlareErrorClass<E>,
+    handler: (
+      err: E,
+      context: HttpErrorContext,
+      scope: HandlerScope,
+    ) => ResponseLike | void | Promise<ResponseLike | void>,
+  ): void;
+  public error<E extends FlareError<JsonValue | undefined>, const D extends InjectMap>(
+    key: FlareErrorClass<E>,
+    options: HttpErrorHandlerOptions<D>,
+    handler: (
+      err: E,
+      context: HttpErrorContext,
+      scope: HandlerScope<D>,
+    ) => ResponseLike | void | Promise<ResponseLike | void>,
+  ): void;
 
   public error(
-    optionsOrHandler: ErrorHandlerClass | HttpErrorHandlerOptions | HttpErrorHandler,
+    keyOrHandler: FlareErrorClass | ErrorHandlerClass | HttpErrorHandlerOptions | HttpErrorHandler,
+    optionsOrHandler?: ErrorHandlerClass | HttpErrorHandlerOptions | HttpErrorHandler,
     maybeHandler?: HttpErrorHandler,
+  ): void {
+    if (isFlareErrorClass(keyOrHandler)) {
+      this.#errorHandler(keyOrHandler, optionsOrHandler!, maybeHandler);
+    } else {
+      // Without a key, the first argument is the handler or its options, so the third is never passed.
+      this.#errorHandler(undefined, keyOrHandler, optionsOrHandler as HttpErrorHandler | undefined);
+    }
+  }
+
+  // A keyed handler's typed `err` holds because dispatch runs it only for an instance of its key.
+  #errorHandler(
+    key: FlareErrorClass | undefined,
+    optionsOrHandler: ErrorHandlerClass | HttpErrorHandlerOptions | HttpErrorHandler,
+    maybeHandler: HttpErrorHandler | undefined,
   ): void {
     if (typeof optionsOrHandler === "function" && optionsOrHandler.prototype instanceof ErrorHandlerBase) {
       const handlerClass = optionsOrHandler as ErrorHandlerClass;
@@ -324,6 +360,7 @@ export abstract class HttpBase {
         factory: (container) => new handlerClass(container),
         deps: handlerClass.deps,
         cls: handlerClass,
+        key,
       });
       return;
     }
@@ -355,7 +392,12 @@ export abstract class HttpBase {
     };
     Object.defineProperty(BuiltErrorHandler, "name", { value: name });
 
-    this.errorHandlers.push({ factory: (container) => new BuiltErrorHandler(container), deps, cls: BuiltErrorHandler });
+    this.errorHandlers.push({
+      factory: (container) => new BuiltErrorHandler(container),
+      deps,
+      cls: BuiltErrorHandler,
+      key,
+    });
   }
 
   /**
@@ -616,3 +658,8 @@ function routeDescriptor(options: HttpRouteOptions): RequestDescriptor | undefin
 
 /** Receiver every inline route's handler runs against; the route itself is data on its registration. */
 class InlineReceiver extends ControllerBase {}
+
+// An error handler's key is a FlareError class: FlareError itself, or any class that extends it.
+function isFlareErrorClass(value: unknown): value is FlareErrorClass {
+  return typeof value === "function" && (value === FlareError || value.prototype instanceof FlareError);
+}

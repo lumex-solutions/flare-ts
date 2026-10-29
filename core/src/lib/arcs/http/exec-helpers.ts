@@ -81,6 +81,9 @@ export function prepareRequestBody(
  * Try each registered error handler in order. Returns the first non-void ResponseLike,
  * or falls back to the default handleControllerError response.
  *
+ * A handler keyed to an error class runs only when the error is an instance of it; build puts keyed
+ * handlers ahead of catch-alls within each scope, the most specific first.
+ *
  * Each handler invocation is wrapped in its own try-catch so a throwing handler
  * never propagates out of this function: it logs and falls through to the next handler.
  * This prevents the pipeline's outer try-catches from re-entering dispatch and cascading.
@@ -102,9 +105,12 @@ export function dispatchErrorHandlers(
       return handleControllerError(err, logger, logCfg.unhandledErrors, context);
     }
 
+    const registration = handlers[idx]!;
+    if (registration.key !== undefined && !(err instanceof registration.key)) return tryNext(idx + 1);
+
     let handler: ErrorHandlerBase;
     try {
-      handler = handlers[idx]!.factory(container);
+      handler = registration.factory(container);
     } catch (err) {
       logger.error(err, "Error handler factory threw", _errorContextMeta(context));
       return tryNext(idx + 1);

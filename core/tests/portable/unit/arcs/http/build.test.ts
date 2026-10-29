@@ -27,6 +27,7 @@ import { clearExecShapeCache } from "../../../../../src/lib/arcs/http/exec-codeg
 import { COMPILE_HTTP_ARC, HTTP_PIPELINES } from "../../../../../src/lib/arcs/http/http-arc.js";
 import { DECORATOR_METADATA_SYMBOL, ROUTE_STORE } from "../../../../../src/lib/arcs/http/routing/route-store.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
+import { NotFoundError } from "../../../../../src/lib/errors/not-found-error.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";
 import { mockContainer, mockContext } from "../../../../../src/lib/testing/mock.js";
 import { testHost } from "../../../helpers/test-host.js";
@@ -1046,5 +1047,31 @@ describe("resolveStepMiddleware", () => {
       from: "global",
     });
     expect(resolveStepMiddleware(pipeline, middleware, pipeline.execCount - 1)?.registration.cls).toBe(Cleanup);
+  });
+});
+
+describe("error handler order", () => {
+  it("puts keyed handlers before catch-alls within each scope, the most specific key first", () => {
+    class UserNotFound extends NotFoundError {}
+    const host = testHost();
+    host.http.error(() => undefined);
+    host.http.error(NotFoundError, () => undefined);
+    host.http.error(UserNotFound, () => undefined);
+    host.http.group("/api", (group) => {
+      group.error(() => undefined);
+      group.error(NotFoundError, () => undefined);
+      group.get("/users", () => null);
+    });
+    host.http[COMPILE_HTTP_ARC]();
+    const [pipeline] = host.http[HTTP_PIPELINES]().pipelines;
+
+    // The arc's handlers, then the group's.
+    expect(pipeline!.errorHandlers.map((handler) => handler.key?.name ?? "catch-all")).toEqual([
+      "UserNotFound",
+      "NotFoundError",
+      "catch-all",
+      "NotFoundError",
+      "catch-all",
+    ]);
   });
 });

@@ -43,6 +43,8 @@
 
 - A `FlareError` takes `{ detail, cause, headers }` options: `cause` is the standard ES2022 cause, and `headers` go on its response.
 
+- Error handlers can be keyed to an error class: `host.http.error(EmailTaken, (err, context) => ...)` runs only for an `EmailTaken` or a subclass, with `err` typed as `EmailTaken`. The options form (`error(EmailTaken, { inject }, handler)`) and the class form (`error(EmailTaken, EmailTakenHandler)`) take the key too. Within the arc's handlers and within a group's, keyed handlers run before catch-alls, the most specific class first; the arc's handlers still run before the group's.
+
 - Log records follow an error's `cause` chain (up to five deep) into `error.cause`, and the pretty console format prints each cause under the stack.
 
 - **`AppGraph`**: the built app's routes and services, as Flare compiled them. Inject it like any service (`inject: { graph: AppGraph }` or `static deps = [AppGraph]`), or read it in tests as `handle.graph`.

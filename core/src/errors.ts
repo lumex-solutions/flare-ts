@@ -10,6 +10,7 @@ export { ForbiddenError } from "./lib/errors/forbidden-error.js";
 export { NotFoundError } from "./lib/errors/not-found-error.js";
 export { RateLimitedError } from "./lib/errors/rate-limited-error.js";
 export { ServiceUnavailableError } from "./lib/errors/service-unavailable-error.js";
+export type { FlareErrorClass } from "./lib/errors/types.js";
 export { UnauthorizedError } from "./lib/errors/unauthorized-error.js";
 export { FlareValidationError } from "./lib/validation/flare-validation-error.js";
 export type { ValidationError, ValidationSeverity } from "./lib/validation/types.js";

@@ -8,7 +8,6 @@ import type { ErrorHandlerClass } from "../../../../../../src/lib/arcs/http/comp
 import type { MiddlewareClass } from "../../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
 import type { CorsConfig } from "../../../../../../src/lib/arcs/http/composition/types/cors.js";
 import type { FlareHttpContext } from "../../../../../../src/lib/arcs/http/transport/flare-http-context.js";
-import type { FlareError } from "../../../../../../src/lib/errors/flare-error.js";
 import type { HttpErrorContext } from "../../../../../../src/lib/logger/types.js";
 import type { Container } from "../../../../../../src/lib/services/container.js";
 import { HttpBase } from "../../../../../../src/lib/arcs/http/composition/base.js";
@@ -17,6 +16,8 @@ import { ErrorHandlerBase } from "../../../../../../src/lib/arcs/http/compositio
 import { MiddlewareBase } from "../../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
 import { HttpGroup } from "../../../../../../src/lib/arcs/http/composition/group.js";
 import { REQUEST_INPUT } from "../../../../../../src/lib/arcs/http/transport/flare-http-context.js";
+import { ConflictError } from "../../../../../../src/lib/errors/conflict-error.js";
+import { FlareError } from "../../../../../../src/lib/errors/flare-error.js";
 
 /**
  * HttpBase is abstract; a minimal concrete subclass lets the tests reach the
@@ -419,6 +420,26 @@ describe("error handler registration", () => {
     expect(base.errorHandlers).toHaveLength(1);
     expect(base.errorHandlers[0]!.cls.name).toBe("SyntheticErrorHandler");
     expect(base.errorHandlers[0]!.deps).toEqual([]);
+  });
+
+  it("Keyed form: records the error class in function, options, and class form, and none for a catch-all", () => {
+    class EmailTaken extends ConflictError {}
+    const eh = makeErrorHandlerCls({ deps: [] });
+
+    base.error(EmailTaken, () => undefined);
+    base.error(EmailTaken, { name: "EmailTakenHandler" }, () => undefined);
+    base.error(EmailTaken, eh);
+    base.error(() => undefined);
+
+    expect(base.errorHandlers.map((reg) => reg.key)).toEqual([EmailTaken, EmailTaken, EmailTaken, undefined]);
+    expect(base.errorHandlers[1]!.cls.name).toBe("EmailTakenHandler");
+    expect(base.errorHandlers[2]!.cls).toBe(eh);
+  });
+
+  it("Keyed form: accepts FlareError itself as a key, for a handler that sees every FlareError", () => {
+    base.error(FlareError, () => undefined);
+
+    expect(base.errorHandlers[0]!.key).toBe(FlareError);
   });
 });
 

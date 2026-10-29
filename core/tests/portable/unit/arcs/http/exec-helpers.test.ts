@@ -24,9 +24,11 @@ import { LOG_CONFIG } from "../../../../../src/lib/config/flare-config.js";
 import { ConflictError } from "../../../../../src/lib/errors/conflict-error.js";
 import { ContentTooLargeError } from "../../../../../src/lib/errors/content-too-large-error.js";
 import { FlareError } from "../../../../../src/lib/errors/flare-error.js";
+import { NotFoundError } from "../../../../../src/lib/errors/not-found-error.js";
 import { RateLimitedError } from "../../../../../src/lib/errors/rate-limited-error.js";
 import { ServiceUnavailableError } from "../../../../../src/lib/errors/service-unavailable-error.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";
+import { testHost } from "../../../helpers/test-host.js";
 
 interface Recorded {
   level: string;
@@ -168,6 +170,19 @@ describe("handleControllerError", () => {
 });
 
 describe("dispatchErrorHandlers", () => {
+  it("runs a handler keyed to an error class only for an error of that class or a subclass", () => {
+    class UserNotFound extends NotFoundError {}
+    const host = testHost();
+    host.http.error(UserNotFound, () => new FlareResponse(404, { handledBy: "UserNotFound" }));
+    host.http.error(() => new FlareResponse(500, { handledBy: "catch-all" }));
+    const container = makeFakeContainer(makeFakeLogger().logger);
+    const dispatch = (err: Error) =>
+      dispatchErrorHandlers(err, host.http.errorHandlers, container, makeContext("GET", "/x")) as FlareResponse;
+
+    expect(dispatch(new UserNotFound()).jsonBody).toEqual({ handledBy: "UserNotFound" });
+    expect(dispatch(new NotFoundError()).jsonBody).toEqual({ handledBy: "catch-all" });
+  });
+
   it("falls back to handleControllerError when no handlers are registered", () => {
     const { logger } = makeFakeLogger();
     const container = makeFakeContainer(logger);
