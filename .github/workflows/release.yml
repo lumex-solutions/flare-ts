@@ -81,15 +81,29 @@ jobs:
       # the npm CLI so the OIDC trusted-publishing exchange runs through npm.
       # No --provenance flag: trusted publishing emits provenance automatically.
       # No NPM_TOKEN: OIDC uses a short-lived token, not a stored secret.
+      #
+      # A version already on npm (published by hand before the tag was pushed)
+      # is skipped rather than re-staged, which the registry rejects with a 409.
+      # If the lookup itself fails, the step falls through to publishing.
 
       - name: Publish @flare-ts/lib
         working-directory: lib
         run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ -n "$(npm view "@flare-ts/lib@$VERSION" version 2>/dev/null || true)" ]; then
+            echo "::notice::@flare-ts/lib@$VERSION is already on npm, skipping publish."
+            exit 0
+          fi
           pnpm pack --pack-destination .
           npm stage publish flare-ts-lib-*.tgz --tag ${{ steps.dist_tag.outputs.tag }}
 
       - name: Publish @flare-ts/core
         working-directory: core
         run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ -n "$(npm view "@flare-ts/core@$VERSION" version 2>/dev/null || true)" ]; then
+            echo "::notice::@flare-ts/core@$VERSION is already on npm, skipping publish."
+            exit 0
+          fi
           pnpm pack --pack-destination .
           npm stage publish flare-ts-core-*.tgz --tag ${{ steps.dist_tag.outputs.tag }}
