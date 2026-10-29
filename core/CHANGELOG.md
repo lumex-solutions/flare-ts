@@ -83,6 +83,8 @@
 
 ### Fixed
 
+- A route's response schema for a status no longer rewrites the error responses sent with that status. Once anything in the pipeline throws, the response, whether Flare's own `{ error, message, detail }` body or one your error handler returns, is written as plain JSON. Before, a route declaring `response: { 409: Conflict }` that threw a `ConflictError` sent `{"reason":"undefined"}`.
+
 - A later inline route at a shared path now validates its own request contract. With `host.http.get("/users", ...)` registered first, `host.http.post("/users", { body: NewUser }, ...)` never applied its descriptor, so the body, query, and route parameters of every method after the first went unvalidated.
 
 ### Internal

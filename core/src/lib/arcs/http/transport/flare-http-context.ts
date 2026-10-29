@@ -84,6 +84,9 @@ export class FlareHttpContext {
   /** @internal Cookie signer for this request, stamped by the HTTP arc when a secret is configured. */
   [COOKIE_SIGNER]?: CookieSigner;
 
+  /** @internal Set by the exec pipeline's error branch; see {@link HANDLER_ERRORED}. Declared only, so the context's shape is unchanged. */
+  declare [HANDLER_ERRORED]?: true;
+
   /**
    * @internal
    * Returns the RAW stored value for a token (only-explicitly-present), bypassing `#resolve`

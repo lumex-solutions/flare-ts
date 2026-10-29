@@ -1,7 +1,13 @@
-/** Unit tests for normalizeHandlerResult response coercion and serialization. */
+/**
+ * Unit tests for normalizeHandlerResult response coercion and serialization, including that a route's
+ * response serializers stop applying once the pipeline has errored.
+ */
 import { describe, it, expect } from "vitest";
+import type { RequestAdapter } from "../../../../../../src/lib/arcs/http/transport/types/adapter.js";
 import type { ResponseSerializers } from "../../../../../../src/lib/arcs/http/transport/types/response.js";
 import type { Pipeline } from "../../../../../../src/lib/arcs/http/types/pipeline.js";
+import { FlareHttpContext, HANDLER_ERRORED } from "../../../../../../src/lib/arcs/http/transport/flare-http-context.js";
+import { FlareRequest } from "../../../../../../src/lib/arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../../../../../src/lib/arcs/http/transport/flare-response.js";
 import { normalizeHandlerResult } from "../../../../../../src/lib/arcs/http/transport/normalize.js";
 
@@ -13,6 +19,19 @@ const COMPILED_SERIALIZER = Symbol.for("@flare-ts/schema/compiled-serializer");
 // Build it as a partial and cast to Pipeline once per test for readability.
 function pipelineWith(serializers?: ResponseSerializers): Pipeline {
   return { responseSerializers: serializers } as unknown as Pipeline;
+}
+
+const requestAdapter: RequestAdapter = {
+  rawHeaders: () => new Headers(),
+  signal: () => new AbortController().signal,
+  background: () => {},
+};
+
+// A real request context; `errored` marks it the way the exec pipeline's error branch does.
+function contextFor(errored = false): FlareHttpContext {
+  const ctx = new FlareHttpContext(new FlareRequest(requestAdapter, "GET", "/orders", "req-1", null));
+  if (errored) ctx[HANDLER_ERRORED] = true;
+  return ctx;
 }
 
 describe("normalizeHandlerResult", () => {
@@ -27,7 +46,7 @@ describe("normalizeHandlerResult", () => {
       calls++;
       return `<<${JSON.stringify(v)}>>`;
     };
-    const out = normalizeHandlerResult(r, pipelineWith([{ 200: serializer }]), 0);
+    const out = normalizeHandlerResult(r, pipelineWith([{ 200: serializer }]), 0, contextFor());
 
     expect(out).toBe(r);
     expect(calls).toBe(1);
@@ -40,34 +59,34 @@ describe("normalizeHandlerResult", () => {
   it("FlareResponse without jsonBody: passes through", () => {
     const r = new FlareResponse(200, new Uint8Array([1, 2, 3]));
     const beforeBody = r.body;
-    const out = normalizeHandlerResult(r, pipelineWith(), 0);
+    const out = normalizeHandlerResult(r, pipelineWith(), 0, contextFor());
     expect(out).toBe(r);
     expect(r.body).toBe(beforeBody);
   });
 
   it("Web Response instance: passes through", () => {
     const native = new Response("hi");
-    const out = normalizeHandlerResult(native, pipelineWith(), 0);
+    const out = normalizeHandlerResult(native, pipelineWith(), 0, contextFor());
     expect(out).toBe(native);
   });
 
   it('null/undefined: throws "Handler returned null/undefined"', () => {
-    expect(() => normalizeHandlerResult(null, pipelineWith(), 0)).toThrow(
+    expect(() => normalizeHandlerResult(null, pipelineWith(), 0, contextFor())).toThrow(
       "Handler returned null/undefined. Did you forget to return a response?",
     );
-    expect(() => normalizeHandlerResult(undefined, pipelineWith(), 0)).toThrow(
+    expect(() => normalizeHandlerResult(undefined, pipelineWith(), 0, contextFor())).toThrow(
       "Handler returned null/undefined. Did you forget to return a response?",
     );
   });
 
   it("Error instance: thrown", () => {
     const err = new Error("boom");
-    expect(() => normalizeHandlerResult(err, pipelineWith(), 0)).toThrow(err);
+    expect(() => normalizeHandlerResult(err, pipelineWith(), 0, contextFor())).toThrow(err);
   });
 
   it("Plain object (ctor === Object): wraps in FlareResponse(200, value)", () => {
     const value = { hello: "world" };
-    const out = normalizeHandlerResult(value, pipelineWith(), 0);
+    const out = normalizeHandlerResult(value, pipelineWith(), 0, contextFor());
     expect(out).toBeInstanceOf(FlareResponse);
     const r = out as FlareResponse;
     expect(r.status).toBe(200);
@@ -80,7 +99,7 @@ describe("normalizeHandlerResult", () => {
 
   it("Plain array (ctor === Array): wraps in FlareResponse(200, value)", () => {
     const value = [1, 2, 3];
-    const out = normalizeHandlerResult(value, pipelineWith(), 0);
+    const out = normalizeHandlerResult(value, pipelineWith(), 0, contextFor());
     expect(out).toBeInstanceOf(FlareResponse);
     const r = out as FlareResponse;
     expect(r.status).toBe(200);
@@ -96,7 +115,7 @@ describe("normalizeHandlerResult", () => {
       a = 1;
     }
     const compiledInstance = new WithCompiled();
-    const compiledOut = normalizeHandlerResult(compiledInstance, pipelineWith(), 0);
+    const compiledOut = normalizeHandlerResult(compiledInstance, pipelineWith(), 0, contextFor());
     expect(compiledOut).toBeInstanceOf(FlareResponse);
     expect((compiledOut as FlareResponse).body).toBe(`compiled:${JSON.stringify(compiledInstance)}`);
 
@@ -111,6 +130,7 @@ describe("normalizeHandlerResult", () => {
       new WithPipelineOverride(),
       pipelineWith([{ 200: pipelineSerializer }]),
       0,
+      contextFor(),
     );
     expect((overrideOut as FlareResponse).body).toBe(`pipeline:${JSON.stringify({ b: 2 })}`);
 
@@ -120,7 +140,7 @@ describe("normalizeHandlerResult", () => {
       c = 3;
     }
     const branded = new BrandedOnly();
-    const brandedOut = normalizeHandlerResult(branded, pipelineWith(), 0);
+    const brandedOut = normalizeHandlerResult(branded, pipelineWith(), 0, contextFor());
     expect((brandedOut as FlareResponse).body).toBe(JSON.stringify(branded));
   });
 
@@ -134,7 +154,7 @@ describe("normalizeHandlerResult", () => {
       }
     }
 
-    const out = normalizeHandlerResult(new Streamy(), pipelineWith(), 0);
+    const out = normalizeHandlerResult(new Streamy(), pipelineWith(), 0, contextFor());
     expect(out).toBeInstanceOf(FlareResponse);
     const r = out as FlareResponse;
     expect(r.status).toBe(200);
@@ -161,7 +181,7 @@ describe("normalizeHandlerResult", () => {
     }
 
     // No pipeline serializer: JSON.stringify.
-    const defaultOut = normalizeHandlerResult(new Plain(42), pipelineWith(), 0);
+    const defaultOut = normalizeHandlerResult(new Plain(42), pipelineWith(), 0, contextFor());
     expect(defaultOut).toBeInstanceOf(FlareResponse);
     const defaultResp = defaultOut as FlareResponse;
     expect(defaultResp.body).toBe(JSON.stringify(new Plain(42)));
@@ -173,22 +193,45 @@ describe("normalizeHandlerResult", () => {
       new Plain(7),
       pipelineWith([{ 200: pipelineSerializer }]),
       0,
+      contextFor(),
     );
     expect((wrappedOut as FlareResponse).body).toBe(`wrapped:${JSON.stringify(new Plain(7))}`);
   });
 
   it('Primitive return: throws "unsupported type"', () => {
-    expect(() => normalizeHandlerResult(42 as unknown as object, pipelineWith(), 0)).toThrow(
+    expect(() => normalizeHandlerResult(42 as unknown as object, pipelineWith(), 0, contextFor())).toThrow(
       "Handler returned an unsupported type. Use a response helper or return a FlareResponse.",
     );
-    expect(() => normalizeHandlerResult("hello" as unknown as object, pipelineWith(), 0)).toThrow(
+    expect(() => normalizeHandlerResult("hello" as unknown as object, pipelineWith(), 0, contextFor())).toThrow(
       "Handler returned an unsupported type. Use a response helper or return a FlareResponse.",
     );
-    expect(() => normalizeHandlerResult(true as unknown as object, pipelineWith(), 0)).toThrow(
+    expect(() => normalizeHandlerResult(true as unknown as object, pipelineWith(), 0, contextFor())).toThrow(
       "Handler returned an unsupported type. Use a response helper or return a FlareResponse.",
     );
-    expect(() => normalizeHandlerResult((() => 1) as unknown as object, pipelineWith(), 0)).toThrow(
+    expect(() => normalizeHandlerResult((() => 1) as unknown as object, pipelineWith(), 0, contextFor())).toThrow(
       "Handler returned an unsupported type. Use a response helper or return a FlareResponse.",
     );
+  });
+
+  it("an errored pipeline's FlareResponse is written as plain JSON, not with the route's serializer for its status", () => {
+    let calls = 0;
+    const serializer = () => {
+      calls++;
+      return `{"reason":"undefined"}`;
+    };
+    const r = new FlareResponse(409, { error: "EmailTaken", message: "taken" });
+
+    normalizeHandlerResult(r, pipelineWith([{ 409: serializer }]), 0, contextFor(true));
+
+    expect(calls).toBe(0);
+    expect(r.body).toBe(`{"error":"EmailTaken","message":"taken"}`);
+  });
+
+  it("an errored pipeline's plain object is written as plain JSON, not with the route's 200 serializer", () => {
+    const serializer = () => `{"id":0}`;
+
+    const out = normalizeHandlerResult({ fallback: true }, pipelineWith([{ 200: serializer }]), 0, contextFor(true));
+
+    expect((out as FlareResponse).body).toBe(`{"fallback":true}`);
   });
 });

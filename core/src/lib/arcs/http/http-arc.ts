@@ -557,7 +557,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
             const dr = container.dispose();
             if (dr !== undefined) {
               return dr.then(() => {
-                const normalized = normalizeHandlerResult(response, pipeline, methodIdx);
+                const normalized = normalizeHandlerResult(response, pipeline, methodIdx, ctx);
                 if (isHeadFallback) {
                   return new Response(null, { status: normalized.status, headers: normalized.headers });
                 }
@@ -565,7 +565,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
               });
             }
           }
-          const normalized = normalizeHandlerResult(response, pipeline, methodIdx);
+          const normalized = normalizeHandlerResult(response, pipeline, methodIdx, ctx);
           if (isHeadFallback) return new Response(null, { status: normalized.status, headers: normalized.headers });
           return normalized;
         },
@@ -587,13 +587,13 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
       const dr = (container as Container).dispose();
       if (dr !== undefined) {
         return dr.then(() => {
-          const result = normalizeHandlerResult(execution, pipeline, methodIdx);
+          const result = normalizeHandlerResult(execution, pipeline, methodIdx, ctx);
           if (isHeadFallback) return new Response(null, { status: result.status, headers: result.headers });
           return result;
         });
       }
     }
-    const result = normalizeHandlerResult(execution, pipeline, methodIdx);
+    const result = normalizeHandlerResult(execution, pipeline, methodIdx, ctx);
     // Strip body from HEAD response (RFC 9110 §9.3.2)
     if (isHeadFallback) return new Response(null, { status: result.status, headers: result.headers });
     return result;

@@ -3,7 +3,9 @@
  */
 import type { ReadonlyJsonValue } from "@flare-ts/lib/schema";
 import type { Pipeline } from "../types/pipeline.js";
+import type { FlareHttpContext } from "./flare-http-context.js";
 import type { HandlerResult, ResponseLike, Serializer } from "./types/response.js";
+import { HANDLER_ERRORED } from "./flare-http-context.js";
 import { FINALIZE_JSON_BODY, FlareResponse } from "./flare-response.js";
 
 // Access schema symbols via Symbol.for so this module does not need to import
@@ -37,18 +39,21 @@ type SymbolIndexedCtor = {
  * | `AsyncIterable` | `Symbol.asyncIterator in value` | wrap chunks as `Uint8Array`, 200 chunked |
  * | plain object / array | `typeof value === "object"` | `JSON.stringify`, 200 JSON |
  * | anything else | fallthrough | throws internal error |
+ *
+ * The route's response serializers apply only while the pipeline has not errored: a response built
+ * while handling an error is not the handler's, so it is written as plain JSON.
  */
-export function normalizeHandlerResult(value: HandlerResult, pipeline: Pipeline, methodIdx: number): ResponseLike {
-  // Most common path: FlareResponse from this.ok() / this.created() / etc.
-  // exec-codegen now does this finalize inline for the FlareResponse-with-
-  // jsonBody case (the bulk of JSON-returning routes), so when normalize
-  // sees the response here, jsonBody is typically already null and we
-  // short-circuit. The branch remains for handlers that bypass codegen
-  // (compiled error handlers, middleware overrides) and for safety.
+export function normalizeHandlerResult(
+  value: HandlerResult,
+  pipeline: Pipeline,
+  methodIdx: number,
+  ctx: FlareHttpContext,
+): ResponseLike {
+  // Most common path: FlareResponse from this.ok() / this.created() / etc. Its JSON body is
+  // serialized here, with the route's serializer for its status when one is declared.
   if (value instanceof FlareResponse) {
     if (value.jsonBody !== null) {
-      const perStatus = pipeline.responseSerializers?.[methodIdx];
-      const serializer = (perStatus && perStatus[value.status]) ?? JSON.stringify;
+      const serializer = routeSerializer(pipeline, methodIdx, value.status, ctx) ?? JSON.stringify;
       value[FINALIZE_JSON_BODY](serializer(value.jsonBody));
     }
     return value;
@@ -68,9 +73,9 @@ export function normalizeHandlerResult(value: HandlerResult, pipeline: Pipeline,
 
     const ctor = (value as { constructor?: unknown; }).constructor;
 
-    // Lazy lookup: pull the per-status map once, reuse across the remaining
-    // branches. perStatus stays undefined when no schemas were declared.
-    const perStatus = pipeline.responseSerializers?.[methodIdx];
+    // Looked up once and reused across the remaining branches; undefined when the route declares no
+    // 200 schema or the pipeline errored.
+    const serializer200 = routeSerializer(pipeline, methodIdx, 200, ctx);
 
     // Fast path: plain {} or []: the most common schema-less return type.
     // Skips the brand-symbol lookup and asyncIterator check entirely.
@@ -80,16 +85,15 @@ export function normalizeHandlerResult(value: HandlerResult, pipeline: Pipeline,
     // branch and misattributes Content-Type before the headers spread corrects it.
     if (ctor === Object || ctor === Array) {
       const r = new FlareResponse(200, value as ReadonlyJsonValue);
-      const serialize = (perStatus && perStatus[200]) ?? JSON.stringify;
+      const serialize = serializer200 ?? JSON.stringify;
       r[FINALIZE_JSON_BODY](serialize(value as ReadonlyJsonValue));
       return r;
     }
 
     // Branded schema model instance.
     if (typeof ctor === "function" && (ctor as unknown as SymbolIndexedCtor)[_SCHEMA_BRAND] === true) {
-      const pipelineSerializer = perStatus && perStatus[200];
       const compiledSerializer = (ctor as unknown as SymbolIndexedCtor)[_COMPILED_SERIALIZER] as Serializer | undefined;
-      const serialize = pipelineSerializer ?? compiledSerializer ?? JSON.stringify;
+      const serialize = serializer200 ?? compiledSerializer ?? JSON.stringify;
       return new FlareResponse(200, serialize(value as ReadonlyJsonValue), {
         headers: { "Content-Type": "application/json" },
       });
@@ -112,7 +116,7 @@ export function normalizeHandlerResult(value: HandlerResult, pipeline: Pipeline,
     }
 
     // Any other object (custom class not branded as a model).
-    const serialize = (perStatus && perStatus[200]) ?? JSON.stringify;
+    const serialize = serializer200 ?? JSON.stringify;
     return new FlareResponse(200, serialize(value as ReadonlyJsonValue), {
       headers: { "Content-Type": "application/json" },
     });
@@ -120,4 +124,16 @@ export function normalizeHandlerResult(value: HandlerResult, pipeline: Pipeline,
 
   // Primitives, functions, symbols: not supported.
   throw new Error("Handler returned an unsupported type. Use a response helper or return a FlareResponse.");
+}
+
+// Reads the error flag only on a route that declares response schemas, so a route without them pays
+// nothing for it.
+function routeSerializer(
+  pipeline: Pipeline,
+  methodIdx: number,
+  status: number,
+  ctx: FlareHttpContext,
+): Serializer | undefined {
+  const perStatus = pipeline.responseSerializers?.[methodIdx];
+  return perStatus === undefined || ctx[HANDLER_ERRORED] === true ? undefined : perStatus[status];
 }

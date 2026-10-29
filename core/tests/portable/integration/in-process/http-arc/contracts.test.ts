@@ -14,7 +14,8 @@ import type { FlareHost } from "../../../../../src/index.js";
 import type { node } from "../../../../../src/node.js";
 import type { TestAppHandle } from "../../../../../src/testing.js";
 import { Get, Post } from "../../../../../src/decorators.js";
-import { ControllerBase, httpContract } from "../../../../../src/index.js";
+import { ConflictError } from "../../../../../src/errors.js";
+import { ControllerBase, FlareResponse, httpContract } from "../../../../../src/index.js";
 import { stream } from "../../../../../src/index.js";
 import { testHost } from "../../../helpers/test-host.js";
 
@@ -507,4 +508,42 @@ describe("Cross-Feature Interactions", () => {
       }
     },
   );
+
+  it("(with errors) a thrown error keeps Flare's error body when the route declares a schema for its status", async () => {
+    class EmailTaken extends ConflictError<{ email: string; }> {}
+    const host = testHost();
+    host.http.post("/signup", { response: { 409: schema({ reason: str }) }, errors: [EmailTaken] }, () => {
+      throw new EmailTaken("ada@example.com is already registered", { detail: { email: "ada@example.com" } });
+    });
+    const local = await host.build().test();
+    try {
+      const res = await local.fetch("POST /signup");
+
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({
+        error: "EmailTaken",
+        message: "ada@example.com is already registered",
+        detail: { email: "ada@example.com" },
+      });
+    } finally {
+      await local.stop();
+    }
+  });
+
+  it("(with error handlers) an error handler's response is written as plain JSON, not with the route's schema", async () => {
+    const host = testHost();
+    host.http.get("/orders/:id", { route: { id: int }, response: { 404: schema({ reason: str }) } }, () => {
+      throw new Error("lookup failed");
+    });
+    host.http.error(() => new FlareResponse(404, { error: "OrderNotFound", retry: false }));
+    const local = await host.build().test();
+    try {
+      const res = await local.fetch("GET /orders/7");
+
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: "OrderNotFound", retry: false });
+    } finally {
+      await local.stop();
+    }
+  });
 });
