@@ -15,6 +15,7 @@ import {
   HTTP_PIPELINES,
   HttpArc,
   INSPECT_HTTP_ARC,
+  OBSERVE_ERRORS,
   START_HTTP_ARC,
   START_HTTP_ARC_ASYNC,
   STOP_HTTP_ARC,
@@ -25,6 +26,7 @@ import { DECORATOR_METADATA_SYMBOL, ROUTE_STORE } from "../../../../../src/lib/a
 import { FlareHttpContext } from "../../../../../src/lib/arcs/http/transport/flare-http-context.js";
 import { FlareRequest } from "../../../../../src/lib/arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
+import { NotFoundError } from "../../../../../src/lib/errors/not-found-error.js";
 import { testHost } from "../../../helpers/test-host.js";
 
 function attachRoutes(
@@ -477,5 +479,27 @@ describe("[HEALTH_ROUTES]", () => {
     http.health({ live: "/up" });
 
     expect(http[HEALTH_ROUTES]()).toEqual({ live: "/up", ready: "/health/ready" });
+  });
+});
+
+describe("[OBSERVE_ERRORS]", () => {
+  it("sees every dispatched error before the error handlers, without changing the answer", async () => {
+    class UserNotFound extends NotFoundError {}
+    const host = testHost();
+    const seen: string[] = [];
+    host.http[OBSERVE_ERRORS]((err) => seen.push(err.name));
+    host.http.error(UserNotFound, () => new FlareResponse(404, { handledBy: "UserNotFound" }));
+    host.http.get("/users/:id", () => {
+      throw new UserNotFound();
+    });
+    const app = await host.build().test();
+    try {
+      const res = await app.fetch("GET /users/u_42");
+
+      expect(await res.json()).toEqual({ handledBy: "UserNotFound" });
+      expect(seen).toEqual(["UserNotFound"]);
+    } finally {
+      await app.stop();
+    }
   });
 });

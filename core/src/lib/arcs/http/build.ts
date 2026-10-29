@@ -40,6 +40,7 @@ export function compileHttp(
   groups: GroupRegistration[] = [],
   arcCorsConfig?: CorsConfig,
   providedAtEntry: readonly StateToken[] = [],
+  errorObservers: readonly ErrorHandlerRegistration[] = [],
 ): { middleware: HttpFactory<MiddlewareBase>[]; pipelines: Pipeline[]; router: Router; execFns: ExecFn[]; } {
   const middleware = compileMiddleware(mwRegistrations);
   const pipelines = compilePipelines(
@@ -49,6 +50,7 @@ export function compileHttp(
     groups,
     arcCorsConfig,
     providedAtEntry,
+    errorObservers,
   );
 
   pipelines.sort((a, b) => b.flareRoute.score - a.flareRoute.score);
@@ -113,6 +115,7 @@ function compilePipelines(
   groups: GroupRegistration[],
   arcCorsConfig?: CorsConfig,
   providedAtEntry: readonly StateToken[] = [],
+  errorObservers: readonly ErrorHandlerRegistration[] = [],
 ): Pipeline[] {
   const pipelines: Pipeline[] = [];
   const orderedGlobalErrorHandlers = orderErrorHandlers(globalErrorHandlers);
@@ -133,9 +136,13 @@ function compilePipelines(
     middlewareFactoryByExecIdx.set(finallyFactoryIdxs, beforeFactoryIdxs.length + 1 + afterFactoryIdxs.length);
 
     const groupErrorHandlers = registration.group?.errorHandlers ?? [];
-    const errorHandlers = groupErrorHandlers.length > 0
+    const scopedErrorHandlers = groupErrorHandlers.length > 0
       ? [...orderedGlobalErrorHandlers, ...orderErrorHandlers(groupErrorHandlers)]
       : orderedGlobalErrorHandlers;
+    // Observers (the prebuilt test suite's) see every error first and never answer it.
+    const errorHandlers = errorObservers.length > 0
+      ? [...errorObservers, ...scopedErrorHandlers]
+      : scopedErrorHandlers;
 
     const routes = compileRoutes(registration);
     const effectiveCors = groups.find((g) => g.controllers.includes(registration))?.corsConfig ?? arcCorsConfig;

@@ -1,19 +1,30 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 /** The prebuilt test suite: one call registers Flare's own checks of an app as ordinary vitest tests. */
+import type { HttpRouteNode } from "../../graph/http-route-node.js";
 import type { FlareApp } from "../../host/types/app.js";
 import type { HostRuntimeLifecycle } from "../../host/types/lifecycle.js";
 import type { TestAppHandle } from "../test-app-handle.js";
+import type { ObservedError } from "./checks.js";
 import type { FlareSuiteOptions, SuiteCheck, SuiteHost } from "./types.js";
-import { HEALTH_ROUTES } from "../../arcs/http/http-arc.js";
+import { HEALTH_ROUTES, OBSERVE_ERRORS } from "../../arcs/http/http-arc.js";
 import { BUILD_WARNINGS } from "../../host/types/const.js";
-import { buildFindings, healthFindings, policyFindings } from "./checks.js";
+import {
+  badInputFindings,
+  buildFindings,
+  errorNameFindings,
+  healthFindings,
+  policyFindings,
+  undeclaredErrorFindings,
+} from "./checks.js";
 
 /**
  * Registers Flare's checks of `host` as a `flare` test block in the calling test file.
  *
  * The suite builds the host in test mode and starts it once, then checks that the build reports no
- * validation errors, that the health routes answer ready when `host.http.health()` is registered, that
- * every configured policy holds, and that every service starts and stops cleanly. A failing check names
+ * validation errors; that bad input, generated from each route's contract, never gets a 5xx; that routes
+ * declaring errors throw only those, and every error name is unique; that the health routes answer ready
+ * when `host.http.health()` is registered; that every configured policy holds; and that every service
+ * starts and stops cleanly. A failing check names
  * each offending route or service. Skip a check by name with `skip`.
  *
  * @example
@@ -31,6 +42,17 @@ export function flareSuite<L extends HostRuntimeLifecycle>(host: SuiteHost<L>, o
     if (skip.has(name)) it.skip(title, fn);
     else it(title, fn);
   };
+
+  // The bad requests run once, shared by the checks that read them; each error a pipeline dispatches
+  // meanwhile is kept with the route its request went to.
+  const observed: ObservedError[] = [];
+  let sendingTo: HttpRouteNode | undefined;
+  host.http[OBSERVE_ERRORS]((error) => observed.push({ route: sendingTo, error }));
+  let exercised: Promise<string[]> | undefined;
+  const exercise = (): Promise<string[]> =>
+    exercised ??= badInputFindings(started(), (route) => {
+      sendingTo = route;
+    });
 
   let app: TestAppHandle | undefined;
   let buildFailure: unknown;
@@ -64,6 +86,20 @@ export function flareSuite<L extends HostRuntimeLifecycle>(host: SuiteHost<L>, o
     const failOnWarnings = options.failOnWarnings ?? false;
     check("build", failOnWarnings ? "build: no validation errors or warnings" : "build: no validation errors", () => {
       expect(buildFindings(buildFailure, host[BUILD_WARNINGS](), failOnWarnings)).toEqual([]);
+    });
+
+    check("bad-input", "routes: bad input gets a 4xx, never a 5xx", async () => {
+      expect(await exercise()).toEqual([]);
+    });
+
+    check("declared-errors", "errors: routes only throw the errors they declare", async () => {
+      await exercise();
+      expect(undeclaredErrorFindings(observed)).toEqual([]);
+    });
+
+    check("error-names", "errors: every error name is unique", async () => {
+      await exercise();
+      expect(errorNameFindings(observed)).toEqual([]);
     });
 
     const health = host.http[HEALTH_ROUTES]();

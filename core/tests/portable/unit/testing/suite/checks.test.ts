@@ -3,8 +3,20 @@
  * routes, and route policies. Apps are built through a real test host.
  */
 import { describe, expect, it } from "vitest";
+import { int } from "@flare-ts/lib/schema";
+import type { HttpRouteNode } from "../../../../../src/lib/graph/http-route-node.js";
+import type { ObservedError } from "../../../../../src/lib/testing/suite/checks.js";
 import { MiddlewareBase } from "../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
-import { buildFindings, healthFindings, policyFindings } from "../../../../../src/lib/testing/suite/checks.js";
+import { ConflictError } from "../../../../../src/lib/errors/conflict-error.js";
+import { NotFoundError } from "../../../../../src/lib/errors/not-found-error.js";
+import {
+  badInputFindings,
+  buildFindings,
+  errorNameFindings,
+  healthFindings,
+  policyFindings,
+  undeclaredErrorFindings,
+} from "../../../../../src/lib/testing/suite/checks.js";
 import { FlareValidationError } from "../../../../../src/lib/validation/flare-validation-error.js";
 import { testHost } from "../../../helpers/test-host.js";
 
@@ -99,5 +111,69 @@ describe("policyFindings", () => {
     });
 
     expect(policyFindings(graph, { path: "/admin/**", runs: AuthMiddleware })).toEqual(["No route matches /admin/**."]);
+  });
+});
+
+describe("badInputFindings", () => {
+  it("reports a route that answers bad input with a 5xx, telling the caller which route each request is for", async () => {
+    const host = testHost();
+    host.http.get("/teams/:id", { route: { id: int } }, () => null);
+    host.http.get("/report", () => {
+      throw new Error("report renderer crashed");
+    });
+    const app = await host.build().test();
+    const sentTo: (string | undefined)[] = [];
+    try {
+      const findings = await badInputFindings(app, (route) => sentTo.push(route?.id));
+
+      expect(findings).toEqual(["GET /report answered 500 to a request with no input."]);
+      expect(sentTo).toEqual(["GET /teams/:id", undefined, "GET /report", undefined]);
+    } finally {
+      await app.stop();
+    }
+  });
+});
+
+describe("error findings", () => {
+  class UserNotFound extends NotFoundError {}
+  class AdminNotFound extends UserNotFound {}
+  class EmailTaken extends ConflictError {}
+
+  async function signupRoute(): Promise<HttpRouteNode> {
+    const host = testHost();
+    host.http.get("/users/:id", { errors: [UserNotFound] }, () => null);
+    host.http.get("/health", () => null);
+    const app = await host.build().test();
+    await app.stop();
+    return app.graph.route("GET", "/users/:id")!;
+  }
+
+  it("reports an error a declaring route threw outside its declarations, and passes a subclass of a declared one", async () => {
+    const route = await signupRoute();
+    const observed: ObservedError[] = [
+      { route, error: new AdminNotFound() },
+      { route, error: new EmailTaken() },
+      { route, error: new Error("boom") },
+      { route: undefined, error: new EmailTaken() },
+    ];
+
+    expect(undeclaredErrorFindings(observed)).toEqual([
+      "GET /users/:id threw EmailTaken, which it does not declare.",
+      "GET /users/:id threw Error, which it does not declare.",
+    ]);
+  });
+
+  it("reports a wire name two different classes sent, once", () => {
+    const Duplicate = class extends ConflictError {
+      static override code = "EmailTaken";
+    };
+    const observed: ObservedError[] = [
+      { route: undefined, error: new EmailTaken() },
+      { route: undefined, error: new Duplicate() },
+      { route: undefined, error: new Duplicate() },
+      { route: undefined, error: new EmailTaken() },
+    ];
+
+    expect(errorNameFindings(observed)).toEqual(['Two error classes send the wire name "EmailTaken".']);
   });
 });

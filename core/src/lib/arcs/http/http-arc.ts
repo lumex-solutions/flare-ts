@@ -3,8 +3,10 @@
  */
 import type { ArrayTypedPrimitive, JsonValue } from "@flare-ts/lib/schema";
 import type { Primitive, TypedPrimitive } from "@flare-ts/lib/schema";
+import type { FlareError } from "../../errors/flare-error.js";
 import type { IFlareHost } from "../../host/flare-host.js";
 import type { HostRuntimeLifecycle, LifecycleCallback } from "../../host/types/lifecycle.js";
+import type { HttpErrorContext } from "../../logger/types.js";
 import type { Router } from "../../routing/router.js";
 import type { StateToken } from "../../state/flare-state.js";
 import type { HttpArcInspectSnapshot, RouterInspectSnapshot } from "../../testing/types/inspect-build.js";
@@ -19,13 +21,14 @@ import type { HandlerResult, ResponseLike } from "./transport/types/response.js"
 import type { ExecFn } from "./types/exec-fn.js";
 import type { Pipeline } from "./types/pipeline.js";
 import type { CompiledQueryPrimitive } from "./types/pipeline.js";
-import type { GroupRegistration, MiddlewareRegistration } from "./types/registration.js";
+import type { ErrorHandlerRegistration, GroupRegistration, MiddlewareRegistration } from "./types/registration.js";
 import { REGISTER_BUILD_HOOK } from "../../host/types/const.js";
 import { toErrorField } from "../../logger/fields.js";
 import { assertRegistrationPath, isValidInboundPath } from "../../routing/path.js";
 import { Container } from "../../services/container.js";
 import { compileHttp } from "./build.js";
 import { HttpBase } from "./composition/base.js";
+import { ErrorHandlerBase } from "./composition/classes/error-handler-base.js";
 import { stream } from "./composition/contract/http-contract.js";
 import { FINALIZE_GROUP, HttpGroup } from "./composition/group.js";
 import { applyActualCorsHeaders, buildCorsPreflightResponse, checkOriginAllowed } from "./cors.js";
@@ -51,6 +54,8 @@ export const INSPECT_HTTP_ARC: unique symbol = Symbol("INSPECT_HTTP_ARC");
 export const HTTP_PIPELINES: unique symbol = Symbol("HTTP_PIPELINES");
 /** @internal */
 export const HEALTH_ROUTES: unique symbol = Symbol("HEALTH_ROUTES");
+/** @internal */
+export const OBSERVE_ERRORS: unique symbol = Symbol("OBSERVE_ERRORS");
 export const START_HTTP_ARC: unique symbol = Symbol("START_HTTP_ARC");
 export const START_HTTP_ARC_ASYNC: unique symbol = Symbol("START_HTTP_ARC_ASYNC");
 export const STOP_HTTP_ARC: unique symbol = Symbol("STOP_HTTP_ARC");
@@ -68,6 +73,7 @@ const _EMPTY_MW_CACHE: MiddlewareBase[] = [];
 export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends HttpBase {
   #pipelines: Pipeline[] = [];
   #health: { readonly handle: HealthHandle; readonly options: HealthOptions; } | undefined;
+  readonly #errorObservers: ErrorHandlerRegistration[] = [];
   #execFns: ExecFn[] = [];
   #router?: Router;
   /** Pre-built once at compile time; reused every request when there are no scoped services. */
@@ -142,6 +148,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
       this.groups,
       this.corsConfig,
       providedAtEntry,
+      this.#errorObservers,
     );
 
     this.#pipelines = pipelines;
@@ -183,6 +190,21 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
     readonly middleware: readonly MiddlewareRegistration[];
   } {
     return { pipelines: this.#pipelines, middleware: this.mwRegistrations };
+  }
+
+  /**
+   * @internal Registers a function that sees every error a route's pipeline dispatches, before any error
+   * handler, and never answers it; for the prebuilt test suite. Takes effect at the next compile.
+   */
+  [OBSERVE_ERRORS](observe: (err: FlareError | Error, context: HttpErrorContext) => void): void {
+    const Observer = class extends ErrorHandlerBase {
+      static override deps = [];
+
+      override handle(err: FlareError | Error, context: HttpErrorContext): void {
+        observe(err, context);
+      }
+    };
+    this.#errorObservers.push({ factory: (container) => new Observer(container), deps: [], cls: Observer });
   }
 
   /** @internal Returns the health route paths, or undefined when `health()` was never called. */

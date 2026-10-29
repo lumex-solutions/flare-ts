@@ -7,7 +7,14 @@ import type { HostRuntimeLifecycle } from "../../host/types/lifecycle.js";
 import type { ValidationError } from "../../validation/types.js";
 
 /** A check `flareSuite` runs, by the name `skip` takes. */
-export type SuiteCheck = "build" | "services" | "health" | "policies";
+export type SuiteCheck =
+  | "build"
+  | "bad-input"
+  | "declared-errors"
+  | "error-names"
+  | "services"
+  | "health"
+  | "policies";
 
 /** A rule over the app graph: every route whose registered path matches `path` runs `runs`. */
 export type RoutePolicy = {
