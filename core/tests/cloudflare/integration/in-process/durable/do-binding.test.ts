@@ -22,9 +22,7 @@ describe("Flare Durable Object via a real binding", () => {
 
   it("exposes a custom method over RPC (stub.sayHello)", async () => {
     const id = env.TEST_ROOM.idFromName("rpc");
-    // The TEST_ROOM binding is typed as a bare DurableObjectNamespace (env.d.ts), so the stub does not
-    // carry the RPC method type. Cast to expose sayHello; follow-up: derive the binding type from TestRoom.
-    const greeting = await (env.TEST_ROOM.get(id) as unknown as { sayHello(): Promise<string>; }).sayHello();
+    const greeting = await env.TEST_ROOM.get(id).sayHello();
     expect(greeting).toBe(`Room ${id.toString()}`);
   });
 });

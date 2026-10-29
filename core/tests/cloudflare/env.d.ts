@@ -8,7 +8,8 @@
 declare namespace Cloudflare {
   interface Env {
     FLAG: string;
-    TEST_ROOM: DurableObjectNamespace;
+    // Typed with its class so a stub carries TestRoom's RPC methods (stub.sayHello()).
+    TEST_ROOM: DurableObjectNamespace<import("./fixtures/durable-worker.js").TestRoom>;
     // Convention-router binding: namespaceFor(env, TestRoom) looks up env[cls.name] = env.TestRoom.
     TestRoom: DurableObjectNamespace;
     // State boundary-crossing e2e test bindings.
