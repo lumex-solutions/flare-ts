@@ -26,13 +26,7 @@ import type { FlareConfig } from "./types/config.js";
 import type { HostRuntimeLifecycle } from "./types/lifecycle.js";
 import type { HostRuntime } from "./types/runtime.js";
 import type { HostState } from "./types/state.js";
-import {
-  COMPILE_HTTP_ARC,
-  HTTP_PIPELINES,
-  HttpArc,
-  INSPECT_HTTP_ARC,
-  REEVALUATE_CONTAINER_STRATEGY,
-} from "../arcs/http/http-arc.js";
+import { COMPILE_HTTP_ARC, HttpArc, INSPECT_HTTP_ARC, REEVALUATE_CONTAINER_STRATEGY } from "../arcs/http/http-arc.js";
 import { CookieSigner } from "../arcs/http/transport/cookie-signer.js";
 import { COMPILE_WS_ARC, WS_REGISTRATIONS, WebSocketArc } from "../arcs/ws/ws-arc.js";
 import {
@@ -43,6 +37,7 @@ import {
   WEBSOCKETS_CONFIG,
 } from "../config/flare-config.js";
 import { AppGraph, RESET_GRAPH } from "../graph/app-graph.js";
+import { arcSourceOf } from "../graph/build.js";
 import { _log } from "../logger/bootstrap.js";
 import { loggerALS } from "../logger/context.js";
 import { toErrorField } from "../logger/fields.js";
@@ -118,11 +113,12 @@ export interface FlareBuildContext {
    */
   ownValidation(validate: () => ValidationError[]): void;
   /**
-   * Adds what the adapter hosts beyond the host's own registrations to the app graph: Cloudflare's
-   * per-Durable-Object arcs and the services it seeds per request or instance. The graph calls `source`
-   * on its first query, after the build has compiled every arc.
+   * Registers what the adapter hosts beyond the host's own registrations, for the app graph.
+   *
+   * Cloudflare registers each Durable Object's arcs and the services it puts in each isolate's or Durable
+   * Object's container. The app graph calls `source` on its first query, after every arc has compiled.
    */
-  extendGraph(source: () => AdapterGraphSource): void;
+  addAppGraphSource(source: () => AdapterGraphSource): void;
   /**
    * When a hook sets this, the host skips module-level singleton instantiation. An adapter whose
    * exported instances each need their own singleton graph sets it and compiles the singletons
@@ -235,8 +231,8 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
   #buildHooks: Array<(ctx: FlareBuildContext) => void> = [];
   /** Set when a build hook calls `ctx.ownValidation`; the host runs it instead of its generic suite. */
   #adapterValidator: (() => ValidationError[]) | undefined;
-  /** Set when a build hook calls `ctx.extendGraph`; the graph reads it alongside the host's own arcs. */
-  #adapterGraph: (() => AdapterGraphSource) | undefined;
+  /** Set when a build hook calls `ctx.addAppGraphSource`; the app graph reads it beside the host's own arcs. */
+  #adapterGraphSource: (() => AdapterGraphSource) | undefined;
   #singletonsCompiled = false;
   /** Cookie signer derived from `cookies.secret`; `null` until first computed, `undefined` when unset. */
   #cookieSigner: CookieSigner | null | undefined = null;
@@ -693,8 +689,8 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
       ownValidation: (validate) => {
         this.#adapterValidator = validate;
       },
-      extendGraph: (source) => {
-        this.#adapterGraph = source;
+      addAppGraphSource: (source) => {
+        this.#adapterGraphSource = source;
       },
       deferSingletonCompile: false,
       registeredServiceTokens: new Set<ServiceToken<FlareService>>([
@@ -957,9 +953,9 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
 
   #graphSource(): GraphSource {
     const registered = new Set(this.#singletonRegistrations.map((r) => r.token));
-    const adapter = this.#adapterGraph?.();
+    const adapter = this.#adapterGraphSource?.();
     return {
-      frontDoor: { ...this.http[HTTP_PIPELINES](), groups: this.http.groups, webSockets: this.ws[WS_REGISTRATIONS]() },
+      frontDoor: arcSourceOf(this.http, this.ws),
       durableObjects: adapter?.durableObjects ?? [],
       seeded: adapter?.seeded ?? [],
       scoped: this.#scopedRegistrations,

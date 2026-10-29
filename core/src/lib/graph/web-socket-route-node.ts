@@ -1,12 +1,14 @@
 /** One WebSocket route of the built app, as the app graph reports it. */
 import type { JsonSchema } from "@flare-ts/lib/schema";
 import type { MiddlewareClass } from "../arcs/http/composition/classes/middleware-base.js";
+import type { HttpRouteNode } from "./http-route-node.js";
 
 /**
  * One WebSocket route of the built app: what its upgrade and messages accept, and the state and
  * services it touches.
  *
- * Every field is JSON-safe, and ids reference other nodes of the same graph.
+ * Every field is JSON-safe, and ids reference other nodes of the same graph. Mirrors
+ * {@link HttpRouteNode}.
  */
 export class WebSocketRouteNode {
   readonly kind: "ws";
@@ -23,8 +25,9 @@ export class WebSocketRouteNode {
   /** The controller class name for a class route; the route id for a function route. */
   readonly handler: string;
   /**
-   * JSON Schemas for the parts the route declares: the upgrade's path params and query, and each
-   * inbound message. A part it leaves undeclared is absent.
+   * JSON Schemas for the parts the route declares: the upgrade's path params and query, and each message.
+   *
+   * A part it leaves undeclared is absent.
    */
   readonly input: { readonly params?: JsonSchema; readonly query?: JsonSchema; readonly incoming?: JsonSchema; };
   /** Names of the state tokens the handlers read, and of those the upgrade hook writes. */
@@ -45,7 +48,7 @@ export class WebSocketRouteNode {
     Object.freeze(this);
   }
 
-  /** Returns false: HTTP middleware never runs on a WebSocket route, which its upgrade hook guards instead. */
+  /** Returns false: HTTP middleware never runs on a WebSocket route; an `upgrade` hook is its guard. */
   runs(_middleware: MiddlewareClass): boolean {
     return false;
   }

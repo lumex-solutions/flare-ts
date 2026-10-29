@@ -24,12 +24,13 @@ export class HttpRouteNode {
   readonly group: string | undefined;
   /** The Durable Object class whose arc serves the route; undefined for the front door. */
   readonly durableObject: string | undefined;
-  /** `Controller.method` for a class route; the route id for an inline route. */
+  /** `Controller.method` for a class route; the route id for a function route. */
   readonly handler: string;
   readonly pipeline: readonly PipelineStep[];
   /**
-   * JSON Schemas for the request parts the route's contract declares; a part it leaves undeclared is
-   * absent. A streamed body is a binary string.
+   * JSON Schemas for the request parts the route's contract declares.
+   *
+   * A part it leaves undeclared is absent, and a streamed body is a binary string.
    */
   readonly input: { readonly route?: JsonSchema; readonly query?: JsonSchema; readonly body?: JsonSchema; };
   /** Names of the state tokens the handler reads, and of those the route's middleware write. */

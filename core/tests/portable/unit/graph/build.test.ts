@@ -1,6 +1,6 @@
 /**
- * Unit tests for buildGraph: service nodes from registrations and prebuilt services, route nodes from
- * the front door's and each Durable Object's arcs, and segmentsOf.
+ * Unit tests for buildGraph: service nodes from registrations and from prebuilt and seeded services,
+ * route nodes from the front door's and each Durable Object's arcs; arcSourceOf; and segmentsOf.
  */
 import { assert, describe, expect, it } from "vitest";
 import { bool, int, optional, schema, str } from "@flare-ts/lib/schema";
@@ -14,12 +14,12 @@ import { ErrorHandlerBase } from "../../../../src/lib/arcs/http/composition/clas
 import { MiddlewareBase } from "../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
 import { stream } from "../../../../src/lib/arcs/http/composition/contract/http-contract.js";
 import { controllerRegistration } from "../../../../src/lib/arcs/http/composition/controller-registration.js";
-import { COMPILE_HTTP_ARC, HTTP_PIPELINES } from "../../../../src/lib/arcs/http/http-arc.js";
+import { COMPILE_HTTP_ARC } from "../../../../src/lib/arcs/http/http-arc.js";
 import { Get, Post } from "../../../../src/lib/arcs/http/routing/decorators.js";
 import { WebSocketControllerBase } from "../../../../src/lib/arcs/ws/composition/classes/controller-base.js";
 import { WS_REGISTRATIONS } from "../../../../src/lib/arcs/ws/ws-arc.js";
 import { flareConfig } from "../../../../src/lib/config/flare-config.js";
-import { buildGraph, segmentsOf } from "../../../../src/lib/graph/build.js";
+import { arcSourceOf, buildGraph, segmentsOf } from "../../../../src/lib/graph/build.js";
 import { FlareService } from "../../../../src/lib/services/composition/flare-service.js";
 import { flareState } from "../../../../src/lib/state/flare-state.js";
 import { testHost } from "../../helpers/test-host.js";
@@ -54,7 +54,7 @@ function source(overrides: Partial<GraphSource> = {}): GraphSource {
 // A real host's arcs, compiled, read the way the host hands them to the graph.
 function arcsOf(host: ReturnType<typeof testHost>): ArcSource {
   host.http[COMPILE_HTTP_ARC]();
-  return { ...host.http[HTTP_PIPELINES](), groups: host.http.groups, webSockets: host.ws[WS_REGISTRATIONS]() };
+  return arcSourceOf(host.http, host.ws);
 }
 
 function httpRoute(graph: GraphModel, id: string): HttpRouteNode {
@@ -251,7 +251,7 @@ describe("buildGraph WebSocket routes", () => {
     const host = testHost();
     register(host.ws);
     return buildGraph(source({
-      frontDoor: { pipelines: [], middleware: [], groups: [], webSockets: host.ws[WS_REGISTRATIONS]() },
+      frontDoor: arcSourceOf(null, host.ws),
       scoped: [registration(Signups), registration(Mailer)],
     }));
   }
@@ -324,12 +324,47 @@ describe("buildGraph Durable Object arcs", () => {
     expect(graph.routes.map((route) => route.handler)).toEqual(["GET /health", "Room GET /history", "Room WS /live"]);
   });
 
-  it("reports the services the runtime seeds as scoped nodes, with deps from their class statics", () => {
+  it("reports the services the runtime seeds as singletons, with deps from their class statics", () => {
     const graph = buildGraph(source({ seeded: [Signups] }));
 
     expect(graph.services).toEqual([
-      { id: "Signups", lifetime: "scoped", deps: ["Mailer"], config: [], usedBy: [] },
+      { id: "Signups", lifetime: "singleton", deps: ["Mailer"], config: [], usedBy: [] },
     ]);
+  });
+});
+
+describe("arcSourceOf", () => {
+  it("reads a compiled HTTP arc's pipelines, middleware, and groups, and the WebSocket arc's routes", () => {
+    class Audit extends MiddlewareBase {
+      static override deps = [];
+      static override state = [];
+      override after(): void {}
+    }
+    const host = testHost();
+    host.http.use(Audit);
+    host.http.group("/api", (group) => {
+      group.get("/items", () => null);
+    });
+    host.ws.route("/live").message(() => {});
+    host.http[COMPILE_HTTP_ARC]();
+    const arcs = arcSourceOf(host.http, host.ws);
+
+    expect(arcs.pipelines.map((pipeline) => pipeline.flareRoute.route)).toEqual(["/api/items"]);
+    expect(arcs.middleware.map((registration) => registration.cls)).toEqual([Audit]);
+    expect(arcs.groups.map((group) => group.prefix)).toEqual(["/api"]);
+    expect(arcs.webSockets.map((registration) => registration.pattern)).toEqual(["/live"]);
+  });
+
+  it("reads a missing HTTP arc, as on a Durable Object with no HTTP routes, as no routes", () => {
+    const host = testHost();
+    host.ws.route("/live").message(() => {});
+
+    expect(arcSourceOf(null, host.ws)).toEqual({
+      pipelines: [],
+      middleware: [],
+      groups: [],
+      webSockets: host.ws[WS_REGISTRATIONS](),
+    });
   });
 });
 

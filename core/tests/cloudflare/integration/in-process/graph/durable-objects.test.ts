@@ -1,7 +1,7 @@
 /**
- * Integration tests for AppGraph on Cloudflare: each Durable Object's HTTP and WebSocket routes, led by
- * its class, and the services Cloudflare seeds per request or instance. Built through the public host
- * API with cfTestAdapter and read through the test handle.
+ * Integration tests for AppGraph on Cloudflare: each Durable Object's HTTP and WebSocket routes, with
+ * ids led by its class, and the services Cloudflare puts in each isolate's or Durable Object's
+ * container. Built through the public host API with cfTestAdapter and read through the test handle.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { TestAppHandle } from "../../../../../src/testing.js";
@@ -46,7 +46,24 @@ describe("Primary Behavior", () => {
 
   it("reports the services a Durable Object's route resolves, including the ones Cloudflare seeds", () => {
     expect(app.graph.routes().find((route) => route.id === "Room GET /history")!.services).toEqual(["DurableState"]);
-    expect(app.graph.service(DurableState)).toMatchObject({ lifetime: "scoped", usedBy: ["Room GET /history"] });
-    expect(app.graph.service(Bindings)).toMatchObject({ id: "Bindings", lifetime: "scoped" });
+    expect(app.graph.service(DurableState)).toMatchObject({ lifetime: "singleton", usedBy: ["Room GET /history"] });
+    expect(app.graph.service(Bindings)).toMatchObject({ id: "Bindings", lifetime: "singleton" });
+  });
+});
+
+describe("Edge Cases", () => {
+  it("lists only Bindings among Cloudflare's services when the app has no Durable Object", async () => {
+    const host = new FlareHost(cfTestAdapter(
+      { log: { level: "fatal", format: "json" } },
+      { env: { FLARE_MODE: "test" } },
+    ));
+    host.http.get("/health", () => new FlareResponse(200));
+    const workerOnly = await host.build().test();
+    try {
+      expect(workerOnly.graph.service(Bindings)?.id).toBe("Bindings");
+      expect(workerOnly.graph.service(DurableState)).toBeUndefined();
+    } finally {
+      await workerOnly.stop();
+    }
   });
 });

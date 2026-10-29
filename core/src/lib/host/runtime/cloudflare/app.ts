@@ -11,9 +11,9 @@ import type { FlareDurableObjectClass, SeedMap } from "./do/durable-object.js";
 import type { CloudflareHostExtension, DurableHandle } from "./registration.js";
 import type { MountRecord, PendingMountRecord } from "./router.js";
 import type { CfValidationGraph } from "./validate-graph.js";
-import { HTTP_PIPELINES } from "../../../arcs/http/http-arc.js";
 import { WebSocketChannels } from "../../../arcs/ws/channels/web-socket-channels.js";
 import { WS_REGISTRATIONS } from "../../../arcs/ws/ws-arc.js";
+import { arcSourceOf } from "../../../graph/build.js";
 import { CfConsoleTransport } from "../../../logger/runtime/cloudflare/cf-console-transport.js";
 import { CfLogger } from "../../../logger/runtime/cloudflare/cf-logger.js";
 import { FlareValidationError } from "../../../validation/flare-validation-error.js";
@@ -208,20 +208,15 @@ export const cf: CloudflareAdapter = {
       });
     });
 
-    // The app graph reads each Durable Object's arcs once built (a zero-route DO's nulled HTTP arc reads
-    // as empty), and the services Cloudflare seeds per request or instance instead of registering.
+    // The app graph reads each Durable Object's arcs once built, and the services Cloudflare puts in each
+    // isolate's container (Bindings) and each Durable Object's (DurableState, WebSocketChannels too).
     host[REGISTER_BUILD_HOOK]((buildCtx) => {
-      buildCtx.extendGraph(() => ({
+      buildCtx.addAppGraphSource(() => ({
         durableObjects: durableObjects.map((cls) => {
           const registration = durableRegistration(cls)!;
-          return {
-            name: cls.name,
-            ...(registration.arc?.[HTTP_PIPELINES]() ?? { pipelines: [], middleware: [] }),
-            groups: registration.arc?.groups ?? [],
-            webSockets: registration.wsArc?.[WS_REGISTRATIONS]() ?? [],
-          };
+          return { name: cls.name, ...arcSourceOf(registration.arc, registration.wsArc) };
         }),
-        seeded: [Bindings, DurableState, WebSocketChannels],
+        seeded: durableObjects.length > 0 ? [Bindings, DurableState, WebSocketChannels] : [Bindings],
       }));
     });
 

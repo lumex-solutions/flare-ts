@@ -159,3 +159,8 @@ export const stream: TypedPrimitive<"stream"> = Object.assign((v: string): "stre
   _required: true,
   jsonSchema: {},
 });
+
+/** Returns whether a descriptor's body is the {@link stream} primitive rather than a schema token. */
+export function isStreamBody(body: OpaqueSchemaToken | TypedPrimitive<"stream">): body is TypedPrimitive<"stream"> {
+  return body === stream;
+}

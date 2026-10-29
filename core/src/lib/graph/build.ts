@@ -1,18 +1,23 @@
 /**
  * Builds the app graph's nodes from what the host compiled: route nodes from the HTTP pipelines and
- * WebSocket routes of the front door and each Durable Object, service nodes from the registrations.
- * Runs on the graph's first query.
+ * WebSocket routes of the front door and each Durable Object, service nodes from the registrations and
+ * the services the host builds or the runtime seeds. Runs on the graph's first query.
  */
-import type { JsonSchema, OpaqueSchemaToken } from "@flare-ts/lib/schema";
+import type { JsonSchema } from "@flare-ts/lib/schema";
 import { schema, toJsonSchema } from "@flare-ts/lib/schema";
 import type { MiddlewareClass } from "../arcs/http/composition/classes/middleware-base.js";
+import type { HttpArc } from "../arcs/http/http-arc.js";
+import type { WebSocketArc } from "../arcs/ws/ws-arc.js";
 import type { OpaqueConfigToken } from "../config/flare-config.js";
+import type { HostRuntimeLifecycle } from "../host/types/lifecycle.js";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceToken } from "../services/types/token.js";
 import type { ArcSource, GraphSource, PipelineStep, RouteNode, ServiceNode } from "./types.js";
 import { resolveStepMiddleware } from "../arcs/http/build.js";
-import { stream } from "../arcs/http/composition/contract/http-contract.js";
+import { isStreamBody } from "../arcs/http/composition/contract/http-contract.js";
+import { HTTP_PIPELINES } from "../arcs/http/http-arc.js";
 import { SUPPORTED_METHODS } from "../arcs/http/routing/types/methods.js";
+import { WS_REGISTRATIONS } from "../arcs/ws/ws-arc.js";
 import { HttpRouteNode } from "./http-route-node.js";
 import { WebSocketRouteNode } from "./web-socket-route-node.js";
 
@@ -25,7 +30,7 @@ type ServiceEntry = {
 
 /** The graph's nodes, with the lookups queries need. */
 export type GraphModel = {
-  /** Route nodes in the order the router tries them. */
+  /** Route nodes: the front door's, then each Durable Object's; HTTP in router order, then WebSocket. */
   readonly routes: readonly RouteNode[];
   readonly routeById: ReadonlyMap<string, RouteNode>;
   /** Each route's path split into segments, for path filters. */
@@ -34,7 +39,7 @@ export type GraphModel = {
   readonly serviceByToken: ReadonlyMap<ServiceToken<FlareService>, ServiceNode>;
 };
 
-/** Builds every route and service node from the host's compiled arcs and its registrations. */
+/** Builds every route and service node from the host's compiled arcs and its services. */
 export function buildGraph(source: GraphSource): GraphModel {
   const entries = new Map<ServiceToken<FlareService>, ServiceEntry>();
   const taken = new Set<string>();
@@ -63,7 +68,7 @@ export function buildGraph(source: GraphSource): GraphModel {
     add(token, lifetime, cls.deps ?? [], cls.config);
   };
   for (const token of source.prebuilt) addFramework(token, "singleton");
-  for (const token of source.seeded) addFramework(token, "scoped");
+  for (const token of source.seeded) addFramework(token, "singleton");
 
   const routes: RouteNode[] = [];
   const routeById = new Map<string, RouteNode>();
@@ -136,11 +141,11 @@ export function buildGraph(source: GraphSource): GraphModel {
         const input: { route?: JsonSchema; query?: JsonSchema; body?: JsonSchema; } = {};
         if (descriptor?.route) input.route = frozenCopy(toJsonSchema(schema(descriptor.route)));
         if (descriptor?.query) input.query = frozenCopy(toJsonSchema(schema(descriptor.query)));
-        if (descriptor?.body === stream) {
+        const body = descriptor?.body;
+        if (body !== undefined && isStreamBody(body)) {
           input.body = Object.freeze<JsonSchema>({ type: "string", format: "binary" });
-        } else if (descriptor?.body) {
-          // The stream sentinel was excluded above, which the type system cannot connect to this union.
-          input.body = frozenCopy(toJsonSchema(descriptor.body as OpaqueSchemaToken));
+        } else if (body !== undefined) {
+          input.body = frozenCopy(toJsonSchema(body));
         }
         addRoute(
           new HttpRouteNode({
@@ -207,6 +212,18 @@ export function buildGraph(source: GraphSource): GraphModel {
   }
 
   return { routes: Object.freeze(routes), routeById, routeSegments, services: Object.freeze(services), serviceByToken };
+}
+
+/** Reads one context's compiled arcs as the graph takes them; a Durable Object with no HTTP routes has none. */
+export function arcSourceOf<L extends HostRuntimeLifecycle>(
+  http: HttpArc<L> | null,
+  ws: WebSocketArc | undefined,
+): ArcSource {
+  return {
+    ...(http?.[HTTP_PIPELINES]() ?? { pipelines: [], middleware: [] }),
+    groups: http?.groups ?? [],
+    webSockets: ws?.[WS_REGISTRATIONS]() ?? [],
+  };
 }
 
 /** Splits a path into its non-empty segments. */

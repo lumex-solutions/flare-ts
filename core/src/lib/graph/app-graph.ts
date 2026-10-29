@@ -30,7 +30,7 @@ export const RESET_GRAPH: unique symbol = Symbol("RESET_GRAPH");
  * The built app's routes and services, as Flare compiled them.
  *
  * Inject it like any service (`static deps = [AppGraph]`, or `inject: { graph: AppGraph }`). The graph
- * is read from the build on its first query and frozen; querying it never touches the request path.
+ * is read from the build on its first query and frozen; routing and request handling never read it.
  */
 export class AppGraph extends FlareService {
   static readonly deps = [] as const;
@@ -45,8 +45,10 @@ export class AppGraph extends FlareService {
   }
 
   /**
-   * Returns every route, or the ones matching `filter`: HTTP routes in the order the router tries them,
-   * then WebSocket routes in registration order.
+   * Returns every route, or the ones matching `filter`.
+   *
+   * The front door's routes come first, then each Durable Object's. Within each, HTTP routes are in the
+   * order their router tries them, then WebSocket routes in registration order.
    */
   routes(filter?: RouteFilter): readonly RouteNode[] {
     const model = this.#built();
@@ -59,10 +61,10 @@ export class AppGraph extends FlareService {
     );
   }
 
-  /** Returns the HTTP route registered for `method` at `path`, the pattern as registered (`/users/:id`). */
+  /** Returns the front door's HTTP route for `method` at `path`, the pattern as registered (`/users/:id`). */
   route(method: HttpMethod, path: string): HttpRouteNode | undefined;
-  /** Returns the WebSocket route registered at `path`, the pattern as registered (`/chat/:room`). */
-  route(method: "WS", path: string): WebSocketRouteNode | undefined;
+  /** Returns the front door's WebSocket route at `path`, the pattern as registered (`/chat/:room`). */
+  route(protocol: "WS", path: string): WebSocketRouteNode | undefined;
   route(method: HttpMethod | "WS", path: string): RouteNode | undefined {
     return this.#built().routeById.get(`${method} ${path}`);
   }

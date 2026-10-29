@@ -1,4 +1,7 @@
-/** The app graph vocabulary: the built app's routes and services as data apps and tools can query. */
+/**
+ * The app graph vocabulary: the built app's routes and services as data apps and tools can query, and
+ * the internal input the host and runtime adapters build it from.
+ */
 import type { Pipeline } from "../arcs/http/types/pipeline.js";
 import type { GroupRegistration, MiddlewareRegistration } from "../arcs/http/types/registration.js";
 import type { WsRegistration } from "../arcs/ws/composition/types/registration.js";
@@ -15,7 +18,7 @@ export type RouteNode = HttpRouteNode | WebSocketRouteNode;
 export type PipelineStep =
   | {
     readonly kind: "handler";
-    /** `Controller.method` for a class route; the route id for an inline route. */
+    /** `Controller.method` for a class route; the route id for a function route. */
     readonly name: string;
   }
   | {
@@ -59,7 +62,7 @@ export type ArcSource = {
 export type AdapterGraphSource = {
   /** Each Durable Object's arcs, named by its class. */
   readonly durableObjects: readonly (ArcSource & { readonly name: string; })[];
-  /** Services the runtime seeds into each request or Durable Object instead of registering (Bindings). */
+  /** Services the runtime puts in each isolate's or Durable Object's container instead of registering. */
   readonly seeded: readonly ServiceToken<FlareService>[];
 };
 

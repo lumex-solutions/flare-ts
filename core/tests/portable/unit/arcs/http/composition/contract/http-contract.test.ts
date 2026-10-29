@@ -2,8 +2,12 @@
  * Unit tests for httpContract branding and descriptor passthrough.
  */
 import { describe, it, expect } from "vitest";
+import { schema, str } from "@flare-ts/lib/schema";
 import { stream } from "../../../../../../../src/index.js";
-import { httpContract } from "../../../../../../../src/lib/arcs/http/composition/contract/http-contract.js";
+import {
+  httpContract,
+  isStreamBody,
+} from "../../../../../../../src/lib/arcs/http/composition/contract/http-contract.js";
 import { CONTRACT_BRAND } from "../../../../../../../src/lib/contract/contract.js";
 
 describe("httpContract", () => {
@@ -56,5 +60,12 @@ describe("stream", () => {
     expect(stream._type).toBe("stream");
     expect(stream._required).toBe(true);
     expect(stream.jsonSchema).toEqual({});
+  });
+});
+
+describe("isStreamBody", () => {
+  it("is true for the stream primitive and false for a schema token", () => {
+    expect(isStreamBody(stream)).toBe(true);
+    expect(isStreamBody(schema({ name: str }))).toBe(false);
   });
 });
