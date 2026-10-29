@@ -6,6 +6,7 @@ import type { FlareError } from "../../../errors/flare-error.js";
 import type { HttpErrorContext } from "../../../logger/types.js";
 import type { InjectMap } from "../../../services/types/inject.js";
 import type { HandlerScope } from "../../../services/types/scope.js";
+import type { HttpMethod } from "../routing/types/methods.js";
 import type { ControllerHandler } from "../routing/types/route.js";
 import type { FlareHttpContext } from "../transport/flare-http-context.js";
 import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../transport/types/response.js";
@@ -13,7 +14,7 @@ import type {
   ControllerRegistration,
   ErrorHandlerRegistration,
   MiddlewareRegistration,
-  RegisteredRoute,
+  RouteRegistration,
 } from "../types/registration.js";
 import type { ControllerClass } from "./classes/controller-base.js";
 import type { ErrorHandlerClass } from "./classes/error-handler-base.js";
@@ -45,7 +46,6 @@ import { controllerRegistration } from "./controller-registration.js";
 /** @internal Keys the non-overloaded route-install seam on {@link HttpBase}. */
 export const INSTALL_ROUTE: unique symbol = Symbol("INSTALL_ROUTE");
 
-type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
 // The storage-erased bound over the heterogeneous handler signatures (route/before/after/finally/
 // error): every function type satisfies `(...args: never[]) => unknown`, and unlike `any[]` it cannot
 // be CALLED with unchecked arguments - call sites must first narrow to the concrete signature.
@@ -409,7 +409,7 @@ export abstract class HttpBase {
 
     assertInjectKeys(options.inject ?? {});
     const inject = (options.inject ?? {}) as InjectMap;
-    const route: RegisteredRoute = {
+    const route: RouteRegistration = {
       method,
       path: "",
       handler: inlineRouteHandler(method, handler, inject),

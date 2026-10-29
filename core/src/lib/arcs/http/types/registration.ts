@@ -32,8 +32,8 @@ export type GroupContext = {
   readonly combinedMw?: readonly MiddlewareRegistration[];
 };
 
-/** One route a registration serves: its verb, its path under the registration's path, its handler, and its request shape. */
-export type RegisteredRoute = {
+/** One route a registration serves: verb, path under the registration's path, handler, request shape. */
+export type RouteRegistration = {
   readonly method: string;
   readonly path: string;
   readonly handler: ControllerHandler;
@@ -41,8 +41,10 @@ export type RegisteredRoute = {
 };
 
 /**
- * The routes registered at one path, with what they declare: a class controller's decorated methods, or
- * the inline routes registered at that path (each method appends its own route).
+ * Routes registered together, with what they declare.
+ *
+ * A class controller's registration holds its decorated methods; an inline registration holds the
+ * routes registered at one path, each method appending its own.
  */
 export type ControllerRegistration = {
   readonly factory: HttpFactory<ControllerBase>;
@@ -51,7 +53,7 @@ export type ControllerRegistration = {
   readonly isolated: boolean;
   /** The controller class name, or for inline routes the `name` route option or the path. */
   readonly name: string;
-  readonly routes: RegisteredRoute[];
+  readonly routes: RouteRegistration[];
   readonly deps: ServiceToken<FlareService>[];
   readonly state: StateToken[];
   readonly config: readonly ConfigToken<unknown>[] | undefined;

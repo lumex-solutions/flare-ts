@@ -8,7 +8,7 @@ import type { RequestDescriptor } from "./contract/http-contract.js";
 import { descriptorsOf } from "../../../contract/read.js";
 import { _getRoutes } from "../routing/route-store.js";
 
-/** Builds the registration for a controller class at `path` from its decorated methods, contract, and statics. */
+/** Builds a class controller's registration from its decorated methods, contract, and statics. */
 export function controllerRegistration(path: string, cls: ControllerClass): ControllerRegistration {
   const descriptors = descriptorsOf<RequestDescriptor>(cls.contract, "http");
   return {
