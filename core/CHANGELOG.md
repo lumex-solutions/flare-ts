@@ -11,10 +11,13 @@
 ### Added
 
 - **`AppGraph`**: the built app's routes and services, as Flare compiled them. Inject it like any service (`inject: { graph: AppGraph }` or `static deps = [AppGraph]`), or read it in tests as `handle.graph`.
-  - `graph.routes()` lists every route with its id (`GET /api/users/:id`), handler, group, pipeline in run order (each middleware with its stage and whether it was registered globally or on the group), the state it reads and writes, and every service it resolves, directly or through other services.
-  - `graph.routes({ path: "/admin/**", through: AuthMiddleware })` filters by path pattern and middleware class; `route.runs(AuthMiddleware)` checks one route; `graph.route("GET", "/users/:id")` looks one up.
+  - `graph.routes()` lists every route: HTTP routes (`HttpRouteNode`, `kind: "http"`) in the order the router tries them, then WebSocket routes (`WebSocketRouteNode`, `kind: "ws"`), the front door's first and then each Durable Object's.
+  - An HTTP route reports its id (`GET /api/users/:id`), handler, group, pipeline in run order (each middleware with when it runs and whether it was registered globally or on the group), the JSON Schemas of the route params, query, and body its contract declares, the state it reads and writes, and every service it resolves, directly or through other services.
+  - A WebSocket route (`WS /chat/:room`) reports its handler, the JSON Schemas of its params, query, and inbound messages, the state it reads and its upgrade hook writes, and the services its handlers and upgrade hook resolve.
+  - On Cloudflare, a Durable Object's routes lead with its class (`Room GET /history`) and name it in `route.durableObject`; `Bindings`, `DurableState`, and `WebSocketChannels` appear as services.
+  - `graph.routes({ path: "/admin/**", through: AuthMiddleware })` filters by a glob over the registered path and by middleware class; `route.runs(AuthMiddleware)` checks one route (always `false` on a WebSocket route, which HTTP middleware never runs on); `graph.route("GET", "/users/:id")` and `graph.route("WS", "/chat")` look one up on the front door.
   - `graph.services()` and `graph.service(token)` report each service's lifetime, deps, config sections, and the routes that resolve it.
-  - Nodes are frozen and convert to JSON as plain data. The graph is read from the build on its first query and never touches the request path. It covers the front door's HTTP routes.
+  - Nodes are frozen and convert to JSON as plain data. The graph is read from the build on its first query and never touches the request path.
 
 - `FlareApp` without a type argument types an app from any runtime: the `test()` entrypoint every compiled app shares, so a helper can accept `host.build()`'s result without naming a runtime. `FlareApp<typeof node>` is unchanged and still resolves to that runtime's app.
 
