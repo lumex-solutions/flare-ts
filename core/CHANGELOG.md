@@ -83,6 +83,14 @@
 
 - Registrations are route-shaped: each one carries its routes as data (method, path, handler, request descriptor) alongside its deps, state, and config. Class controllers are converted once by `controllerRegistration()`; inline routes build the record directly instead of generating a controller class per path. Build, the validators, and the Cloudflare graph read the record rather than the class. The request pipeline and its generated code are unchanged.
 
+- The host and log config defaults are named constants (`HOST_DEFAULTS`, `LOG_DEFAULTS`) feeding the `HOST_CONFIG` and `LOG_CONFIG` tokens, matching `WEBSOCKETS_DEFAULTS`. `FlareAppNode.run()` drops literal fallbacks that config resolution always made unreachable. Behavior-preserving.
+
+- `FlareAppNode` moved into its own class module (`host/runtime/node/flare-app-node.ts`); `node.ts` keeps the adapter. Behavior-preserving.
+
+- Removed TODO comments the code already resolved, and typed the Cloudflare test suite's `TEST_ROOM` binding with its class.
+
+- The app graph is a prebuilt framework singleton beside the Logger, so it resolves in every container, including Durable Objects. Error handlers are ordered at build (keyed by specificity within each scope), and the HTTP arc can take test-only error observers that run ahead of them. The host keeps its last build's validation warnings for the prebuilt suite. None of this touches the request path.
+
 ## 0.3.1
 
 ### Added

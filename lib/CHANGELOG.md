@@ -1,5 +1,9 @@
 # @flare-ts/lib
 
+## 0.4.0
+
+No changes. Released alongside `@flare-ts/core` 0.4.0.
+
 ## 0.3.0
 
 ### Breaking
