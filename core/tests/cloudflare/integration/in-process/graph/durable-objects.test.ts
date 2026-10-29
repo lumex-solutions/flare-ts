@@ -1,12 +1,14 @@
 /**
  * Integration tests for AppGraph on Cloudflare: each Durable Object's HTTP and WebSocket routes, with
  * ids led by its class, and the services Cloudflare puts in each isolate's or Durable Object's
- * container. Built through the public host API with cfTestAdapter and read through the test handle.
+ * container. Built through the public host API with cfTestAdapter and read through the test handle,
+ * since the graph is built once per host and every Durable Object sees the same one. No Durable Object
+ * instance starts here, so whether a live instance's container holds those services is not judged.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { TestAppHandle } from "../../../../../src/testing.js";
 import { Bindings, DurableState, FlareDurableObject } from "../../../../../src/cloudflare.js";
-import { FlareHost, FlareResponse } from "../../../../../src/index.js";
+import { FlareHost, FlareResponse, WebSocketChannels } from "../../../../../src/index.js";
 import { cfTestAdapter } from "../../../helpers/cf-test-adapter.js";
 
 class Room extends FlareDurableObject {
@@ -48,11 +50,12 @@ describe("Primary Behavior", () => {
     expect(app.graph.routes().find((route) => route.id === "Room GET /history")!.services).toEqual(["DurableState"]);
     expect(app.graph.service(DurableState)).toMatchObject({ lifetime: "singleton", usedBy: ["Room GET /history"] });
     expect(app.graph.service(Bindings)).toMatchObject({ id: "Bindings", lifetime: "singleton" });
+    expect(app.graph.service(WebSocketChannels)).toMatchObject({ id: "WebSocketChannels", lifetime: "singleton" });
   });
 });
 
 describe("Edge Cases", () => {
-  it("lists only Bindings among Cloudflare's services when the app has no Durable Object", async () => {
+  it("lists Bindings but neither Durable Object service when the app has no Durable Object", async () => {
     const host = new FlareHost(cfTestAdapter(
       { log: { level: "fatal", format: "json" } },
       { env: { FLARE_MODE: "test" } },
@@ -62,6 +65,7 @@ describe("Edge Cases", () => {
     try {
       expect(workerOnly.graph.service(Bindings)?.id).toBe("Bindings");
       expect(workerOnly.graph.service(DurableState)).toBeUndefined();
+      expect(workerOnly.graph.service(WebSocketChannels)).toBeUndefined();
     } finally {
       await workerOnly.stop();
     }

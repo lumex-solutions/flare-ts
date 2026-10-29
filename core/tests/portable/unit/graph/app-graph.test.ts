@@ -4,12 +4,11 @@
  */
 import { describe, expect, it } from "vitest";
 import type { GraphSource } from "../../../../src/lib/graph/types.js";
-import { compileHttp } from "../../../../src/lib/arcs/http/build.js";
 import { ControllerBase } from "../../../../src/lib/arcs/http/composition/classes/controller-base.js";
-import { controllerRegistration } from "../../../../src/lib/arcs/http/composition/controller-registration.js";
+import { COMPILE_HTTP_ARC } from "../../../../src/lib/arcs/http/http-arc.js";
 import { Get } from "../../../../src/lib/arcs/http/routing/decorators.js";
-import { WS_REGISTRATIONS } from "../../../../src/lib/arcs/ws/ws-arc.js";
 import { AppGraph, RESET_GRAPH } from "../../../../src/lib/graph/app-graph.js";
+import { arcSourceOf } from "../../../../src/lib/graph/build.js";
 import { FlareService } from "../../../../src/lib/services/composition/flare-service.js";
 import { mockContainer } from "../../../../src/lib/testing/mock.js";
 import { testHost } from "../../helpers/test-host.js";
@@ -44,14 +43,13 @@ class Mailer extends FlareService {
 }
 
 function source(): GraphSource {
-  const { pipelines } = compileHttp([
-    controllerRegistration("/admin", AdminController),
-    controllerRegistration("/public", PublicController),
-  ], []);
-  const ws = testHost().ws;
-  ws.route("/admin/live").message(() => {});
+  const host = testHost();
+  host.http.controller("/admin", AdminController);
+  host.http.controller("/public", PublicController);
+  host.ws.route("/admin/live").message(() => {});
+  host.http[COMPILE_HTTP_ARC]();
   return {
-    frontDoor: { pipelines, middleware: [], groups: [], webSockets: ws[WS_REGISTRATIONS]() },
+    frontDoor: arcSourceOf(host.http, host.ws),
     durableObjects: [],
     seeded: [],
     scoped: [{ token: Mailer, cls: Mailer, factory: () => new Mailer(mockContainer(new Map())) }],

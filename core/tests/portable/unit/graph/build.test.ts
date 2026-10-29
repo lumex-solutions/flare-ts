@@ -8,12 +8,10 @@ import type { GraphModel } from "../../../../src/lib/graph/build.js";
 import type { HttpRouteNode } from "../../../../src/lib/graph/http-route-node.js";
 import type { ArcSource, GraphSource } from "../../../../src/lib/graph/types.js";
 import type { ServiceRegistration } from "../../../../src/lib/services/types/registration.js";
-import { compileHttp } from "../../../../src/lib/arcs/http/build.js";
 import { ControllerBase } from "../../../../src/lib/arcs/http/composition/classes/controller-base.js";
 import { ErrorHandlerBase } from "../../../../src/lib/arcs/http/composition/classes/error-handler-base.js";
 import { MiddlewareBase } from "../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
 import { stream } from "../../../../src/lib/arcs/http/composition/contract/http-contract.js";
-import { controllerRegistration } from "../../../../src/lib/arcs/http/composition/controller-registration.js";
 import { COMPILE_HTTP_ARC } from "../../../../src/lib/arcs/http/http-arc.js";
 import { Get, Post } from "../../../../src/lib/arcs/http/routing/decorators.js";
 import { WebSocketControllerBase } from "../../../../src/lib/arcs/ws/composition/classes/controller-base.js";
@@ -124,11 +122,9 @@ describe("buildGraph routes", () => {
   }
 
   function itemsGraph() {
-    const { pipelines } = compileHttp([controllerRegistration("/items", ItemsController)], []);
-    return buildGraph(source({
-      frontDoor: { pipelines, middleware: [], groups: [], webSockets: [] },
-      scoped: [registration(Signups), registration(Mailer)],
-    }));
+    const host = testHost();
+    host.http.controller("/items", ItemsController);
+    return buildGraph(source({ frontDoor: arcsOf(host), scoped: [registration(Signups), registration(Mailer)] }));
   }
 
   // Registers through a real host's HTTP arc and compiles it, so the pipelines are what build produces.
@@ -190,6 +186,20 @@ describe("buildGraph routes", () => {
     });
     expect(graph.routeById.get("PUT /avatar")!.input).toEqual({ body: { type: "string", format: "binary" } });
     expect(graph.routeById.get("GET /health")!.input).toEqual({});
+  });
+
+  it("reads each method's own contract when several methods share a path", () => {
+    const graph = compiledGraph((http) => {
+      http.get("/users/:id", { route: { id: int } }, () => null);
+      http.put("/users/:id", { body: schema({ name: str }) }, () => null);
+    });
+
+    expect(graph.routeById.get("GET /users/:id")!.input).toEqual({
+      route: { type: "object", properties: { id: { type: "integer" } }, required: ["id"] },
+    });
+    expect(graph.routeById.get("PUT /users/:id")!.input).toEqual({
+      body: { type: "object", properties: { name: { type: "string" } }, required: ["name"] },
+    });
   });
 
   it("freezes its own copy of each schema, leaving lib's primitive schemas untouched", () => {
@@ -353,6 +363,15 @@ describe("arcSourceOf", () => {
     expect(arcs.middleware.map((registration) => registration.cls)).toEqual([Audit]);
     expect(arcs.groups.map((group) => group.prefix)).toEqual(["/api"]);
     expect(arcs.webSockets.map((registration) => registration.pattern)).toEqual(["/live"]);
+  });
+
+  it("reads a missing WebSocket arc, as on a Durable Object that never used ws, as no WebSocket routes", () => {
+    const host = testHost();
+    host.http.get("/health", () => null);
+    host.http[COMPILE_HTTP_ARC]();
+
+    expect(arcSourceOf(host.http, undefined).webSockets).toEqual([]);
+    expect(arcSourceOf(host.http, undefined).pipelines).toHaveLength(1);
   });
 
   it("reads a missing HTTP arc, as on a Durable Object with no HTTP routes, as no routes", () => {
