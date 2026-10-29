@@ -168,7 +168,6 @@ describe("Primary Behavior", () => {
         group.get("/throws", () => {
           throw new FlareError(ForbiddenCode);
         });
-        return group.register();
       });
 
       app = await host.build().test();
@@ -507,7 +506,6 @@ describe("Cross-Feature Interactions", () => {
           throw new Error("before-boom");
         });
         group.get("/throws", () => new FlareResponse(200, { ok: true }));
-        return group.register();
       });
 
       host.http.group("/after", (group) => {
@@ -516,7 +514,6 @@ describe("Cross-Feature Interactions", () => {
           throw new Error("after-boom");
         });
         group.get("/throws", () => new FlareResponse(200, { ok: true }));
-        return group.register();
       });
 
       host.http.group("/finally", (group) => {
@@ -525,7 +522,6 @@ describe("Cross-Feature Interactions", () => {
           throw new Error("finally-boom");
         });
         group.get("/throws", () => new FlareResponse(200, { ok: true }));
-        return group.register();
       });
 
       app = await host.build().test();

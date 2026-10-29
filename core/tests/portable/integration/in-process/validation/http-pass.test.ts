@@ -478,7 +478,6 @@ describe("Cross-Feature Interactions", () => {
       host.http.group("/api/v1", (g) => {
         g.cors({ origins: "*", credentials: true });
         g.controller("/", Ping);
-        return g.register();
       });
 
       const err = captureBuildError(host);

@@ -153,7 +153,6 @@ describe("group/mount overlap hardening", () => {
     room.http.get("/", () => new FlareResponse(200));
     host.http.group("/room", (g) => {
       g.get("/about", () => new FlareResponse(200));
-      return g.register();
     });
     room.mount("/room/:name");
     expect(() => host.build()).toThrow(/MOUNT_ROUTE_CONFLICT/);

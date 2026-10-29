@@ -612,7 +612,6 @@ describe("Failure Modes", () => {
       host.http.group("/api/v1", (g) => {
         g.use(GroupMw);
         g.controller("/c", GroupCtrl);
-        return g.register();
       });
 
       const captured = captureThrow(() => host.build());

@@ -1,5 +1,5 @@
 /**
- * Unit tests for HttpGroup prefix validation, registration, and register() snapshots.
+ * Unit tests for HttpGroup prefix validation, registration, and the [FINALIZE_GROUP] snapshot.
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import type { ControllerClass } from "../../../../../../src/lib/arcs/http/composition/classes/controller-base.js";
@@ -9,7 +9,7 @@ import type { FlareHttpContext } from "../../../../../../src/lib/arcs/http/trans
 import type { Container } from "../../../../../../src/lib/services/container.js";
 import { ControllerBase } from "../../../../../../src/lib/arcs/http/composition/classes/controller-base.js";
 import { MiddlewareBase } from "../../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
-import { HttpGroup } from "../../../../../../src/lib/arcs/http/composition/group.js";
+import { FINALIZE_GROUP, HttpGroup } from "../../../../../../src/lib/arcs/http/composition/group.js";
 
 function makeControllerCls(name?: string): ControllerClass {
   class C extends ControllerBase {
@@ -77,8 +77,8 @@ describe("global middleware exclusion list", () => {
     const returned = group.exclude([A]).exclude([B]);
     expect(returned).toBe(group);
 
-    // Exclude list is private; observable via register()'s group.excludeList on each controller.
-    const reg = group.register();
+    // Exclude list is private; observable via [FINALIZE_GROUP]'s group.excludeList on each controller.
+    const reg = group[FINALIZE_GROUP]();
     expect(reg.controllers[0]!.group!.excludeList).toEqual([A, B]);
   });
 });
@@ -94,7 +94,7 @@ describe("middleware replacement mapping", () => {
     const returned = group.replace(From, To);
     expect(returned).toBe(group);
 
-    const reg = group.register();
+    const reg = group[FINALIZE_GROUP]();
     expect(reg.controllers[0]!.group!.excludeList).toEqual([From]);
     expect(reg.controllers[0]!.group!.replacements).toHaveLength(1);
     expect(reg.controllers[0]!.group!.replacements[0]!.cls).toBe(To);
@@ -108,7 +108,7 @@ describe("middleware replacement mapping", () => {
     const To = makeMiddlewareCls("To");
     group.replace(From, To);
 
-    const reg = group.register();
+    const reg = group[FINALIZE_GROUP]();
     const replacement = reg.controllers[0]!.group!.replacements[0]!;
     const instance = replacement.factory({} as Container, {} as FlareHttpContext);
     expect(instance).toBeInstanceOf(To);
@@ -137,7 +137,7 @@ describe("group registration snapshot", () => {
     group.use(MwB);
     group.error(() => undefined);
 
-    const reg = group.register();
+    const reg = group[FINALIZE_GROUP]();
 
     expect(reg.prefix).toBe("/api");
     expect(reg.controllers).toHaveLength(2);
@@ -159,7 +159,7 @@ describe("group registration snapshot", () => {
     const cors: CorsConfig = { origins: "*" };
     group.cors(cors);
 
-    const reg = group.register();
+    const reg = group[FINALIZE_GROUP]();
 
     expect(reg.corsConfig).toBe(cors);
     expect(reg.isolated).toBe(false);
@@ -170,9 +170,9 @@ describe("group registration snapshot", () => {
     group.controller("/b", CtrlB);
     group.use(MwA);
 
-    const reg = group.register();
+    const reg = group[FINALIZE_GROUP]();
 
-    // Every controller carries the group-scope metadata after register().
+    // Every controller carries the group-scope metadata after [FINALIZE_GROUP].
     for (const c of reg.controllers) {
       expect(c.group!.middleware).toBeDefined();
       expect(c.group!.middleware).toHaveLength(1);
@@ -190,7 +190,7 @@ describe("group registration snapshot", () => {
     group.controller("/b", CtrlB);
     group.use(MwA);
 
-    const reg = group.register();
+    const reg = group[FINALIZE_GROUP]();
 
     expect(reg.isolated).toBe(true);
     for (const c of reg.controllers) {
@@ -209,7 +209,7 @@ describe("group registration snapshot", () => {
     group.use(MwB);
     group.replace(From, To);
 
-    const reg = group.register();
+    const reg = group[FINALIZE_GROUP]();
 
     const ctrl = reg.controllers[0]!;
     expect(ctrl.group!.isolated).toBe(false);

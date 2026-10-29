@@ -105,8 +105,6 @@ describe("Primary Behavior", () => {
       g.get("/boom", () => {
         throw new Error("group-handler-target");
       });
-
-      return g.register();
     });
 
     // Route registered directly on the arc must NOT see GroupOnly middleware.
@@ -133,7 +131,6 @@ describe("Primary Behavior", () => {
       g.get("/boom-arc", () => {
         throw new Error("arc-handler-target");
       });
-      return g.register();
     });
 
     app = await host.build().test();
@@ -143,7 +140,7 @@ describe("Primary Behavior", () => {
     await app.stop();
   });
 
-  it('app.group("/api/v1", g => { g.get("/users", h); return g.register(); }) routes GET /api/v1/users to the registered handler', async () => {
+  it('app.group("/api/v1", g => { g.get("/users", h); }) routes GET /api/v1/users to the registered handler', async () => {
     resetObservations();
     const res = await app.fetch("GET /api/v1/users");
     expect(res.status).toBe(200);
@@ -193,7 +190,6 @@ describe("Edge Cases", () => {
         g.isolated();
         g.use(GroupOnly);
         g.get("/r", () => new FlareResponse(200, { route: "iso" }));
-        return g.register();
       });
 
       host.http.get("/outside", () => new FlareResponse(200, { route: "outside" }));
@@ -232,7 +228,6 @@ describe("Edge Cases", () => {
       host.http.group("/ex", (g) => {
         g.exclude([GlobalA]);
         g.get("/r", () => new FlareResponse(200, { route: "ex" }));
-        return g.register();
       });
 
       app = await host.build().test();
@@ -262,7 +257,6 @@ describe("Edge Cases", () => {
       host.http.group("/rep", (g) => {
         g.replace(GlobalA, ReplacementMw);
         g.get("/r", () => new FlareResponse(200, { route: "rep" }));
-        return g.register();
       });
 
       app = await host.build().test();
@@ -297,7 +291,6 @@ describe("Failure Modes", () => {
     host.http.group("/bad", (g) => {
       g.exclude([NotRegistered]);
       g.get("/r", () => new FlareResponse(200, "ok"));
-      return g.register();
     });
 
     // The exclusion validation lives in build.ts and runs during host.build()
@@ -316,7 +309,6 @@ describe("Failure Modes", () => {
     expect(() => {
       host.http.group("/g", (g) => {
         g.get("bad-no-slash", () => new FlareResponse(200, "x"));
-        return g.register();
       });
     }).toThrow('Path must start with "/": bad-no-slash');
 
@@ -324,7 +316,6 @@ describe("Failure Modes", () => {
     expect(() => {
       host.http.group("/g", (g) => {
         g.get("/trailing/", () => new FlareResponse(200, "x"));
-        return g.register();
       });
     }).toThrow('Path must not end with "/": /trailing/');
   });
@@ -346,7 +337,6 @@ describe("Cross-Feature Interactions", () => {
       host.http.group("/api", (g) => {
         g.cors({ origins: "https://group.example" });
         g.get("/r", () => new FlareResponse(200, { route: "group" }));
-        return g.register();
       });
 
       app = await host.build().test();
@@ -400,7 +390,6 @@ describe("Cross-Feature Interactions", () => {
           { state: [AuthState] },
           (ctx) => new FlareResponse(200, ctx.state.require(AuthState)),
         );
-        return g.register();
       });
 
       // The exact message is produced by verifyProvidedState in build.ts.

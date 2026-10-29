@@ -1,5 +1,5 @@
 /**
- * The route group handle host.http.group() returns: scoped registration with shared prefix, middleware, and isolation flags.
+ * The route group host.http.group() hands its builder: scoped registration with shared prefix, middleware, and isolation flags.
  */
 import type {
   ControllerRegistration,
@@ -12,12 +12,15 @@ import { assertRegistrationPath } from "../../../routing/path.js";
 import { HttpBase } from "./base.js";
 
 /**
- * Signature for the builder callback passed to `app.group(prefix, fn)`.
+ * Builder callback passed to `host.http.group(prefix, fn)`.
  *
- * Receives a {@link HttpGroup} and must return a {@link GroupRegistration}
- * by calling `.register()` after configuring routes, middleware, and error handlers.
+ * Configures routes, middleware, and error handlers on the {@link HttpGroup} it receives. The group
+ * is registered when the callback returns, so it is synchronous and returns nothing.
  */
-export type HttpGroupFn = (group: HttpGroup) => GroupRegistration;
+export type HttpGroupFn = (group: HttpGroup) => undefined;
+
+/** @internal Keys the seam that builds an {@link HttpGroup}'s {@link GroupRegistration}. */
+export const FINALIZE_GROUP: unique symbol = Symbol("FINALIZE_GROUP");
 
 /**
  * Scoped sub-application for grouping related routes under a shared path prefix.
@@ -31,10 +34,9 @@ export type HttpGroupFn = (group: HttpGroup) => GroupRegistration;
  *
  * @example
  * ```ts
- * app.group("/api/v1", (group) => {
+ * host.http.group("/api/v1", (group) => {
  *   group.use(AuthMiddleware);
  *   group.get("/users", async (ctx) => { ... });
- *   return group.register();
  * });
  * ```
  */
@@ -94,13 +96,11 @@ export class HttpGroup extends HttpBase {
     return this;
   }
 
-  // TODO: Remove register and instead wrap the group builder callback so that the group
-  // is mutated by the builder callback and registered automatically rather than calling register explicitly
   /**
-   * Finalises the group and returns the {@link GroupRegistration}
-   * containing all accumulated routes, middleware, and error handlers.
+   * @internal Builds the {@link GroupRegistration} holding every route, middleware, and error
+   * handler registered on the group. Invoked by the HTTP arc once the group builder returns.
    */
-  register(): GroupRegistration {
+  [FINALIZE_GROUP](): GroupRegistration {
     const controllers = [...this.conRegistrations];
     const middleware = [...this.mwRegistrations];
     const errorHandlers = [...this.errorHandlers];

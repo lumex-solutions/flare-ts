@@ -498,7 +498,6 @@ describe("Cross-Feature Interactions", () => {
         const v = ctx.state.require(GroupTenant);
         return new FlareResponse(200, { tenantId: v.tenantId });
       });
-      return group.register();
     });
 
     // Outside the group: a route that tries to read the same token. Build-time

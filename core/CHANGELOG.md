@@ -1,5 +1,11 @@
 # @flare-ts/core
 
+## 0.4.0
+
+### Breaking
+
+- Route group builders no longer return a registration, and `HttpGroup.register()` is removed. `host.http.group(prefix, (g) => { ... })` registers the group when the builder returns: delete the trailing `return g.register();`. The builder type is now `(group: HttpGroup) => undefined`, so an `async` builder or an expression-bodied one (`(g) => g.get(...)`) is a type error; write a synchronous block body.
+
 ## 0.3.1
 
 ### Added

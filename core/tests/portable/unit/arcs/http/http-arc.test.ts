@@ -171,13 +171,12 @@ describe("[STOP_HTTP_ARC_ASYNC]", () => {
 });
 
 describe("group(prefix, builder)", () => {
-  it("invokes builder with a fresh HttpGroup and pushes the returned GroupRegistration", () => {
+  it("invokes the builder with a fresh HttpGroup and registers the group when it returns", () => {
     const arc = new HttpArc(makeFakeHost());
     let received: HttpGroup | undefined;
 
     arc.group("/v1", (g) => {
       received = g;
-      return g.register();
     });
 
     expect(received).toBeInstanceOf(HttpGroup);
@@ -216,7 +215,6 @@ describe("[COMPILE_HTTP_ARC]", () => {
     ]);
     arc.group("/api", (g) => {
       g.controller("/g", groupCls);
-      return g.register();
     });
 
     arc[COMPILE_HTTP_ARC]();

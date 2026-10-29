@@ -296,7 +296,6 @@ roomDo.http.group("/finally-group", (group) => {
     ctx.state.set(EchoState, { echo: "should-not-reach-client-via-finally" });
     return new FlareResponse(200, { ok: true });
   });
-  return group.register();
 });
 
 roomDo.resolve({ provides: [SessionState] }, (ctx) => {

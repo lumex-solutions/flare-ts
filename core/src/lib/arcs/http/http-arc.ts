@@ -25,7 +25,7 @@ import { Container } from "../../services/container.js";
 import { compileHttp } from "./build.js";
 import { HttpBase } from "./composition/base.js";
 import { stream } from "./composition/contract/http-contract.js";
-import { HttpGroup } from "./composition/group.js";
+import { FINALIZE_GROUP, HttpGroup } from "./composition/group.js";
 import { applyActualCorsHeaders, buildCorsPreflightResponse, checkOriginAllowed } from "./cors.js";
 import { deriveAllowedMethods } from "./routing/allow-methods.js";
 import { INVALID_REQUEST_PATH_MESSAGE } from "./routing/path.js";
@@ -232,17 +232,17 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
   /**
    * Registers a route group under a shared path prefix.
    *
-   * The builder receives a {@link HttpGroup} instance, a full {@link HttpBase} that
-   * can have its own middleware, controllers, and nested groups. Registrations
-   * made inside the builder are scoped to `prefix`.
+   * The builder receives an {@link HttpGroup}: the full {@link HttpBase} registration API plus
+   * group-scoped middleware controls. Registrations made inside the builder are scoped to `prefix`,
+   * and the group is registered when the builder returns.
    *
    * @param prefix - The path prefix applied to every route registered inside the group (e.g. `"/api/v1"`).
-   * @param builder - A function that configures the group and returns a {@link GroupRegistration}.
+   * @param builder - A synchronous function that configures the group.
    */
   public group(prefix: string, builder: HttpGroupFn): void {
     const group = new HttpGroup(prefix);
-    const registration = builder(group);
-    this.groups.push(registration);
+    builder(group);
+    this.groups.push(group[FINALIZE_GROUP]());
   }
 
   /**

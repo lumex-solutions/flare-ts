@@ -269,7 +269,6 @@ describe("Edge Cases", () => {
       host.http.group("/api", (group) => {
         group.cors({ origins: ["https://b.test"] });
         group.get("/inside", () => new FlareResponse(200, { scope: "group" }));
-        return group.register();
       });
       app = await host.build().test();
     });
