@@ -6,7 +6,7 @@ import type { ServiceRegistration } from "../services/types/registration.js";
 import type { ServiceToken } from "../services/types/token.js";
 
 /** One step of a route's pipeline: the route's handler, or a middleware and where it was registered. */
-export type RouteStage =
+export type PipelineStep =
   | {
     readonly kind: "handler";
     /** `Controller.method` for a class route; the route id for an inline route. */
@@ -23,7 +23,8 @@ export type RouteStage =
     readonly kind: "before" | "after" | "finally";
     /** The middleware class name. */
     readonly name: string;
-    readonly scope: "global" | "group";
+    /** Whether the middleware was registered on the whole arc or on the route's group. */
+    readonly from: "global" | "group";
   };
 
 /** One service of the built app: its lifetime, what it depends on, and the routes that resolve it. */

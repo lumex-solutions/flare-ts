@@ -1,7 +1,7 @@
 /**
  * Integration tests for AppGraph: the routes and services a built app reports, read through the public
- * surface (`handle.graph` and injection). Pins route ids, pipeline order and scope, filtering, the
- * service graph, JSON safety, and the rebuild after a test replacement swaps a service.
+ * surface (`handle.graph` and injection). Pins route ids, pipeline order and where each middleware was
+ * registered, filtering, the service graph, JSON safety, and the rebuild after a test replacement swaps a service.
  */
 process.env["FLARE_MODE"] = "test";
 
@@ -117,10 +117,10 @@ describe("Primary Behavior", () => {
     expect(route.handler).toBe("UsersController.get");
     expect(route.group).toBe("/api");
     expect(route.pipeline).toEqual([
-      { kind: "before", name: "RequestIdMiddleware", scope: "global" },
-      { kind: "before", name: "AuthMiddleware", scope: "group" },
+      { kind: "before", name: "RequestIdMiddleware", from: "global" },
+      { kind: "before", name: "AuthMiddleware", from: "group" },
       { kind: "handler", name: "UsersController.get" },
-      { kind: "after", name: "AuditLogMiddleware", scope: "global" },
+      { kind: "after", name: "AuditLogMiddleware", from: "global" },
     ]);
   });
 

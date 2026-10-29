@@ -18,8 +18,9 @@ export type { HostState } from "./lib/host/types/state.js";
 
 // App graph
 export { AppGraph } from "./lib/graph/app-graph.js";
+export type { RouteFilter } from "./lib/graph/app-graph.js";
 export type { RouteNode } from "./lib/graph/route-node.js";
-export type { RouteStage, ServiceNode } from "./lib/graph/types.js";
+export type { PipelineStep, ServiceNode } from "./lib/graph/types.js";
 
 // Services / DI
 export { FlareBase } from "./lib/services/composition/flare-base.js";
@@ -51,6 +52,7 @@ export type {
   HttpRouteOptions,
 } from "./lib/arcs/http/composition/types/handlers.js";
 export type { HttpArc } from "./lib/arcs/http/http-arc.js";
+export type { HttpMethod } from "./lib/arcs/http/routing/types/methods.js";
 export { FlareCookies } from "./lib/arcs/http/transport/flare-cookies.js";
 export type { CookieOptions } from "./lib/arcs/http/transport/flare-cookies.js";
 export { FlareHttpContext } from "./lib/arcs/http/transport/flare-http-context.js";

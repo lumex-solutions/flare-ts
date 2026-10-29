@@ -42,10 +42,11 @@ export type RouteRegistration = {
 };
 
 /**
- * Routes registered together, with what they declare.
+ * One controller's routes, with what they declare.
  *
- * A class controller's registration holds its decorated methods; an inline registration holds the
- * routes registered at one path, each method appending its own.
+ * A class controller's registration holds its decorated methods. The inline routes registered at one
+ * path form one controller too: each method appends its route, and all of them run against one
+ * `ControllerBase` receiver.
  */
 export type ControllerRegistration = {
   readonly factory: HttpFactory<ControllerBase>;

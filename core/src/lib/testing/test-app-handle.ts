@@ -47,10 +47,11 @@ export type ResetFn = (
  * and raw header handling between Node and CF.
  */
 export class TestAppHandle {
+  /** The app's routes and services, as Flare compiled them. */
+  readonly graph: AppGraph;
   #app: HostedApp;
   #adapter: AnyAdapter;
   #resetFn: ResetFn;
-  readonly #graph: AppGraph;
   #seq = 0;
 
   constructor(
@@ -62,12 +63,7 @@ export class TestAppHandle {
     this.#app = app;
     this.#adapter = adapter;
     this.#resetFn = resetFn;
-    this.#graph = graph;
-  }
-
-  /** The app's routes and services, as Flare compiled them. */
-  get graph(): AppGraph {
-    return this.#graph;
+    this.graph = graph;
   }
 
   /**

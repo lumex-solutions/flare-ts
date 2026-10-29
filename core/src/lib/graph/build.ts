@@ -6,8 +6,8 @@ import type { MiddlewareClass } from "../arcs/http/composition/classes/middlewar
 import type { OpaqueConfigToken } from "../config/flare-config.js";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceToken } from "../services/types/token.js";
-import type { GraphSource, RouteStage, ServiceNode } from "./types.js";
-import { resolveStageMiddleware } from "../arcs/http/build.js";
+import type { GraphSource, PipelineStep, ServiceNode } from "./types.js";
+import { resolveStepMiddleware } from "../arcs/http/build.js";
 import { SUPPORTED_METHODS } from "../arcs/http/routing/types/methods.js";
 import { RouteNode } from "./route-node.js";
 
@@ -18,10 +18,13 @@ type ServiceEntry = {
   readonly config: readonly string[];
 };
 
-/** The graph's nodes, with the token lookup service queries need. */
+/** The graph's nodes, with the lookups queries need. */
 export type GraphModel = {
   /** Route nodes in the order the router tries them. */
   readonly routes: readonly RouteNode[];
+  readonly routeById: ReadonlyMap<string, RouteNode>;
+  /** Each route's path split into segments, for path filters. */
+  readonly routeSegments: ReadonlyMap<RouteNode, readonly string[]>;
   readonly services: readonly ServiceNode[];
   readonly serviceByToken: ReadonlyMap<ServiceToken<FlareService>, ServiceNode>;
 };
@@ -56,29 +59,27 @@ export function buildGraph(source: GraphSource): GraphModel {
   }
 
   const routes: RouteNode[] = [];
+  const routeById = new Map<string, RouteNode>();
+  const routeSegments = new Map<RouteNode, readonly string[]>();
   const usedBy = new Map<ServiceToken<FlareService>, string[]>();
   for (const pipeline of source.pipelines) {
     const registration = pipeline.registration;
 
-    // Middleware stages are the same for every method at the path; only the handler stage differs.
-    const stages: Array<RouteStage | undefined> = [];
+    // Middleware steps are the same for every method at the path; only the handler step differs.
+    const steps: Array<PipelineStep | undefined> = [];
     const middleware = new Set<MiddlewareClass>();
     const writes = new Set<string>();
-    const afterEnd = pipeline.execCount - pipeline.finallyCount;
     for (let i = 0; i < pipeline.execCount; i++) {
       if (i === pipeline.handlerExecIdx) {
-        stages.push(undefined);
+        steps.push(undefined);
         continue;
       }
-      const resolved = resolveStageMiddleware(pipeline, source.middleware, i);
+      const resolved = resolveStepMiddleware(pipeline, source.middleware, i);
       if (!resolved) continue;
       const cls = resolved.registration.cls;
       middleware.add(cls);
       for (const token of cls.provides ?? []) writes.add(token.name);
-      let kind: "before" | "after" | "finally" = "finally";
-      if (i < pipeline.handlerExecIdx) kind = "before";
-      else if (i < afterEnd) kind = "after";
-      stages.push(Object.freeze({ kind, name: cls.name, scope: resolved.scope }));
+      steps.push(Object.freeze({ kind: resolved.kind, name: cls.name, from: resolved.from }));
     }
 
     // Breadth-first, so a route's direct deps are listed before the ones they pull in.
@@ -96,6 +97,7 @@ export function buildGraph(source: GraphSource): GraphModel {
     }
 
     const path = pipeline.flareRoute.route;
+    const segments = Object.freeze(segmentsOf(path));
     const group = source.groups.find((g) => g.controllers.includes(registration))?.prefix;
     const state = Object.freeze({
       reads: Object.freeze(registration.state.map((token) => token.name)),
@@ -107,19 +109,20 @@ export function buildGraph(source: GraphSource): GraphModel {
       const method = SUPPORTED_METHODS[methodIdx]!;
       const id = `${method} ${path}`;
       const handlerName = registration.cls ? `${registration.name}.${handler.name}` : id;
-      const handlerStage: RouteStage = Object.freeze({ kind: "handler", name: handlerName });
-      routes.push(
-        new RouteNode({
-          id,
-          method,
-          path,
-          group,
-          handler: handlerName,
-          pipeline: Object.freeze(stages.map((stage) => stage ?? handlerStage)),
-          state,
-          services,
-        }, middleware),
-      );
+      const handlerStep: PipelineStep = Object.freeze({ kind: "handler", name: handlerName });
+      const route = new RouteNode({
+        id,
+        method,
+        path,
+        group,
+        handler: handlerName,
+        pipeline: Object.freeze(steps.map((step) => step ?? handlerStep)),
+        state,
+        services,
+      }, middleware);
+      routes.push(route);
+      routeById.set(id, route);
+      routeSegments.set(route, segments);
       for (const token of resolvedTokens) {
         const ids = usedBy.get(token);
         if (ids) ids.push(id);
@@ -142,7 +145,12 @@ export function buildGraph(source: GraphSource): GraphModel {
     serviceByToken.set(token, node);
   }
 
-  return { routes: Object.freeze(routes), services: Object.freeze(services), serviceByToken };
+  return { routes: Object.freeze(routes), routeById, routeSegments, services: Object.freeze(services), serviceByToken };
+}
+
+/** Splits a path into its non-empty segments. */
+export function segmentsOf(path: string): string[] {
+  return path.split("/").filter((segment) => segment !== "");
 }
 
 function idOf(

@@ -1,7 +1,7 @@
 /** One route of the built app, as the app graph reports it. */
 import type { MiddlewareClass } from "../arcs/http/composition/classes/middleware-base.js";
 import type { HttpMethod } from "../arcs/http/routing/types/methods.js";
-import type { RouteStage } from "./types.js";
+import type { PipelineStep } from "./types.js";
 
 /**
  * One route of the built app: its pipeline in run order, and the state and services it touches.
@@ -18,7 +18,7 @@ export class RouteNode {
   readonly group: string | undefined;
   /** `Controller.method` for a class route; the route id for an inline route. */
   readonly handler: string;
-  readonly pipeline: readonly RouteStage[];
+  readonly pipeline: readonly PipelineStep[];
   /** Names of the state tokens the handler reads, and of those the route's middleware write. */
   readonly state: { readonly reads: readonly string[]; readonly writes: readonly string[]; };
   /** Ids of every service the route resolves, directly or through other services. */

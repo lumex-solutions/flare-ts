@@ -24,7 +24,7 @@ function node(): RouteNode {
     path: "/me",
     group: undefined,
     handler: "GET /me",
-    pipeline: [{ kind: "before", name: "Auth", scope: "global" }, { kind: "handler", name: "GET /me" }],
+    pipeline: [{ kind: "before", name: "Auth", from: "global" }, { kind: "handler", name: "GET /me" }],
     state: { reads: [], writes: [] },
     services: [],
   }, new Set([Auth]));
@@ -48,7 +48,7 @@ describe("RouteNode", () => {
       method: "GET",
       path: "/me",
       handler: "GET /me",
-      pipeline: [{ kind: "before", name: "Auth", scope: "global" }, { kind: "handler", name: "GET /me" }],
+      pipeline: [{ kind: "before", name: "Auth", from: "global" }, { kind: "handler", name: "GET /me" }],
       state: { reads: [], writes: [] },
       services: [],
     });

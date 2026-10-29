@@ -77,7 +77,7 @@ export abstract class HttpBase {
   readonly conRegistrations: ControllerRegistration[] = [];
   /** @internal Raw registrations in authoring order; read by build and validation. */
   readonly errorHandlers: ErrorHandlerRegistration[] = [];
-  readonly #inlineRoutes = new Map<string, ControllerRegistration>();
+  readonly #inlineRegistrations = new Map<string, ControllerRegistration>();
 
   /** @internal Arc-level CORS policy set via {@link cors}; read by build and validation. */
   corsConfig: CorsConfig | undefined = undefined;
@@ -386,7 +386,7 @@ export abstract class HttpBase {
       "route",
     );
     const fullPath = this.#fullPath(path);
-    const existing = this.#inlineRoutes.get(fullPath);
+    const existing = this.#inlineRegistrations.get(fullPath);
 
     if (existing?.routes.some((route) => route.method === method)) {
       throw new Error(
@@ -442,7 +442,7 @@ export abstract class HttpBase {
     }
 
     const registration: ControllerRegistration = {
-      factory: (container, ctx) => new InlineRoute(container, ctx),
+      factory: (container, ctx) => new InlineReceiver(container, ctx),
       path: fullPath,
       isolated: options.isolated ?? false,
       name: options.name ?? fullPath,
@@ -452,7 +452,7 @@ export abstract class HttpBase {
       state: [...(options.state ?? [])],
       config: undefined,
     };
-    this.#inlineRoutes.set(fullPath, registration);
+    this.#inlineRegistrations.set(fullPath, registration);
     this.conRegistrations.push(registration);
   }
 
@@ -615,4 +615,4 @@ function routeDescriptor(options: HttpRouteOptions): RequestDescriptor | undefin
 }
 
 /** Receiver every inline route's handler runs against; the route itself is data on its registration. */
-class InlineRoute extends ControllerBase {}
+class InlineReceiver extends ControllerBase {}

@@ -10,7 +10,7 @@ import { ControllerBase } from "../../../../src/lib/arcs/http/composition/classe
 import { controllerRegistration } from "../../../../src/lib/arcs/http/composition/controller-registration.js";
 import { Get, Post } from "../../../../src/lib/arcs/http/routing/decorators.js";
 import { flareConfig } from "../../../../src/lib/config/flare-config.js";
-import { buildGraph } from "../../../../src/lib/graph/build.js";
+import { buildGraph, segmentsOf } from "../../../../src/lib/graph/build.js";
 import { FlareService } from "../../../../src/lib/services/composition/flare-service.js";
 
 const MailerConfig = flareConfig("mailer", {});
@@ -76,7 +76,7 @@ describe("buildGraph services", () => {
 });
 
 describe("buildGraph routes", () => {
-  it("builds one node per method at a path, each with its own handler stage", () => {
+  it("builds one node per method at a path, each with its own handler step", () => {
     class ItemsController extends ControllerBase {
       static override deps = [Signups];
       static override state = [];
@@ -101,5 +101,17 @@ describe("buildGraph routes", () => {
     expect(graph.routes[1]!.pipeline).toEqual([{ kind: "handler", name: "ItemsController.create" }]);
     expect(graph.routes[0]!.services).toEqual(["Signups", "Mailer"]);
     expect(graph.serviceByToken.get(Mailer)!.usedBy).toEqual(["GET /items", "POST /items"]);
+    expect(graph.routeById.get("POST /items")).toBe(graph.routes[1]);
+    expect(graph.routeSegments.get(graph.routes[0]!)).toEqual(["items"]);
+  });
+});
+
+describe("segmentsOf", () => {
+  it("splits a path into its segments, ignoring leading, trailing, and repeated slashes", () => {
+    expect(segmentsOf("/api//users/:id/")).toEqual(["api", "users", ":id"]);
+  });
+
+  it("returns no segments for the root path", () => {
+    expect(segmentsOf("/")).toEqual([]);
   });
 });

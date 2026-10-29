@@ -73,28 +73,36 @@ export function compileHttp(
 /**
  * Returns the middleware at one exec slot of a compiled pipeline, or undefined at the handler slot.
  *
- * `scope` says whether the middleware was registered globally or on the pipeline's group.
+ * `kind` says when the middleware runs relative to the handler; `from` says whether it was registered
+ * globally or on the pipeline's group.
  */
-export function resolveStageMiddleware(
+export function resolveStepMiddleware(
   pipeline: Pipeline,
   globalMwRegs: readonly MiddlewareRegistration[],
   execIdx: number,
-): { readonly registration: MiddlewareRegistration; readonly scope: "global" | "group"; } | undefined {
+): {
+  readonly kind: "before" | "after" | "finally";
+  readonly registration: MiddlewareRegistration;
+  readonly from: "global" | "group";
+} | undefined {
   const factoryIdx = pipeline.middlewareFactoryByExecIdx[execIdx]!;
   if (factoryIdx < 0) return undefined;
   const group = pipeline.registration.group;
   let registration: MiddlewareRegistration | undefined;
-  let scope: "global" | "group" = "group";
+  let from: "global" | "group" = "group";
   if (group?.isolated) {
     registration = group.middleware[factoryIdx];
   } else if (factoryIdx >= globalMwRegs.length && group?.combinedMw) {
     registration = group.combinedMw[factoryIdx - globalMwRegs.length];
   } else {
     registration = globalMwRegs[factoryIdx];
-    scope = "global";
+    from = "global";
   }
   if (!registration) return undefined;
-  return { registration, scope };
+  let kind: "before" | "after" | "finally" = "finally";
+  if (execIdx < pipeline.handlerExecIdx) kind = "before";
+  else if (execIdx < pipeline.execCount - pipeline.finallyCount) kind = "after";
+  return { kind, registration, from };
 }
 
 function compilePipelines(
@@ -166,7 +174,7 @@ function compileExecStepNames(pipeline: Pipeline, globalMwRegs: MiddlewareRegist
   for (let i = 0; i < pipeline.execCount; i++) {
     names[i] = pipeline.middlewareFactoryByExecIdx[i]! < 0
       ? pipeline.registration.name
-      : resolveStageMiddleware(pipeline, globalMwRegs, i)?.registration.cls.name ?? "Unknown";
+      : resolveStepMiddleware(pipeline, globalMwRegs, i)?.registration.cls.name ?? "Unknown";
   }
   return names;
 }
