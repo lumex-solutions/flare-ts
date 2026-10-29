@@ -6,6 +6,10 @@
 
 - Route group builders no longer return a registration, and `HttpGroup.register()` is removed. `host.http.group(prefix, (g) => { ... })` registers the group when the builder returns: delete the trailing `return g.register();`. The builder type is now `(group: HttpGroup) => undefined`, so an `async` builder or an expression-bodied one (`(g) => g.get(...)`) is a type error; write a synchronous block body.
 
+### Added
+
+- `FlareApp` without a type argument types an app from any runtime: the `test()` entrypoint every compiled app shares, so a helper can accept `host.build()`'s result without naming a runtime. `FlareApp<typeof node>` is unchanged and still resolves to that runtime's app.
+
 ## 0.3.1
 
 ### Added

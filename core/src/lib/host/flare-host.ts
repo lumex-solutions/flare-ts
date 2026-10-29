@@ -448,9 +448,6 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
    * cached app.
    *
    * @throws {FlareValidationError} If any composite validator reports an error.
-   *
-   * TODO(public-app-interface): Export a minimal public app interface (run/export/test entrypoints)
-   * so consumers can annotate `host.build()` without relying on inferred internal app classes.
    */
   public build(): FlareApp<TAdapter> {
     // Idempotent: the host file calls this at module load, and the test file
