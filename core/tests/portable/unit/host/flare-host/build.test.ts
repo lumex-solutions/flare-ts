@@ -85,4 +85,18 @@ describe("[BUILD_WARNINGS]", () => {
     host.build();
     expect(host[BUILD_WARNINGS]().map((warning) => warning.code)).toEqual(["ERROR_HANDLER_UNDECLARED_KEY"]);
   });
+
+  it("keeps the warnings of a build that fails on validation errors", () => {
+    class EmailTaken extends ConflictError {}
+    const Duplicate = class extends ConflictError {
+      static override code = "EmailTaken";
+    };
+    const host = new FlareHost(makeAdapter());
+    host.http.post("/signup", { errors: [EmailTaken] }, () => null);
+    host.http.put("/billing/email", { errors: [Duplicate] }, () => null);
+    host.http.error(class Unused extends ConflictError {}, () => undefined);
+
+    expect(() => host.build()).toThrow(FlareValidationError);
+    expect(host[BUILD_WARNINGS]().map((warning) => warning.code)).toEqual(["ERROR_HANDLER_UNDECLARED_KEY"]);
+  });
 });

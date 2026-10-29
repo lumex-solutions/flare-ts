@@ -63,7 +63,7 @@ export function policyFindings(graph: AppGraph, policy: RoutePolicy): string[] {
 }
 
 /**
- * Sends each front-door HTTP route its bad input and reports each answer of 500 or more.
+ * Sends each front-door HTTP route its bad input and reports each 500, the answer to an unhandled error.
  *
  * @param sending - Told which route each request goes to, and `undefined` once it is answered.
  */
@@ -78,7 +78,7 @@ export async function badInputFindings(
       sending(route);
       const res = await app.fetch(request.target, request.init);
       sending(undefined);
-      if (res.status >= 500) findings.push(`${route.id} answered ${res.status} to ${request.description}.`);
+      if (res.status === 500) findings.push(`${route.id} answered ${res.status} to ${request.description}.`);
     }
   }
   return findings;

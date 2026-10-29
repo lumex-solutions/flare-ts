@@ -1,7 +1,7 @@
 /**
  * Unit tests for installHealthRoutes: which routes it registers, what the readiness route injects, and
- * that readiness follows the host's state. Routes are installed on a real host's HTTP arc and driven
- * through its test app.
+ * that readiness follows the host's state; and for healthPaths, the paths it resolves. Routes are
+ * installed on a real host's HTTP arc and driven through its test app.
  */
 import { describe, expect, it } from "vitest";
 import { healthPaths, installHealthRoutes } from "../../../../../../src/lib/arcs/http/health/install.js";

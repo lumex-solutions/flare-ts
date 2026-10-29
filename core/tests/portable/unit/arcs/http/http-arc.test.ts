@@ -1,6 +1,7 @@
 /**
- * Unit tests for `HttpArc` lifecycle symbols, `group()`, compile, and `fetch()` routing
- * (405, path guards, OPTIONS). Deeper pipeline branches are covered by integration tests.
+ * Unit tests for `HttpArc` lifecycle symbols, `group()`, compile, `fetch()` routing (405, path guards,
+ * OPTIONS), `health()` and its paths, and the error observer seam. Deeper pipeline branches are
+ * covered by integration tests.
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import type { ControllerClass } from "../../../../../src/lib/arcs/http/composition/classes/controller-base.js";
@@ -468,6 +469,7 @@ describe("health()", () => {
     expect(() => http.health()).toThrow("host.http.health() is already registered.");
     expect(() => testHost().http.health({ checkTimeout: 0 })).toThrow("checkTimeout must be a positive number");
     expect(() => testHost().http.health({ live: "up" })).toThrow('Health route path must start with "/"');
+    expect(() => testHost().http.health({ ready: "ready" })).toThrow('Health route path must start with "/"');
   });
 });
 
@@ -492,12 +494,16 @@ describe("[OBSERVE_ERRORS]", () => {
     host.http.get("/users/:id", () => {
       throw new UserNotFound();
     });
+    host.http.get("/report", () => {
+      throw new Error("report renderer crashed");
+    });
     const app = await host.build().test();
     try {
       const res = await app.fetch("GET /users/u_42");
+      await app.fetch("GET /report");
 
       expect(await res.json()).toEqual({ handledBy: "UserNotFound" });
-      expect(seen).toEqual(["UserNotFound"]);
+      expect(seen).toEqual(["UserNotFound", "Error"]);
     } finally {
       await app.stop();
     }

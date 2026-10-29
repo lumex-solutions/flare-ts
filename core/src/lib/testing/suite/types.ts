@@ -5,7 +5,7 @@ import type { MiddlewareClass } from "../../arcs/http/composition/classes/middle
  * Check `flareSuite` runs, by the name `skip` takes and each test title starts with.
  *
  * - `"build"` - The build reports no validation errors (or warnings, with `failOnWarnings`).
- * - `"bad-input"` - Bad input generated for each front-door HTTP route never gets a 5xx.
+ * - `"bad-input"` - Bad input generated for each front-door HTTP route never gets a 500.
  * - `"declared-errors"` - During the bad-input run, a route that declares errors throws only those.
  * - `"error-names"` - During the bad-input run, no two thrown error classes send one wire name.
  * - `"services"` - Every service starts and stops cleanly.

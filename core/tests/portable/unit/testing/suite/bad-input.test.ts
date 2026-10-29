@@ -64,6 +64,19 @@ describe("badInputFor", () => {
     ]);
   });
 
+  it("sends an object where a JSON array body belongs", async () => {
+    const route = await routeOf(
+      (http) => http.post("/users/import", { body: schema([schema({ email: str })]) }, () => null),
+      "POST",
+      "/users/import",
+    );
+
+    expect(badInputFor(route).map(({ description, init }) => [description, init?.body])).toEqual([
+      ["a body that is not JSON", "{"],
+      ["a JSON body of the wrong type", "{}"],
+    ]);
+  });
+
   it("sends a streamed-body route, and one that declares no input, a bare request with its params filled", async () => {
     const upload = await routeOf(
       (http) => http.put("/files/*rest", { body: stream }, () => null),

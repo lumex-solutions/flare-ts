@@ -29,7 +29,7 @@ type SuiteHost =
  *
  * The host must be created in test mode (`FLARE_MODE=test`); the suite builds and starts it once. It
  * checks that the build reports no validation errors; that bad input generated for each front-door HTTP
- * route never gets a 5xx; that during that run, routes declaring errors throw only those and no two
+ * route never gets a 500; that during that run, routes declaring errors throw only those and no two
  * thrown error classes share a wire name; that the health routes answer ready when `host.http.health()`
  * is registered; that every configured policy holds; and that every service starts and stops cleanly. A
  * failing check names each offending route or service. Skip a check by the name its title starts with.
@@ -97,7 +97,7 @@ export function flareSuite(host: SuiteHost, options: FlareSuiteOptions = {}): vo
       expect(buildFindings(buildFailure, host[BUILD_WARNINGS](), failOnWarnings)).toEqual([]);
     });
 
-    check("bad-input", "bad-input: bad input gets a 4xx, never a 5xx", async () => {
+    check("bad-input", "bad-input: bad input never gets a 500", async () => {
       expect(await exercise()).toEqual([]);
     });
 
