@@ -39,11 +39,27 @@ describe("closeForError", () => {
     });
   });
 
-  it("trims a wire name past the 123-byte close reason limit", () => {
+  it("closes 1011 for a FlareError class whose status is outside 400-599 and that sets no closeCode", () => {
+    class Moved extends FlareError {
+      static override status = 302;
+    }
+
+    expect(closeForError(new Moved(), "Message handler failed")).toEqual({
+      code: 1011,
+      reason: "Message handler failed",
+    });
+  });
+
+  it("trims a wire name past the 123-byte close reason limit, counting UTF-8 bytes", () => {
     class LongName extends ConflictError {
       static override code = "E".repeat(200);
     }
+    class AccentedName extends ConflictError {
+      static override code = "é".repeat(100);
+    }
 
     expect(closeForError(new LongName(), "x").reason).toBe("E".repeat(123));
+    // Each "é" is 2 UTF-8 bytes, so 61 of them (122 bytes) fit and a 62nd would not.
+    expect(closeForError(new AccentedName(), "x").reason).toBe("é".repeat(61));
   });
 });

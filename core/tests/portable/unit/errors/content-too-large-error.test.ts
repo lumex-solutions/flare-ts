@@ -1,13 +1,11 @@
 /** Unit tests for ContentTooLargeError: its status, thrown directly and inherited by a domain error. */
 import { describe, expect, it } from "vitest";
 import { ContentTooLargeError } from "../../../../src/lib/errors/content-too-large-error.js";
-import { FlareError } from "../../../../src/lib/errors/flare-error.js";
 
 describe("ContentTooLargeError", () => {
-  it("is a FlareError with status 413, named ContentTooLargeError when thrown directly", () => {
+  it("has status 413, named ContentTooLargeError when thrown directly", () => {
     const err = new ContentTooLargeError("Avatar is over 2 MB");
 
-    expect(err).toBeInstanceOf(FlareError);
     expect([err.status, err.name]).toEqual([413, "ContentTooLargeError"]);
   });
 

@@ -11,7 +11,6 @@ import type { Pipeline } from "../../../../../src/lib/arcs/http/types/pipeline.j
 import type { ErrorHandlerRegistration } from "../../../../../src/lib/arcs/http/types/registration.js";
 import type { LogConfig } from "../../../../../src/lib/config/flare-config.js";
 import type { HttpErrorContext } from "../../../../../src/lib/logger/types.js";
-import type { Container } from "../../../../../src/lib/services/container.js";
 import { stream } from "../../../../../src/index.js";
 import {
   dispatchErrorHandlers,
@@ -28,6 +27,9 @@ import { NotFoundError } from "../../../../../src/lib/errors/not-found-error.js"
 import { RateLimitedError } from "../../../../../src/lib/errors/rate-limited-error.js";
 import { ServiceUnavailableError } from "../../../../../src/lib/errors/service-unavailable-error.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";
+import { Container } from "../../../../../src/lib/services/container.js";
+import { FlareRegistrationMap } from "../../../../../src/lib/services/registration-map.js";
+import { makeContainer, RecordingTransport } from "../../../helpers/logger-fixtures.js";
 import { testHost } from "../../../helpers/test-host.js";
 
 interface Recorded {
@@ -89,6 +91,22 @@ function ehReg(handler: ErrorHandlerBase, factoryThrows = false): ErrorHandlerRe
   };
 }
 
+// A real Logger over a recording transport, and a real Container holding it with a log section.
+async function realLogging(): Promise<{ logger: Logger; container: Container; }> {
+  const logConfig = makeContainer({ level: "info", unhandledErrors: true });
+  const logger = new Logger([new RecordingTransport(logConfig)], logConfig);
+  await logger.onStart();
+  const container = new Container(new FlareRegistrationMap(), new Map([[Logger, logger]]), {
+    log: { level: "info", unhandledErrors: true },
+  });
+  return { logger, container };
+}
+
+async function answerFor(err: Error): Promise<FlareResponse> {
+  const { logger } = await realLogging();
+  return handleControllerError(err, logger, true, makeContext("GET", "/x")) as FlareResponse;
+}
+
 describe("handleControllerError", () => {
   function callWith(err: FlareError | Error, unhandledErrors = true) {
     const { logger, records } = makeFakeLogger();
@@ -96,14 +114,12 @@ describe("handleControllerError", () => {
     return { response, records };
   }
 
-  it("answers a 4xx FlareError with its status, wire name, message, and detail", () => {
+  it("answers a 4xx FlareError with its status, wire name, message, and detail", async () => {
     class EmailTaken extends ConflictError<{ email: string; }> {}
     const err = new EmailTaken("ada@example.com is already registered", { detail: { email: "ada@example.com" } });
 
-    const { response } = callWith(err);
+    const resp = await answerFor(err);
 
-    expect(response).toBeInstanceOf(FlareResponse);
-    const resp = response as FlareResponse;
     expect(resp.status).toBe(409);
     expect(resp.jsonBody).toEqual({
       error: "EmailTaken",
@@ -112,29 +128,29 @@ describe("handleControllerError", () => {
     });
   });
 
-  it("answers a 5xx FlareError with its status and wire name only, keeping the message and detail on the server", () => {
+  it("answers a 5xx FlareError with its status and wire name only, keeping the message and detail on the server", async () => {
     class LedgerOffline extends ServiceUnavailableError<{ host: string; }> {}
     const err = new LedgerOffline("ledger at 10.0.0.4 refused the connection", { detail: { host: "10.0.0.4" } });
 
-    const resp = callWith(err).response as FlareResponse;
+    const resp = await answerFor(err);
 
     expect(resp.status).toBe(503);
     expect(resp.jsonBody).toEqual({ error: "LedgerOffline" });
   });
 
-  it("sends the headers a FlareError carries, such as RateLimitedError's Retry-After", () => {
-    const resp = callWith(new RateLimitedError(30)).response as FlareResponse;
+  it("sends the headers a FlareError carries, such as RateLimitedError's Retry-After", async () => {
+    const resp = await answerFor(new RateLimitedError(30));
 
     expect(resp.status).toBe(429);
     expect(resp.headers).toMatchObject({ "Retry-After": "30" });
   });
 
-  it("falls back to 500 for a FlareError class whose status is outside 400-599", () => {
+  it("falls back to 500 for a FlareError class whose status is outside 400-599", async () => {
     class Misconfigured extends FlareError {
       static override status = 302;
     }
 
-    const resp = callWith(new Misconfigured("moved")).response as FlareResponse;
+    const resp = await answerFor(new Misconfigured("moved"));
 
     expect(resp.status).toBe(500);
     expect(resp.jsonBody).toEqual({ error: "Misconfigured" });
@@ -170,17 +186,32 @@ describe("handleControllerError", () => {
 });
 
 describe("dispatchErrorHandlers", () => {
-  it("runs a handler keyed to an error class only for an error of that class or a subclass", () => {
+  it("runs a handler keyed to an error class only for an error of that class or a subclass", async () => {
     class UserNotFound extends NotFoundError {}
+    class AdminNotFound extends UserNotFound {}
     const host = testHost();
     host.http.error(UserNotFound, () => new FlareResponse(404, { handledBy: "UserNotFound" }));
     host.http.error(() => new FlareResponse(500, { handledBy: "catch-all" }));
-    const container = makeFakeContainer(makeFakeLogger().logger);
+    const { container } = await realLogging();
     const dispatch = (err: Error) =>
       dispatchErrorHandlers(err, host.http.errorHandlers, container, makeContext("GET", "/x")) as FlareResponse;
 
     expect(dispatch(new UserNotFound()).jsonBody).toEqual({ handledBy: "UserNotFound" });
+    expect(dispatch(new AdminNotFound()).jsonBody).toEqual({ handledBy: "UserNotFound" });
     expect(dispatch(new NotFoundError()).jsonBody).toEqual({ handledBy: "catch-all" });
+  });
+
+  it("runs a handler keyed to FlareError for every FlareError, and for nothing else", async () => {
+    const host = testHost();
+    host.http.error(FlareError, (err) => new FlareResponse(err.status, { handledBy: "FlareError" }));
+    host.http.error(() => new FlareResponse(500, { handledBy: "catch-all" }));
+    const { container } = await realLogging();
+    const dispatch = (err: Error) =>
+      dispatchErrorHandlers(err, host.http.errorHandlers, container, makeContext("GET", "/x")) as FlareResponse;
+
+    expect(dispatch(new NotFoundError()).jsonBody).toEqual({ handledBy: "FlareError" });
+    expect(dispatch(new ConflictError()).jsonBody).toEqual({ handledBy: "FlareError" });
+    expect(dispatch(new Error("boom")).jsonBody).toEqual({ handledBy: "catch-all" });
   });
 
   it("falls back to handleControllerError when no handlers are registered", () => {

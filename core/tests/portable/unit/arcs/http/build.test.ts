@@ -1051,6 +1051,17 @@ describe("resolveStepMiddleware", () => {
 });
 
 describe("error handler order", () => {
+  it("keeps registration order between handlers keyed to the same class", () => {
+    const host = testHost();
+    host.http.error(NotFoundError, { name: "FirstNotFound" }, () => undefined);
+    host.http.error(NotFoundError, { name: "SecondNotFound" }, () => undefined);
+    host.http.get("/users", () => null);
+    host.http[COMPILE_HTTP_ARC]();
+    const [pipeline] = host.http[HTTP_PIPELINES]().pipelines;
+
+    expect(pipeline!.errorHandlers.map((handler) => handler.cls.name)).toEqual(["FirstNotFound", "SecondNotFound"]);
+  });
+
   it("puts keyed handlers before catch-alls within each scope, the most specific key first", () => {
     class UserNotFound extends NotFoundError {}
     const host = testHost();

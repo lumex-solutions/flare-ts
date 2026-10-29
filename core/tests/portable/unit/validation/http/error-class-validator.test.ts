@@ -117,14 +117,21 @@ describe("keyed handlers", () => {
     expect(results).toEqual([]);
   });
 
-  it("reads a group's keyed handlers and the routes inside the group", () => {
-    const results = validate((http) => {
+  it("reads a group's keyed handlers, and the errors its routes declare", () => {
+    const undeclared = validate((http) => {
       http.group("/api", (group) => {
         group.error(EmailTaken, () => undefined);
         group.post("/signup", () => null);
       });
     });
+    const declared = validate((http) => {
+      http.group("/api", (group) => {
+        group.error(EmailTaken, () => undefined);
+        group.post("/signup", { errors: [EmailTaken] }, () => null);
+      });
+    });
 
-    expect(results).toEqual([expect.objectContaining({ code: "ERROR_HANDLER_UNDECLARED_KEY" })]);
+    expect(undeclared).toEqual([expect.objectContaining({ code: "ERROR_HANDLER_UNDECLARED_KEY" })]);
+    expect(declared).toEqual([]);
   });
 });

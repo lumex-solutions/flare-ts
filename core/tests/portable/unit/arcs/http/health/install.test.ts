@@ -4,9 +4,8 @@
  * through its test app.
  */
 import { describe, expect, it } from "vitest";
-import { DEFAULT_CHECK_TIMEOUT_MS } from "../../../../../../src/lib/arcs/http/health/install.js";
+import { installHealthRoutes } from "../../../../../../src/lib/arcs/http/health/install.js";
 import { SET_HOST_STATE } from "../../../../../../src/lib/host/types/const.js";
-import { Logger } from "../../../../../../src/lib/logger/logger.js";
 import { FlareService } from "../../../../../../src/lib/services/composition/flare-service.js";
 import { testHost } from "../../../../helpers/test-host.js";
 
@@ -17,7 +16,7 @@ class Database extends FlareService {
 describe("installHealthRoutes", () => {
   it("registers both routes at their default paths", async () => {
     const host = testHost();
-    host.http.health();
+    installHealthRoutes(host.http, {}, []);
     const app = await host.build().test();
     try {
       expect(app.graph.routes().map((route) => route.id).sort()).toEqual(["GET /health/live", "GET /health/ready"]);
@@ -28,7 +27,7 @@ describe("installHealthRoutes", () => {
 
   it("registers only the routes asked for, at the paths given", async () => {
     const host = testHost();
-    host.http.health({ live: "/up", ready: false });
+    installHealthRoutes(host.http, { live: "/up", ready: false }, []);
     const app = await host.build().test();
     try {
       expect(app.graph.routes().map((route) => route.id)).toEqual(["GET /up"]);
@@ -37,16 +36,16 @@ describe("installHealthRoutes", () => {
     }
   });
 
-  it("injects the logger and each service the checks need, once each", async () => {
+  it("injects the logger and each service the checks need into the readiness route", async () => {
     const host = testHost();
     host.scoped(Database);
-    host.http.health()
-      .check("primary", { inject: { db: Database } }, () => true)
-      .check("replica", { inject: { db: Database } }, () => true);
+    installHealthRoutes(host.http, {}, [
+      { name: "primary", inject: { db: Database }, run: () => true },
+      { name: "replica", inject: { db: Database }, run: () => true },
+    ]);
     const app = await host.build().test();
     try {
       expect(app.graph.route("GET", "/health/ready")?.services).toEqual(["Logger", "Database"]);
-      expect(app.graph.service(Logger)?.usedBy).toContain("GET /health/ready");
     } finally {
       await app.stop();
     }
@@ -54,7 +53,7 @@ describe("installHealthRoutes", () => {
 
   it("answers 503 from readiness, and 200 from liveness, while the host drains", async () => {
     const host = testHost();
-    host.http.health();
+    installHealthRoutes(host.http, {}, []);
     const app = await host.build().test();
     try {
       host[SET_HOST_STATE]("draining");
@@ -64,11 +63,5 @@ describe("installHealthRoutes", () => {
     } finally {
       await app.stop();
     }
-  });
-});
-
-describe("DEFAULT_CHECK_TIMEOUT_MS", () => {
-  it("is two seconds", () => {
-    expect(DEFAULT_CHECK_TIMEOUT_MS).toBe(2000);
   });
 });

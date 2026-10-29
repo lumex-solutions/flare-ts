@@ -62,7 +62,7 @@ describe("Primary Behavior", () => {
     const h = host();
     h.scoped(SearchIndex);
     h.http.health()
-      .check("search-index", { inject: { search: SearchIndex } }, ({ search }) => search.warm)
+      .check("search-index", { inject: { search: SearchIndex } }, ({ search }) => search.warm === true)
       .check("warm-cache", () => {});
     app = await h.build().test();
 
@@ -119,14 +119,6 @@ describe("Error Handling", () => {
       reason: "timeout",
       timeoutMs: 20,
     });
-  });
-
-  it("refuses a second health() call and a checkTimeout that is not a positive number", () => {
-    const h = host();
-    h.http.health();
-
-    expect(() => h.http.health()).toThrow("host.http.health() is already registered.");
-    expect(() => host().http.health({ checkTimeout: 0 })).toThrow("checkTimeout must be a positive number");
   });
 });
 

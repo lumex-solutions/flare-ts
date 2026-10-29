@@ -436,7 +436,7 @@ describe("error handler registration", () => {
     expect(base.errorHandlers[2]!.cls).toBe(eh);
   });
 
-  it("Keyed form: accepts FlareError itself as a key, for a handler that sees every FlareError", () => {
+  it("Keyed form: accepts FlareError itself as a key", () => {
     base.error(FlareError, () => undefined);
 
     expect(base.errorHandlers[0]!.errorClass).toBe(FlareError);

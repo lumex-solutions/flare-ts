@@ -24,6 +24,7 @@ import { DECORATOR_METADATA_SYMBOL, ROUTE_STORE } from "../../../../../src/lib/a
 import { FlareHttpContext } from "../../../../../src/lib/arcs/http/transport/flare-http-context.js";
 import { FlareRequest } from "../../../../../src/lib/arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
+import { testHost } from "../../../helpers/test-host.js";
 
 function attachRoutes(
   cls: ControllerClass,
@@ -453,5 +454,16 @@ describe("HttpArc.fetch", () => {
     expect(parts.has("HEAD")).toBe(true);
     expect(parts.has("OPTIONS")).toBe(true);
     expect((r.headers as Record<string, string>)["Content-Length"]).toBe("0");
+  });
+});
+
+describe("health()", () => {
+  it("refuses a second call, a non-positive checkTimeout, and a route path that is not a path", () => {
+    const { http } = testHost();
+    http.health();
+
+    expect(() => http.health()).toThrow("host.http.health() is already registered.");
+    expect(() => testHost().http.health({ checkTimeout: 0 })).toThrow("checkTimeout must be a positive number");
+    expect(() => testHost().http.health({ live: "up" })).toThrow('Health route path must start with "/"');
   });
 });

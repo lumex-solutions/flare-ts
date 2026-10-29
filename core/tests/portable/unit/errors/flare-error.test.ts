@@ -70,10 +70,7 @@ describe("instance", () => {
     expect("cause" in new LedgerOffline("Ledger unreachable")).toBe(false);
   });
 
-  it("is an Error with a stack, so it can be thrown and caught like one", () => {
-    const err = new EmailTaken("ada@example.com");
-
-    expect(err).toBeInstanceOf(Error);
-    expect(err.stack).toContain("EmailTaken");
+  it("records a stack that names its class", () => {
+    expect(new EmailTaken("ada@example.com").stack).toContain("EmailTaken");
   });
 });

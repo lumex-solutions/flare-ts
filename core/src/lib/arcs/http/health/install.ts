@@ -13,8 +13,8 @@ import { Logger } from "../../../logger/logger.js";
 import { attachScopeDeps } from "../../../services/scope.js";
 import { FlareResponse } from "../transport/flare-response.js";
 
-/** How long one readiness check may run, in milliseconds, unless `checkTimeout` says otherwise. */
-export const DEFAULT_CHECK_TIMEOUT_MS = 2000;
+// How long one readiness check may run, in milliseconds, unless `checkTimeout` says otherwise.
+const DEFAULT_CHECK_TIMEOUT_MS = 2000;
 
 const TIMED_OUT: unique symbol = Symbol("TIMED_OUT");
 

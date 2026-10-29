@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib/schema";
 import type { LogContext, LogError, LogLevel, LogMeta, LogRecord } from "../../../../../src/lib/logger/types.js";
 import { HOST_CONFIG, LOG_CONFIG } from "../../../../../src/lib/config/flare-config.js";
+import { toErrorField } from "../../../../../src/lib/logger/fields.js";
 import { ConsoleTransport } from "../../../../../src/lib/logger/transports/console.js";
 import { Container } from "../../../../../src/lib/services/container.js";
 import { FlareRegistrationMap } from "../../../../../src/lib/services/registration-map.js";
@@ -257,20 +258,15 @@ describe("asynchronous console transport output", () => {
     });
 
     it("lists each error in the cause chain after the stack, outermost first", () => {
-      const err: LogError = {
-        name: "LedgerOffline",
-        message: "Ledger unreachable",
-        cause: {
-          name: "TypeError",
-          message: "fetch failed",
-          cause: { name: "Error", message: "connect ECONNREFUSED" },
-        },
-      };
+      const refused = new Error("connect ECONNREFUSED");
+      const failed = new TypeError("fetch failed", { cause: refused });
+      const err = toErrorField(new Error("Ledger unreachable", { cause: failed }));
       prettyTransport().write(makeRecord({ level: "error", message: "m", error: err }));
       const visible = stripAnsi(capture.error[0]!);
 
       expect(visible).toContain("caused by TypeError  fetch failed");
       expect(visible).toContain("caused by Error  connect ECONNREFUSED");
+      expect(visible.lastIndexOf("    at ")).toBeLessThan(visible.indexOf("caused by"));
       expect(visible.indexOf("fetch failed")).toBeLessThan(visible.indexOf("connect ECONNREFUSED"));
     });
 
