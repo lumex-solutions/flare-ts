@@ -49,7 +49,6 @@ export abstract class FlareAppBase<TLifecycle extends HostRuntimeLifecycle = Hos
   }
 
   protected readonly http: HttpArc<TLifecycle>;
-  // TODO: add `workers` and `flows` arc fields when those arcs ship.
 
   /**
    * Starts the application in test mode and returns a {@link TestAppHandle}

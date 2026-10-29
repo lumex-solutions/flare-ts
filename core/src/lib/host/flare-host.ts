@@ -480,7 +480,6 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
       durationMs: Date.now() - configStart,
     });
 
-    // TODO: Make logger compilation CF safe (no FS access for config, no dynamic transports, etc. start/stop need to be sync)
     this.#compileLogger();
     this.logger.trace("Lifecycle event", {
       phase: "build",

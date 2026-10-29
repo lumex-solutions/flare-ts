@@ -246,7 +246,7 @@ export class NodeWebSocket implements IFlareWebSocket {
       if (this.#pongPolicy === "coalesce") this.#pendingPong = payload;
       else this.#out(encodePong(payload));
     }
-    // PONG: liveness signal; keepalive timing is a later concern.
+    // PONG needs nothing more: the read that delivered it already reset the idle timer.
     return true;
   }
 

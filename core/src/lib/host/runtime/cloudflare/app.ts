@@ -232,8 +232,11 @@ export const cf: CloudflareAdapter = {
  *
  * On Cloudflare there is no filesystem, so the config is supplied at module scope rather than read
  * from disk.
+ *
+ * @param env - Variables `host.build()` reads: `FLARE_MODE` (test mode) and `FLARE__*` config
+ * overrides. The build runs at module scope, before any request carries the Worker's `env`, so
+ * these reach it only through this parameter.
  */
-// TODO: Anaylize the necessity of the env param and why its used
 export function buildCf(flareJsonFile: JsonObject, env: Record<string, string | undefined> = {}): CloudflareAdapter {
   return {
     runtime: cf.runtime,
