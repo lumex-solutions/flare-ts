@@ -1,81 +1,51 @@
 ---
 name: flare-testing
-description: Review or fix ONE flare test file or small test folder against the flare testing standards (runtime root, tier, unit isolation, doubles, idioms). Use when authoring tests (run before finishing), or when the user asks to review tests at a specific path. Not for repo-wide sweeps.
+description: Review or fix ONE flare test file or small test folder against the flare testing standards (placement by runtime root and tier, tests shown to fail, real path and seams, replacements as strict as the real thing, behavior and suite shape). Use when finishing tests, or when the user asks to review tests at a specific path. Not for repo-wide sweeps.
 ---
 
 # flare-testing
 
-Audit one test file (or one small folder of tests) against the testing standards, report findings
-with line references, and apply fixes when asked.
+Audit one test file, or one small folder of tests, against the testing standards. Report findings with line references. Apply fixes when asked.
 
 ## Input
 
-A target path is required: one `*.test.ts` file, or a folder of tests. For a folder, collect the
-test files under it; if that is more than ~20 files, stop and tell the user this skill is scoped
-to a suite or subsystem, and ask them to narrow the target. Never expand scope beyond the target.
+A target path: one `*.test.ts` file or a folder of tests. For a folder, collect the test files under it; more than about twenty means the target is too wide, so stop and ask for a narrower one. Never expand scope beyond the target.
 
 ## Rules source
 
-Read all four standards before auditing (paths from the repo root):
+Read, in this order, from the repository root:
 
-1. `standards/testing/structure.md`
+1. `standards/testing/testing.md` (the principles)
 2. `standards/testing/choosing-tests.md`
 3. `standards/testing/doubles-and-idioms.md`
-4. `standards/testing/conformance-and-probes.md`
+4. `standards/testing/structure.md`
+5. `standards/testing/conformance-and-probes.md`, when the target is a conformance suite or a probe
 
 The standards are the only rules. Do not import preferences from elsewhere.
 
 ## Procedure
 
-For each target file, four passes:
+Five passes per file, then the break check:
 
-1. **Placement** - is the file in the right runtime root and tier?
-   - Root: a suite whose claim names a runtime's behavior belongs under that runtime's root; a
-     suite under `portable/` (or in a package whose whole tree is portable) must import no runtime
-     adapter - hosts come from the portable host factory. A runtime adapter import in a portable
-     suite is a violation; a suite under a runtime root with no runtime-specific claim is a
-     `decision` (it may be portable).
-   - Tier: walk the decision path. A unit suite's path must mirror its subject's src module. An
-     integration suite binding a real port with no wire/socket/foreign-peer claim is a violation
-     (belongs in-process); an in-process suite opening sockets is a violation. Conformance/prober
-     content inside the ordinary tiers is a violation.
-2. **Unit rules** (unit suites only) - the subject is real and driven through its own API;
-   every behavioral collaborator is a fake owned by the test; no private methods or `#fields`
-   tested directly; no assertions restating a static type (asserting which runtime variant of a
-   union materialized is behavioral and fine; type claims belong in a `*-types.test.ts` suite);
-   no tests of trivial accessors; `it()` names behaviors, never methods.
-3. **Integration rules** (integration suites only) - public surface only: no symbol-keyed seams,
-   no internal value imports (type-only imports are tolerated); the vehicle matches the package
-   (real app in test mode in core, public-API composition in lib); hermetic (localhost at most).
-4. **Doubles and idioms** - fakes are minimal slices widened with a single cast, unimplemented
-   members absent; published helpers over ad-hoc fakes; `vi.fn`/`vi.spyOn` observe boundaries,
-   never stub internals; fake timers scoped and opt-in; no fixed-duration sleeps (reject-timeout
-   guards around awaited events are fine); FLARE_MODE first-statement rule where import order
-   matters; required suite headers on integration and cloudflare suites; behavior-sentence
-   naming; labels ("pins", "regression", "control:") where they apply.
+1. **Placement.** The file is in the right runtime root and tier. A suite under `portable/`, or in a package whose whole suite is portable, imports no runtime adapter; its hosts come from the portable host factory. A runtime adapter import in a portable suite is a violation; a suite under a runtime root with no runtime-specific claim is a `decision`. Walk the decision path: a unit suite's path mirrors its subject's src module; an integration suite binding a real port with no wire, socket, or foreign-peer claim is a violation; an in-process suite opening sockets is a violation; conformance or probe content inside the ordinary tiers is a violation.
+2. **Fails.** Each expected value comes from the contract, not from the code under test or a helper it uses. A negative case fails for its own reason: a refusal that happens anyway, or a throw the code swallows, is a violation. A name that promises more than its assertions check is a violation. A case pinning a shape the code no longer writes is a violation.
+3. **Real path and seams.** The subject is real and driven through its own API; its flare collaborators are real, and only the edges are replaced. A module mock, a stubbed internal collaborator, or a fake standing in for flare code that is not an edge is a violation. Input that crosses a seam, typed by hand where the producer could make it, is a violation; a kind of output the producer can emit that no consumer suite feeds is `missing`. An integration suite reaching a symbol-keyed seam or importing an internal value is a violation; type-only imports are tolerated.
+4. **Replacements.** Each fake holds the rules of the thing it stands in for that the code depends on: its limits, refusals, error types, and codes. A fake that accepts everything, or throws a plain `Error` where the real thing throws its own type, is a violation. A rule the fake cannot hold, claimed by the suite anyway, is a violation; left unclaimed with no header saying so, it is `missing`. A fake is a minimal slice widened with a single cast, with unimplemented members absent; an ad-hoc fake where a published helper fits is a suggestion.
+5. **Behavior and shape.** Each `it` is a behavior sentence and asserts something a caller can observe. A private reached, a static type restated at runtime, a trivial accessor tested, a fixed sleep, or a global fake timer is a violation. A trust-boundary suite missing a rejection path the design names is `missing`, as is a header an integration or Cloudflare suite requires. The `FLARE_MODE` first-statement rule where import order matters, section comments where they help, and labels where they apply are checked as suggestions.
+
+**Break check.** Before the first break, record the content of each production file you will touch. For each case in scope, make one edit to the production code that breaks the behavior its name gives, run that case on its pool, then restore the file by undoing exactly that edit. Never restore with `git checkout`, `git stash`, or any command that discards other uncommitted work in the file. When done, confirm every production file matches what you recorded. A case that stays green under the break is a violation. Where no single edit breaks the behavior, say so in the finding instead of skipping it.
 
 ## Report
 
-One findings table, ordered by file then line:
+One table, ordered by file then line:
 
-| Location       | Rule             | Severity  | Finding                                              |
-| -------------- | ---------------- | --------- | ---------------------------------------------------- |
-| `x.test.ts:12` | placement / tier | violation | Binds an ephemeral port but claims routing behavior. |
+| Location        | Rule        | Severity  | Finding                                              |
+| --------------- | ----------- | --------- | ---------------------------------------------------- |
+| `x.test.ts:12`  | placement   | violation | Binds an ephemeral port but claims routing behavior. |
+| `ws.test.ts:88` | break check | violation | Stays green with the close-code check removed.       |
 
-Severities: **violation** (breaks a stated rule), **missing** (something required is absent: a
-suite header, a parity entry for a backing-spanning feature), **suggestion** (compliant but a
-clearer seam, name, or published helper applies), **decision** (the standard defers to a developer
-ruling - a borderline runtime claim, a borderline tier; surfaced, never auto-fixed). After the
-table, one verdict line: file count, finding count by severity. Zero findings is reported plainly
-as a pass.
+Severities: **violation**, **missing**, **suggestion**, **decision** (the standard locates the call with the developer: whether a behavior is worth pinning, which platform rules a fake must hold, a borderline root or tier). After the table, one line: files audited, cases break-checked, findings by severity. Zero findings is reported as a pass.
 
 ## Fix mode
 
-Apply fixes only when asked (or when you are the author finishing a suite). Constraints:
-
-- Never weaken an assertion or delete a case to make a finding disappear; that is a `decision`
-  for the developer.
-- A move between roots or tiers updates every importer and must pass typecheck and the target
-  pool's run before it counts as done.
-- Never act on a `decision` finding without an explicit ruling.
-- After fixing, re-run the audit passes on the touched files and report the remaining findings.
+Only when asked, or when you are the author finishing tests. Never weaken an assertion or delete a case to make a finding disappear; report the behavior instead, as a `decision`. A new or rewritten case is run against broken code first and seen to fail. A move between roots or tiers updates every importer. Never act on a `decision` without an explicit ruling. After fixing, run the formatter, lint, the type checker, and the touched suites on their pools once, re-audit, and report what remains.

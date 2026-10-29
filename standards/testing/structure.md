@@ -1,105 +1,68 @@
-# Test structure
+---
+title: Test layout
+description: Where suites live and how they run: runtime roots isolated by folder, the same tiers inside each, one vitest project per runtime, and the gates.
+---
 
-The map of the test suites: what exists, where it lives, and how it runs. Which test to write is
-[choosing-tests.md](choosing-tests.md); how to write it is
-[doubles-and-idioms.md](doubles-and-idioms.md); external-truth suites are
-[conformance-and-probes.md](conformance-and-probes.md).
+# Test layout
+
+The detail behind principle 5 of [testing](testing.md): where suites live, and how they run.
 
 ## Runtime roots
 
-Runtimes are isolated by folder: the root of `core/tests/` exposes only runtime roots plus the
-external-truth suites. Runtime-typed files never share a folder; each root has its own imports,
-its own TypeScript config where needed, and its own pool.
+Runtimes are isolated by folder: the root of a package's `tests/` holds only runtime roots and the external-truth suites. Runtime-typed files never share a folder; each root has its own imports, its own TypeScript config where needed, and its own pool.
 
-- **`portable/`** - runtime-agnostic suites. They import no runtime adapter and make no
-  runtime-specific claim; a host comes from the shared factory in `portable/helpers/`, which
-  resolves the adapter for whichever pool is executing. Every runtime project runs the same
-  portable files on its own pool, without duplication.
-- **`node/`** - node-runtime-specific suites: the node adapter, the node transport, anything
-  whose claim names node behavior (streams, sockets, process env at import).
-- **`cloudflare/`** - workerd-specific suites, with their own `tsconfig.json`
-  (`@cloudflare/workers-types`), fixtures, and helpers.
-- Future runtimes (`bun/`, `deno/`) are new roots with new pools; nothing else moves.
-- A package whose ENTIRE suite is portable omits the runtime roots: its `tests/` root is the
-  portable root (lib, a pure package, has `tests/{unit,integration}/` directly).
+- **`portable/`** - runtime-agnostic suites. They import no runtime adapter and make no runtime-specific claim; a host comes from the shared factory in `portable/helpers/`, which resolves the adapter for whichever pool is executing. Every runtime's project runs the same portable files on its own pool, without duplication.
+- **`<runtime>/`**, such as `node/` or `cloudflare/` - suites whose claim names that runtime's behavior: node streams, sockets, and process env at import, or workerd and Durable Objects. A root whose runtime types differ has its own `tsconfig.json`, fixtures, and helpers.
+- A runtime is added as a new root with its own pool; nothing else moves.
+- A package whose entire suite is portable omits the runtime roots: its `tests/` is the portable root, with `unit/` and `integration/` directly inside.
+- Helpers live under the root whose runtime they belong to; there is no cross-runtime helpers folder.
 
 ## Tiers
 
-Inside every runtime root, the same tiers; the tier is defined by what the claim is about (rules
-in [choosing-tests.md](choosing-tests.md)):
+Inside every runtime root, the same tiers; the tier is defined by what the claim is about ([choosing a test](choosing-tests.md)):
 
-- **`unit/`** - isolation around one subject. The directory mirror names the subject: the suite at
-  `unit/X/Y.test.ts` tests `src/lib/X/Y`.
-- **`integration/`** - a feature exercised across units through the public surface. In core the
-  vehicle is a real Flare app in test mode, split by folder into `integration/in-process/` (the
-  `.test()` harness and public testing entries, no sockets) and `integration/transport/` (a real
-  server on an ephemeral port, only when the claim is about the transport itself; transport
-  suites are inherently runtime-specific and live under a runtime root, never under `portable/`).
-  In lib the vehicle is public-API composition; no app is required.
+- **`unit/`** - one subject's own contract. The directory mirror names the subject: the suite at `unit/X/Y.test.ts` tests `src/lib/X/Y`.
+- **`integration/`** - a feature exercised across units through the public surface, split by folder into `integration/in-process/` and `integration/transport/`. Transport suites are runtime-specific and live under a runtime root, never under `portable/`.
 
-There is no artifact tier. A test that examines shape at runtime is a unit or integration test of
-whatever produced the shape; "artifact" is reserved for testing against a predetermined, committed
-artifact, and no such suite currently exists.
+A suite in the wrong tier or root is moved, not grandfathered. `examples/` follow these standards in spirit but are not audited tiers.
 
-A suite in the wrong tier or root is moved, not grandfathered. `examples/` follow these
-standards in spirit but are not audited tiers.
+## The shape
+
+```text
+<package>/tests/
+  portable/
+    unit/
+    integration/in-process/
+    helpers/                  the pool-resolving host factory and adapter-free fixtures
+    parity/                   the shared parity definitions
+  <runtime>/
+    unit/
+    integration/in-process/
+    integration/transport/
+    helpers/                  helpers that belong to this runtime
+  conformance/                suites against a published specification
+  probe/                      suites against the live platform
+```
+
+The shape is the rule. Which suites exist is what the tree says on the day.
 
 ## Pools and routing
 
-Vitest has exactly two projects, one per runtime: `node` and `cloudflare` (workerd via
-`@cloudflare/vitest-pool-workers` with `core/wrangler.toml`). Each project runs its runtime
-root PLUS the portable file-set (core's `portable/` root and all of lib, a pure package) on its
-pool. Routing is by folder only; there are no filename routing tokens.
-
-TypeScript follows the same folders: `core/tests/tsconfig.json` types the node-pool roots;
-`core/tests/cloudflare/tsconfig.json` adds workers-types for its root. A workers-typed file
-outside `cloudflare/` is a placement bug, not a type error to cast around.
-
-Conventions the configs assume:
-
-- Vitest is imported explicitly, never used as globals:
-  `import { describe, it, expect } from "vitest"`.
-- No setup files. The node pool injects `FLARE_MODE=test` via config `env`; a suite where import
-  order matters sets `process.env["FLARE_MODE"] = "test"` as its first statement.
-- Both pools must pass; a same-named test passing in one pool and failing in the other is how a
-  backing divergence surfaces.
-
-## Scripts and gates
-
-- `pnpm test` runs both runtimes (portable executes on each). `pnpm test:<runtime>` runs one
-  (`test:node`, `test:cloudflare`); `vitest run --project <name>` is the same thing.
-- The workerd pool needs the miniflare/workerd binaries pnpm builds at install; a blocked build
-  script fails Cloudflare tests only.
-- `pnpm check` runs eslint, four tsc projects (both src packages, both test tsconfigs), and
-  dprint. It typechecks the tests (where type-level suites bite) but does not run them.
-- CI (push/PR and release) runs `pnpm check` + `pnpm build` and the full `pnpm test` matrix.
-  The conformance and prober suites stay manual.
+- Vitest has one project per runtime, and each runtime project runs its runtime root plus the portable file-set (core's `portable/` root and every pure package's suite) on its pool. Routing is by folder only; there are no filename routing tokens.
+- TypeScript follows the same folders: each root's tsconfig types only that root's runtime. A workers-typed file outside the Cloudflare root is a placement bug, not a type error to cast around.
+- Vitest is imported explicitly, never used as globals: `import { describe, it, expect } from "vitest"`.
+- No setup files: each pool's configuration sets the environment ([doubles and idioms](doubles-and-idioms.md)).
+- Every pool must pass; a same-named test passing in one pool and failing in another is how a backing divergence surfaces.
 
 ## Out-of-band suites
 
-- **Parity** (`portable/parity/`): one shared route set and scenario matrix, registered
-  identically on every backing (for WebSockets: Node, plain Worker, DO resident, DO hibernating);
-  each runtime's leg supplies only a connector. Fixture-consumed definitions (the route set a
-  worker imports) are vitest-free and adapter-free; the scenario matrix is test code and may
-  assert directly. The consuming legs live under their runtime roots. A backing
-  divergence is encoded in the scenario caps, loudly, never silently.
-- **Conformance** (`core/tests/conformance/`): suites verifying the implementation against a
-  published specification (Autobahn, RFC 6455). Manual; rules and run commands in
-  [conformance-and-probes.md](conformance-and-probes.md).
-- **Probers** (`core/tests/probe/`): suites running encoded assertions against the real
-  production platform (the hibernation billing canary). Manual, credentialed; rules in
-  [conformance-and-probes.md](conformance-and-probes.md).
+- **Parity** (`portable/parity/`): one shared route set and scenario matrix, registered identically on every backing; each runtime's leg supplies only a connector. Definitions a fixture worker imports are vitest-free and adapter-free; the scenario matrix is test code and may assert directly. The consuming legs live under their runtime roots. A backing divergence is encoded in the scenario caps, loudly, never silently.
+- **Conformance** (`conformance/`) and **probes** (`probe/`): manual suites against external truth, under [conformance and probes](conformance-and-probes.md).
 
-## Shared infrastructure
+## Scripts and gates
 
-Helpers live under the root whose runtime they belong to; there is no cross-runtime helpers
-folder.
-
-- `portable/helpers/` - the pool-resolving host factory and other adapter-free fixtures.
-- `portable/parity/` - the shared parity definitions.
-- `node/helpers/` - the synthetic `flare.json` node adapter and node-specific fixtures.
-- `cloudflare/helpers/` - Cloudflare test adapters and the in-process DO harness re-exports;
-  `cloudflare/fixtures/durable-worker.ts` is the wrangler `main` for real-binding tests
-  (bindings in `core/wrangler.toml`).
-- `@flare-ts/core/cloudflare` - also carries the public white-box DO testing helpers:
-  `composeDurableInstance`, `makeFakeDurableState`, `makeFakeStorage`, `makeEnv`.
+- `pnpm test` runs every runtime's project, so portable suites execute on each. `pnpm test:<runtime>` runs one; `vitest run --project <name>` is the same thing.
+- The workerd pool needs the miniflare and workerd binaries pnpm builds at install; a blocked build script fails Cloudflare tests only.
+- `pnpm check` runs lint, the type checker over every source and test project, and the formatter. It typechecks the tests, which is where type-level suites bite, but does not run them.
+- CI, on push, on pull request, and at release, runs `pnpm check`, `pnpm build`, and the full `pnpm test`. Conformance and probes stay manual.
+- At the end of a change, the gates run once: `pnpm check`, then the touched packages' suites, then the full run when a shared piece changed.
