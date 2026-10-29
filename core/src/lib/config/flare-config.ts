@@ -193,20 +193,32 @@ export function flareConfig<T extends Record<string, ConfigDescriptorValue>>(
   return { key, descriptor };
 }
 
-// TODO: Extract host and logging defaults into constants
+/** The built-in `host` defaults. */
+export const HOST_DEFAULTS = {
+  env: "development",
+  port: 3000,
+  host: "localhost",
+  shutdownTimeout: 10_000,
+  maxBodyBytes: 2 * 1024 * 1024,
+  requestIdHeader: true,
+  requestTiming: false,
+  keepAliveTimeout: 65_000,
+  headersTimeout: 60_000,
+  requestTimeout: 300_000,
+} as const;
 
 /** Pre-defined token for Flare-internal host config (`host.env`, `host.port`). */
 export const HOST_CONFIG: ConfigToken<HostConfig> = flareConfig("host", {
-  env: defaultTo("development", str),
-  port: defaultTo(3000, int),
-  host: defaultTo("localhost", str),
-  shutdownTimeout: defaultTo(10000, int),
-  maxBodyBytes: defaultTo(2 * 1024 * 1024, int),
-  requestIdHeader: defaultTo(true, bool),
-  requestTiming: defaultTo(false, bool),
-  keepAliveTimeout: defaultTo(65000, int),
-  headersTimeout: defaultTo(60000, int),
-  requestTimeout: defaultTo(300000, int),
+  env: defaultTo(HOST_DEFAULTS.env, str),
+  port: defaultTo(HOST_DEFAULTS.port, int),
+  host: defaultTo(HOST_DEFAULTS.host, str),
+  shutdownTimeout: defaultTo(HOST_DEFAULTS.shutdownTimeout, int),
+  maxBodyBytes: defaultTo(HOST_DEFAULTS.maxBodyBytes, int),
+  requestIdHeader: defaultTo(HOST_DEFAULTS.requestIdHeader, bool),
+  requestTiming: defaultTo(HOST_DEFAULTS.requestTiming, bool),
+  keepAliveTimeout: defaultTo(HOST_DEFAULTS.keepAliveTimeout, int),
+  headersTimeout: defaultTo(HOST_DEFAULTS.headersTimeout, int),
+  requestTimeout: defaultTo(HOST_DEFAULTS.requestTimeout, int),
 });
 
 /**
@@ -288,11 +300,18 @@ export const WEBSOCKETS_CONFIG: ConfigToken<WebSocketsConfig> = flareConfig("web
 
 const TRANSPORT_SCHEMA = schema({ level: enums(["trace", "debug", "info", "warn", "error", "fatal"]) });
 
+const LOG_DEFAULTS = {
+  level: "info",
+  format: "json",
+  enableContext: false,
+  unhandledErrors: true,
+} as const;
+
 /** Pre-defined token for Flare-internal log config (`log.level`, `log.format`). */
 export const LOG_CONFIG: ConfigToken<LogConfig> = flareConfig("log", {
-  level: defaultTo("info", enums(["trace", "debug", "info", "warn", "error", "fatal"])),
-  format: defaultTo("json", enums(["pretty", "json"])),
-  enableContext: defaultTo(false, bool),
-  unhandledErrors: defaultTo(true, bool),
+  level: defaultTo(LOG_DEFAULTS.level, enums(["trace", "debug", "info", "warn", "error", "fatal"])),
+  format: defaultTo(LOG_DEFAULTS.format, enums(["pretty", "json"])),
+  enableContext: defaultTo(LOG_DEFAULTS.enableContext, bool),
+  unhandledErrors: defaultTo(LOG_DEFAULTS.unhandledErrors, bool),
   transports: schema([{ $record: TRANSPORT_SCHEMA }]).optional(),
 });

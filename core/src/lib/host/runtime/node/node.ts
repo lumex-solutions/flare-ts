@@ -23,6 +23,7 @@ import { DRAIN_SET_COOKIES } from "../../../arcs/http/transport/types/cookies.js
 import { WebSocketChannels } from "../../../arcs/ws/channels/web-socket-channels.js";
 import { handleNodeWsUpgrade } from "../../../arcs/ws/transport/runtime/node/upgrade.js";
 import { WS_CHANNEL_REGISTRY, WS_REGISTRATIONS } from "../../../arcs/ws/ws-arc.js";
+import { HOST_DEFAULTS } from "../../../config/flare-config.js";
 import { loggerALS } from "../../../logger/context.js";
 import { Logger } from "../../../logger/logger.js";
 import { ConsoleTransport } from "../../../logger/transports/console.js";
@@ -162,7 +163,7 @@ export class FlareAppNode extends FlareAppBase<"async"> {
 
   #isShuttingDown = false;
   #shutdownPromise: Promise<void> | undefined;
-  #shutdownTimeout = 10_000;
+  #shutdownTimeout: number = HOST_DEFAULTS.shutdownTimeout;
   #emitRequestIdHeader = true;
   #captureRequestTiming = false;
 
@@ -200,10 +201,10 @@ export class FlareAppNode extends FlareAppBase<"async"> {
     const hostCfg = this.host.config.host as HostConfig;
     const logCfg = this.host.config.log as LogConfig;
 
-    const port = options?.port ?? hostCfg.port ?? 3000;
-    const host = options?.host ?? hostCfg.host ?? "localhost";
+    const port = options?.port ?? hostCfg.port;
+    const host = options?.host ?? hostCfg.host;
 
-    this.#shutdownTimeout = options?.shutdownTimeout ?? hostCfg.shutdownTimeout ?? 10_000;
+    this.#shutdownTimeout = options?.shutdownTimeout ?? hostCfg.shutdownTimeout;
     this.#emitRequestIdHeader = hostCfg.requestIdHeader === true;
     this.#captureRequestTiming = hostCfg.requestTiming === true;
 
@@ -211,10 +212,9 @@ export class FlareAppNode extends FlareAppBase<"async"> {
       this.#handleIncomingRequest(req, res);
     });
 
-    // Apply connection-level timeouts
-    server.keepAliveTimeout = hostCfg.keepAliveTimeout ?? 65_000;
-    server.headersTimeout = hostCfg.headersTimeout ?? 60_000;
-    server.requestTimeout = hostCfg.requestTimeout ?? 300_000;
+    server.keepAliveTimeout = hostCfg.keepAliveTimeout;
+    server.headersTimeout = hostCfg.headersTimeout;
+    server.requestTimeout = hostCfg.requestTimeout;
 
     this.#wireWebSocketUpgrade(server);
     this.#server = server;
