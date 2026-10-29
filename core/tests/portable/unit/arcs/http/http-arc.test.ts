@@ -11,6 +11,7 @@ import { HttpGroup } from "../../../../../src/lib/arcs/http/composition/group.js
 import { clearExecShapeCache } from "../../../../../src/lib/arcs/http/exec-codegen.js";
 import {
   COMPILE_HTTP_ARC,
+  HTTP_PIPELINES,
   HttpArc,
   INSPECT_HTTP_ARC,
   START_HTTP_ARC,
@@ -183,6 +184,23 @@ describe("group(prefix, builder)", () => {
     expect(received!.prefix).toBe("/v1");
     expect(arc.groups).toHaveLength(1);
     expect(arc.groups[0]!.prefix).toBe("/v1");
+  });
+});
+
+describe("[HTTP_PIPELINES]", () => {
+  it("is empty until the arc compiles, then returns the compiled pipelines and the global middleware", () => {
+    const arc = new HttpArc(makeFakeHost());
+    const cls = makeControllerCls("Listed");
+    attachRoutes(cls, [{ method: "GET", path: "/listed", handler: function() {} }]);
+    arc.controller("/", cls);
+
+    expect(arc[HTTP_PIPELINES]().pipelines).toEqual([]);
+
+    arc[COMPILE_HTTP_ARC]();
+    const compiled = arc[HTTP_PIPELINES]();
+
+    expect(compiled.pipelines.map((pipeline) => pipeline.flareRoute.route)).toEqual(["/listed"]);
+    expect(compiled.middleware).toBe(arc.mwRegistrations);
   });
 });
 

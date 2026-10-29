@@ -70,6 +70,28 @@ export function compileHttp(
   return { middleware, pipelines, router, execFns };
 }
 
+/**
+ * Returns the middleware at one exec slot of a compiled pipeline, or undefined at the handler slot.
+ *
+ * `scope` says whether the middleware was registered globally or on the pipeline's group.
+ */
+export function resolveStageMiddleware(
+  pipeline: Pipeline,
+  globalMwRegs: readonly MiddlewareRegistration[],
+  execIdx: number,
+): { readonly registration: MiddlewareRegistration; readonly scope: "global" | "group"; } | undefined {
+  const factoryIdx = pipeline.middlewareFactoryByExecIdx[execIdx]!;
+  if (factoryIdx < 0) return undefined;
+  const group = pipeline.registration.group;
+  const registration = group?.isolated
+    ? group.middleware[factoryIdx]
+    : factoryIdx >= globalMwRegs.length && group?.combinedMw
+    ? group.combinedMw[factoryIdx - globalMwRegs.length]
+    : globalMwRegs[factoryIdx];
+  if (!registration) return undefined;
+  return { registration, scope: group?.isolated || factoryIdx >= globalMwRegs.length ? "group" : "global" };
+}
+
 function compilePipelines(
   controllers: ControllerRegistration[],
   middleware: MiddlewareRegistration[],
@@ -131,26 +153,15 @@ function compilePipelines(
 
 /**
  * Builds a human-readable name for every exec-index slot in the pipeline.
- * Index where factoryIdx === -1 is the handler slot; the name is the controller class name.
- * Other indices resolve to the middleware class name via the appropriate registration array.
+ * Index where factoryIdx === -1 is the handler slot; the name is the registration's name.
+ * Other indices resolve to the middleware class name via {@link resolveStageMiddleware}.
  */
 function compileExecStepNames(pipeline: Pipeline, globalMwRegs: MiddlewareRegistration[]): string[] {
   const names = new Array<string>(pipeline.execCount);
   for (let i = 0; i < pipeline.execCount; i++) {
-    const factoryIdx = pipeline.middlewareFactoryByExecIdx[i]!;
-    if (factoryIdx < 0) {
-      names[i] = pipeline.registration.name;
-      continue;
-    }
-    const group = pipeline.registration.group;
-    if (group?.isolated) {
-      names[i] = group.middleware[factoryIdx]?.cls.name ?? "Unknown";
-    } else if (factoryIdx >= globalMwRegs.length && group?.combinedMw) {
-      const groupIdx = factoryIdx - globalMwRegs.length;
-      names[i] = group.combinedMw[groupIdx]?.cls.name ?? "Unknown";
-    } else {
-      names[i] = globalMwRegs[factoryIdx]?.cls.name ?? "Unknown";
-    }
+    names[i] = pipeline.middlewareFactoryByExecIdx[i]! < 0
+      ? pipeline.registration.name
+      : resolveStageMiddleware(pipeline, globalMwRegs, i)?.registration.cls.name ?? "Unknown";
   }
   return names;
 }

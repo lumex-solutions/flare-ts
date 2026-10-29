@@ -4,6 +4,7 @@
  */
 import type { HttpArc } from "../arcs/http/http-arc.js";
 import type { ResponseLike } from "../arcs/http/transport/types/response.js";
+import type { AppGraph } from "../graph/app-graph.js";
 import type { IFlareApp } from "../host/flare-app-base.js";
 import type { HostRuntimeAdapter } from "../host/types/adapter.js";
 import type { HostRuntimeLifecycle } from "../host/types/lifecycle.js";
@@ -49,16 +50,24 @@ export class TestAppHandle {
   #app: HostedApp;
   #adapter: AnyAdapter;
   #resetFn: ResetFn;
+  readonly #graph: AppGraph;
   #seq = 0;
 
   constructor(
     app: HostedApp,
     adapter: AnyAdapter,
     resetFn: ResetFn,
+    graph: AppGraph,
   ) {
     this.#app = app;
     this.#adapter = adapter;
     this.#resetFn = resetFn;
+    this.#graph = graph;
+  }
+
+  /** The app's routes and services, as Flare compiled them. */
+  get graph(): AppGraph {
+    return this.#graph;
   }
 
   /**

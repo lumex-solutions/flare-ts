@@ -5,6 +5,7 @@ import { describe, it, expect } from "vitest";
 import type { HttpArc } from "../../../../src/lib/arcs/http/http-arc.js";
 import type { FlareHttpContext } from "../../../../src/lib/arcs/http/transport/flare-http-context.js";
 import type { ResponseLike } from "../../../../src/lib/arcs/http/transport/types/response.js";
+import type { AppGraph } from "../../../../src/lib/graph/app-graph.js";
 import type { IFlareApp } from "../../../../src/lib/host/flare-app-base.js";
 import type { HostRuntimeAdapter } from "../../../../src/lib/host/types/adapter.js";
 import type { HostRuntimeLifecycle } from "../../../../src/lib/host/types/lifecycle.js";
@@ -116,7 +117,8 @@ function buildHandle(opts: {
     resetCalls.push(o);
   };
 
-  const handle = new TestAppHandle(app, adapter, resetFn);
+  // No case here reads the graph; an empty stand-in fills the slot.
+  const handle = new TestAppHandle(app, adapter, resetFn, {} as unknown as AppGraph);
   return { handle, recorded, stopCount, resetCalls };
 }
 

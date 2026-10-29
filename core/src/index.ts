@@ -16,6 +16,11 @@ export type { ScopedServicesView } from "./lib/host/flare-host.js";
 export type { FlareApp } from "./lib/host/types/app.js";
 export type { HostState } from "./lib/host/types/state.js";
 
+// App graph
+export { AppGraph } from "./lib/graph/app-graph.js";
+export type { RouteNode } from "./lib/graph/route-node.js";
+export type { RouteStage, ServiceNode } from "./lib/graph/types.js";
+
 // Services / DI
 export { FlareBase } from "./lib/services/composition/flare-base.js";
 export { FlareService } from "./lib/services/composition/flare-service.js";

@@ -18,7 +18,7 @@ import type { HandlerResult, ResponseLike } from "./transport/types/response.js"
 import type { ExecFn } from "./types/exec-fn.js";
 import type { Pipeline } from "./types/pipeline.js";
 import type { CompiledQueryPrimitive } from "./types/pipeline.js";
-import type { GroupRegistration } from "./types/registration.js";
+import type { GroupRegistration, MiddlewareRegistration } from "./types/registration.js";
 import { toErrorField } from "../../logger/fields.js";
 import { isValidInboundPath } from "../../routing/path.js";
 import { Container } from "../../services/container.js";
@@ -43,6 +43,7 @@ export const CHAR_CODE_STAR = 42; // "*"
 export const COMPILE_HTTP_ARC: unique symbol = Symbol("COMPILE_HTTP_ARC");
 export const REEVALUATE_CONTAINER_STRATEGY: unique symbol = Symbol("REEVALUATE_CONTAINER_STRATEGY");
 export const INSPECT_HTTP_ARC: unique symbol = Symbol("INSPECT_HTTP_ARC");
+export const HTTP_PIPELINES: unique symbol = Symbol("HTTP_PIPELINES");
 export const START_HTTP_ARC: unique symbol = Symbol("START_HTTP_ARC");
 export const START_HTTP_ARC_ASYNC: unique symbol = Symbol("START_HTTP_ARC_ASYNC");
 export const STOP_HTTP_ARC: unique symbol = Symbol("STOP_HTTP_ARC");
@@ -162,6 +163,17 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
     } else {
       this.#sharedContainer = undefined;
     }
+  }
+
+  /**
+   * @internal Returns the compiled pipelines and the global middleware their exec slots index into,
+   * for the app graph. Empty until the arc compiles.
+   */
+  [HTTP_PIPELINES](): {
+    readonly pipelines: readonly Pipeline[];
+    readonly middleware: readonly MiddlewareRegistration[];
+  } {
+    return { pipelines: this.#pipelines, middleware: this.mwRegistrations };
   }
 
   /** @internal Snapshot for tests via {@link inspectBuild}. */

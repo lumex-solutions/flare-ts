@@ -17,7 +17,7 @@ import type { FlareService } from "../../../../../src/lib/services/composition/f
 import type { Container } from "../../../../../src/lib/services/container.js";
 import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
 import type { StateToken } from "../../../../../src/lib/state/flare-state.js";
-import { compileHttp } from "../../../../../src/lib/arcs/http/build.js";
+import { compileHttp, resolveStageMiddleware } from "../../../../../src/lib/arcs/http/build.js";
 import { ControllerBase } from "../../../../../src/lib/arcs/http/composition/classes/controller-base.js";
 import { ErrorHandlerBase } from "../../../../../src/lib/arcs/http/composition/classes/error-handler-base.js";
 import { MiddlewareBase } from "../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
@@ -937,5 +937,47 @@ describe("route specificity scoring", () => {
 
   it("`/static/*rest` scores 2 (wildcard contributes 0)", () => {
     expect(scoreOf("/static/*rest")).toBe(2);
+  });
+});
+
+describe("resolveStageMiddleware", () => {
+  it("returns undefined at the handler slot", () => {
+    const cls = makeControllerCls("HandlerOnly");
+    attachRoutes(cls, [{ method: "GET", path: "/h", handler: function() {} }]);
+    const pipeline = compileHttp([makeControllerReg(cls)], []).pipelines[0]!;
+
+    expect(resolveStageMiddleware(pipeline, [], pipeline.handlerExecIdx)).toBeUndefined();
+  });
+
+  it("resolves a global middleware with scope global", () => {
+    const global = makeMwReg(makeMiddlewareCls("RequestId"));
+    const cls = makeControllerCls("GlobalOnly");
+    attachRoutes(cls, [{ method: "GET", path: "/g", handler: function() {} }]);
+    const pipeline = compileHttp([makeControllerReg(cls)], [global]).pipelines[0]!;
+
+    expect(resolveStageMiddleware(pipeline, [global], 0)).toEqual({ registration: global, scope: "global" });
+  });
+
+  it("resolves group middleware, indexed after the globals, with scope group", () => {
+    const global = makeMwReg(makeMiddlewareCls("RequestId"));
+    const auth = makeMwReg(makeMiddlewareCls("Auth"));
+    const cls = makeControllerCls("Grouped");
+    attachRoutes(cls, [{ method: "GET", path: "/api/x", handler: function() {} }]);
+    const reg = makeControllerReg(cls, { groupMiddleware: [auth], combinedGroupMw: [auth] });
+    const pipeline = compileHttp([reg], [global]).pipelines[0]!;
+
+    expect(resolveStageMiddleware(pipeline, [global], 0)).toEqual({ registration: global, scope: "global" });
+    expect(resolveStageMiddleware(pipeline, [global], 1)).toEqual({ registration: auth, scope: "group" });
+  });
+
+  it("resolves an isolated group's middleware from the group's own list, with scope group", () => {
+    const global = makeMwReg(makeMiddlewareCls("RequestId"));
+    const internal = makeMwReg(makeMiddlewareCls("InternalOnly"));
+    const cls = makeControllerCls("IsolatedGroup");
+    attachRoutes(cls, [{ method: "GET", path: "/internal/x", handler: function() {} }]);
+    const reg = makeControllerReg(cls, { groupMiddleware: [internal], groupIsolated: true });
+    const pipeline = compileHttp([reg], [global]).pipelines[0]!;
+
+    expect(resolveStageMiddleware(pipeline, [global], 0)).toEqual({ registration: internal, scope: "group" });
   });
 });

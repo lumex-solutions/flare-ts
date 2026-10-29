@@ -4,6 +4,7 @@
 import type { AppTestOptions } from "../host/flare-app-base.js";
 import type { IFlareHost, IFlareTestHost } from "../host/flare-host.js";
 import type { AnyAdapter, HostedApp } from "./test-app-handle.js";
+import { AppGraph } from "../graph/app-graph.js";
 import { FlareAppBase } from "../host/flare-app-base.js";
 import { COMPILE_FOR_TEST, RESET_FOR_TEST, SET_HOST_STATE } from "../host/types/const.js";
 import { FlareTestError } from "./flare-test-error.js";
@@ -79,6 +80,8 @@ export class FlareTestApp extends FlareAppBase {
       this as unknown as HostedApp,
       this.#adapter,
       (resetOpts) => this.#reset(resetOpts),
+      // host.build() prebuilds the graph under its own class token, so the map holds exactly that instance.
+      this.host.singletonServices.get(AppGraph) as AppGraph,
     );
   }
 

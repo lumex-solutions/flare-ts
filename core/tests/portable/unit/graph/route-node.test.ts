@@ -1,0 +1,56 @@
+/**
+ * Unit tests for RouteNode: middleware matching by class identity, and a frozen, JSON-safe shape.
+ */
+import { describe, expect, it } from "vitest";
+import type { MiddlewareClass } from "../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
+import { MiddlewareBase } from "../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
+import { RouteNode } from "../../../../src/lib/graph/route-node.js";
+
+function middlewareNamed(name: string): MiddlewareClass {
+  class M extends MiddlewareBase {
+    static override deps = [];
+    static override state = [];
+  }
+  Object.defineProperty(M, "name", { value: name });
+  return M as unknown as MiddlewareClass;
+}
+
+const Auth = middlewareNamed("Auth");
+
+function node(): RouteNode {
+  return new RouteNode({
+    id: "GET /me",
+    method: "GET",
+    path: "/me",
+    group: undefined,
+    handler: "GET /me",
+    pipeline: [{ stage: "before", name: "Auth", scope: "global" }, { stage: "handler", name: "GET /me" }],
+    state: { reads: [], writes: [] },
+    services: [],
+  }, new Set([Auth]));
+}
+
+describe("RouteNode", () => {
+  it("runs() matches middleware by class, so a different class with the same name does not match", () => {
+    const route = node();
+
+    expect(route.runs(Auth)).toBe(true);
+    expect(route.runs(middlewareNamed("Auth"))).toBe(false);
+  });
+
+  it("is frozen", () => {
+    expect(Object.isFrozen(node())).toBe(true);
+  });
+
+  it("converts to JSON as its fields only", () => {
+    expect(JSON.parse(JSON.stringify(node()))).toEqual({
+      id: "GET /me",
+      method: "GET",
+      path: "/me",
+      handler: "GET /me",
+      pipeline: [{ stage: "before", name: "Auth", scope: "global" }, { stage: "handler", name: "GET /me" }],
+      state: { reads: [], writes: [] },
+      services: [],
+    });
+  });
+});

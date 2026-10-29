@@ -10,6 +10,12 @@
 
 ### Added
 
+- **`AppGraph`**: the built app's routes and services, as Flare compiled them. Inject it like any service (`inject: { graph: AppGraph }` or `static deps = [AppGraph]`), or read it in tests as `handle.graph`.
+  - `graph.routes()` lists every route with its id (`GET /api/users/:id`), handler, group, pipeline in run order (each middleware with its stage and whether it was registered globally or on the group), the state it reads and writes, and every service it resolves, directly or through other services.
+  - `graph.routes({ path: "/admin/**", through: AuthMiddleware })` filters by path pattern and middleware class; `route.runs(AuthMiddleware)` checks one route; `graph.route("GET", "/users/:id")` looks one up.
+  - `graph.services()` and `graph.service(token)` report each service's lifetime, deps, config sections, and the routes that resolve it.
+  - Nodes are frozen and convert to JSON as plain data. The graph is read from the build on its first query and never touches the request path. It covers the front door's HTTP routes.
+
 - `FlareApp` without a type argument types an app from any runtime: the `test()` entrypoint every compiled app shares, so a helper can accept `host.build()`'s result without naming a runtime. `FlareApp<typeof node>` is unchanged and still resolves to that runtime's app.
 
 ### Changed

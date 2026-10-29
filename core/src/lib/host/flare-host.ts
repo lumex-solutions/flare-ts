@@ -5,6 +5,7 @@
 import type { JsonObject } from "@flare-ts/lib";
 import { type DescriptorValue, schema } from "@flare-ts/lib";
 import type { OpaqueConfigToken } from "../config/flare-config.js";
+import type { GraphSource } from "../graph/types.js";
 import type { LogContext } from "../logger/types.js";
 import type { LoggerTransportClass } from "../logger/types.js";
 import type { FlareService } from "../services/composition/flare-service.js";
@@ -25,7 +26,13 @@ import type { FlareConfig } from "./types/config.js";
 import type { HostRuntimeLifecycle } from "./types/lifecycle.js";
 import type { HostRuntime } from "./types/runtime.js";
 import type { HostState } from "./types/state.js";
-import { COMPILE_HTTP_ARC, HttpArc, INSPECT_HTTP_ARC, REEVALUATE_CONTAINER_STRATEGY } from "../arcs/http/http-arc.js";
+import {
+  COMPILE_HTTP_ARC,
+  HTTP_PIPELINES,
+  HttpArc,
+  INSPECT_HTTP_ARC,
+  REEVALUATE_CONTAINER_STRATEGY,
+} from "../arcs/http/http-arc.js";
 import { CookieSigner } from "../arcs/http/transport/cookie-signer.js";
 import { COMPILE_WS_ARC, WS_REGISTRATIONS, WebSocketArc } from "../arcs/ws/ws-arc.js";
 import {
@@ -35,6 +42,7 @@ import {
   LOG_CONFIG,
   WEBSOCKETS_CONFIG,
 } from "../config/flare-config.js";
+import { AppGraph, RESET_GRAPH } from "../graph/app-graph.js";
 import { _log } from "../logger/bootstrap.js";
 import { loggerALS } from "../logger/context.js";
 import { toErrorField } from "../logger/fields.js";
@@ -224,6 +232,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
   #singletonsCompiled = false;
   /** Cookie signer derived from `cookies.secret`; `null` until first computed, `undefined` when unset. */
   #cookieSigner: CookieSigner | null | undefined = null;
+  #graph: AppGraph | undefined;
   /** Snapshot of registrations taken before the first test-mode replacement runs; restored on reset. */
   #originalScopedRegs: ServiceRegistration<FlareService>[] | undefined;
   #originalSingletonRegs: ServiceRegistration<FlareService>[] | undefined;
@@ -483,6 +492,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
       component: "host",
       event: "logger:ready",
     });
+    this.#compileGraph();
 
     const logContext: LogContext = {
       source: "flare:host",
@@ -527,6 +537,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
 
     if (opts?.replace && opts.replace.size > 0) {
       this.#applyReplacements(opts.replace);
+      this.#graph?.[RESET_GRAPH]();
     }
 
     const errors = createServiceValidator()
@@ -591,6 +602,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
 
     this.#scoped = new FlareRegistrationMap();
     this.#singletonsCompiled = false;
+    this.#graph?.[RESET_GRAPH]();
   }
 
   /**
@@ -920,6 +932,27 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
     // finds it in the singletons map without going through a lazy factory.
     this.#singletons.set(Logger, loggerInstance);
     return loggerInstance;
+  }
+
+  // Prebuilt beside the Logger, so every container resolves it without a registration: Node, the
+  // Worker front door, and each Durable Object start from the host's prebuilt singletons.
+  #compileGraph(): void {
+    this.#graph = new AppGraph(
+      new Container(new FlareRegistrationMap(), new Map(), this.config),
+      () => this.#graphSource(),
+    );
+    this.#singletons.set(AppGraph, this.#graph);
+  }
+
+  #graphSource(): GraphSource {
+    const registered = new Set(this.#singletonRegistrations.map((r) => r.token));
+    return {
+      ...this.http[HTTP_PIPELINES](),
+      groups: this.http.groups,
+      scoped: this.#scopedRegistrations,
+      singletons: this.#singletonRegistrations,
+      prebuilt: [...this.#singletons.keys()].filter((token) => !registered.has(token)),
+    };
   }
 
   #compileScoped(serviceRegistrations: ServiceRegistration<FlareService>[]): void {

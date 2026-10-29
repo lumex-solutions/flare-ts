@@ -1,0 +1,87 @@
+/**
+ * Unit tests for AppGraph: building on first query and reusing the result until reset, and the path
+ * patterns and lookups its queries accept.
+ */
+import { describe, expect, it } from "vitest";
+import type { GraphSource } from "../../../../src/lib/graph/types.js";
+import type { Container } from "../../../../src/lib/services/container.js";
+import { compileHttp } from "../../../../src/lib/arcs/http/build.js";
+import { ControllerBase } from "../../../../src/lib/arcs/http/composition/classes/controller-base.js";
+import { controllerRegistration } from "../../../../src/lib/arcs/http/composition/controller-registration.js";
+import { Get } from "../../../../src/lib/arcs/http/routing/decorators.js";
+import { AppGraph, RESET_GRAPH } from "../../../../src/lib/graph/app-graph.js";
+import { FlareService } from "../../../../src/lib/services/composition/flare-service.js";
+
+class AdminController extends ControllerBase {
+  static override deps = [];
+  static override state = [];
+
+  @Get("")
+  dashboard() {
+    return null;
+  }
+
+  @Get("/users/:id")
+  user() {
+    return null;
+  }
+}
+
+class PublicController extends ControllerBase {
+  static override deps = [];
+  static override state = [];
+
+  @Get("")
+  home() {
+    return null;
+  }
+}
+
+function source(): GraphSource {
+  const { pipelines } = compileHttp([
+    controllerRegistration("/admin", AdminController),
+    controllerRegistration("/public", PublicController),
+  ], []);
+  return { pipelines, middleware: [], groups: [], scoped: [], singletons: [], prebuilt: [] };
+}
+
+describe("AppGraph", () => {
+  it("builds the graph on its first query and reuses it until reset", () => {
+    let builds = 0;
+    const graph = new AppGraph({} as Container, () => {
+      builds++;
+      return source();
+    });
+
+    graph.routes();
+    graph.services();
+    expect(builds).toBe(1);
+
+    graph[RESET_GRAPH]();
+    graph.routes();
+    expect(builds).toBe(2);
+  });
+
+  it("matches ** against any number of segments, zero included", () => {
+    const graph = new AppGraph({} as Container, source);
+
+    expect(graph.routes({ path: "/admin/**" }).map((route) => route.path).sort()).toEqual([
+      "/admin",
+      "/admin/users/:id",
+    ]);
+  });
+
+  it("matches * against exactly one segment", () => {
+    const graph = new AppGraph({} as Container, source);
+
+    expect(graph.routes({ path: "/*" }).map((route) => route.path).sort()).toEqual(["/admin", "/public"]);
+  });
+
+  it("returns undefined from service() for a token the app does not have", () => {
+    class Unregistered extends FlareService {
+      static override deps = [];
+    }
+
+    expect(new AppGraph({} as Container, source).service(Unregistered)).toBeUndefined();
+  });
+});
