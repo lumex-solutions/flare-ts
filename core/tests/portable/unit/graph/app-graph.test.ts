@@ -4,13 +4,13 @@
  */
 import { describe, expect, it } from "vitest";
 import type { GraphSource } from "../../../../src/lib/graph/types.js";
-import type { Container } from "../../../../src/lib/services/container.js";
 import { compileHttp } from "../../../../src/lib/arcs/http/build.js";
 import { ControllerBase } from "../../../../src/lib/arcs/http/composition/classes/controller-base.js";
 import { controllerRegistration } from "../../../../src/lib/arcs/http/composition/controller-registration.js";
 import { Get } from "../../../../src/lib/arcs/http/routing/decorators.js";
 import { AppGraph, RESET_GRAPH } from "../../../../src/lib/graph/app-graph.js";
 import { FlareService } from "../../../../src/lib/services/composition/flare-service.js";
+import { mockContainer } from "../../../../src/lib/testing/mock.js";
 
 class AdminController extends ControllerBase {
   static override deps = [];
@@ -37,21 +37,37 @@ class PublicController extends ControllerBase {
   }
 }
 
+class Mailer extends FlareService {
+  static override deps = [];
+}
+
 function source(): GraphSource {
   const { pipelines } = compileHttp([
     controllerRegistration("/admin", AdminController),
     controllerRegistration("/public", PublicController),
   ], []);
-  return { pipelines, middleware: [], groups: [], scoped: [], singletons: [], prebuilt: [] };
+  return {
+    pipelines,
+    middleware: [],
+    groups: [],
+    scoped: [{ token: Mailer, cls: Mailer, factory: () => new Mailer(mockContainer(new Map())) }],
+    singletons: [],
+    prebuilt: [],
+  };
 }
 
-describe("AppGraph", () => {
+function graphOf(build: () => GraphSource): AppGraph {
+  return new AppGraph(mockContainer(new Map()), build);
+}
+
+describe("graph construction", () => {
   it("builds the graph on its first query and reuses it until reset", () => {
     let builds = 0;
-    const graph = new AppGraph({} as Container, () => {
+    const graph = graphOf(() => {
       builds++;
       return source();
     });
+    expect(builds).toBe(0);
 
     graph.routes();
     graph.services();
@@ -61,27 +77,32 @@ describe("AppGraph", () => {
     graph.routes();
     expect(builds).toBe(2);
   });
+});
 
+describe("routes() path filter", () => {
   it("matches ** against any number of segments, zero included", () => {
-    const graph = new AppGraph({} as Container, source);
-
-    expect(graph.routes({ path: "/admin/**" }).map((route) => route.path).sort()).toEqual([
+    expect(graphOf(source).routes({ path: "/admin/**" }).map((route) => route.path).sort()).toEqual([
       "/admin",
       "/admin/users/:id",
     ]);
   });
 
   it("matches * against exactly one segment", () => {
-    const graph = new AppGraph({} as Container, source);
-
-    expect(graph.routes({ path: "/*" }).map((route) => route.path).sort()).toEqual(["/admin", "/public"]);
+    expect(graphOf(source).routes({ path: "/*" }).map((route) => route.path).sort()).toEqual([
+      "/admin",
+      "/public",
+    ]);
   });
+});
 
-  it("returns undefined from service() for a token the app does not have", () => {
+describe("service()", () => {
+  it("returns undefined for a token the app does not have, even when a registered service shares its name", () => {
     class Unregistered extends FlareService {
       static override deps = [];
     }
+    Object.defineProperty(Unregistered, "name", { value: "Mailer" });
 
-    expect(new AppGraph({} as Container, source).service(Unregistered)).toBeUndefined();
+    expect(graphOf(source).service(Unregistered)).toBeUndefined();
+    expect(graphOf(source).service(Mailer)?.id).toBe("Mailer");
   });
 });

@@ -24,10 +24,12 @@ import { MiddlewareBase } from "../../../../../src/lib/arcs/http/composition/cla
 import { httpContract } from "../../../../../src/lib/arcs/http/composition/contract/http-contract.js";
 import { controllerRegistration } from "../../../../../src/lib/arcs/http/composition/controller-registration.js";
 import { clearExecShapeCache } from "../../../../../src/lib/arcs/http/exec-codegen.js";
+import { COMPILE_HTTP_ARC, HTTP_PIPELINES } from "../../../../../src/lib/arcs/http/http-arc.js";
 import { DECORATOR_METADATA_SYMBOL, ROUTE_STORE } from "../../../../../src/lib/arcs/http/routing/route-store.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";
 import { mockContainer, mockContext } from "../../../../../src/lib/testing/mock.js";
+import { testHost } from "../../../helpers/test-host.js";
 
 // Helpers
 
@@ -941,74 +943,108 @@ describe("route specificity scoring", () => {
 });
 
 describe("resolveStepMiddleware", () => {
-  it("returns undefined at the handler slot", () => {
-    const cls = makeControllerCls("HandlerOnly");
-    attachRoutes(cls, [{ method: "GET", path: "/h", handler: function() {} }]);
-    const pipeline = compileHttp([makeControllerReg(cls)], []).pipelines[0]!;
+  class RequestId extends MiddlewareBase {
+    static override deps = [];
+    static override state = [];
+    override before(): void {}
+  }
 
-    expect(resolveStepMiddleware(pipeline, [], pipeline.handlerExecIdx)).toBeUndefined();
+  class Auth extends MiddlewareBase {
+    static override deps = [];
+    static override state = [];
+    override before(): void {}
+  }
+
+  class Audit extends MiddlewareBase {
+    static override deps = [];
+    static override state = [];
+    override after(): void {}
+  }
+
+  class Cleanup extends MiddlewareBase {
+    static override deps = [];
+    static override state = [];
+    override finally(): void {}
+  }
+
+  // Registers through a real host's HTTP arc and compiles it, so every input is what build produces.
+  function compiled(register: (http: ReturnType<typeof testHost>["http"]) => void) {
+    const host = testHost();
+    register(host.http);
+    host.http[COMPILE_HTTP_ARC]();
+    const { pipelines, middleware } = host.http[HTTP_PIPELINES]();
+    return { pipeline: pipelines[0]!, middleware };
+  }
+
+  it("returns undefined at the handler slot, with middleware on both sides of it", () => {
+    const { pipeline, middleware } = compiled((http) => {
+      http.use(RequestId);
+      http.use(Audit);
+      http.get("/h", () => null);
+    });
+
+    expect(resolveStepMiddleware(pipeline, middleware, pipeline.handlerExecIdx)).toBeUndefined();
+    expect(resolveStepMiddleware(pipeline, middleware, pipeline.handlerExecIdx - 1)?.registration.cls).toBe(RequestId);
+    expect(resolveStepMiddleware(pipeline, middleware, pipeline.handlerExecIdx + 1)?.registration.cls).toBe(Audit);
   });
 
   it("resolves a global middleware as before, from global", () => {
-    const global = makeMwReg(makeMiddlewareCls("RequestId"));
-    const cls = makeControllerCls("GlobalOnly");
-    attachRoutes(cls, [{ method: "GET", path: "/g", handler: function() {} }]);
-    const pipeline = compileHttp([makeControllerReg(cls)], [global]).pipelines[0]!;
+    const { pipeline, middleware } = compiled((http) => {
+      http.use(RequestId);
+      http.get("/g", () => null);
+    });
 
-    expect(resolveStepMiddleware(pipeline, [global], 0)).toEqual({
+    expect(resolveStepMiddleware(pipeline, middleware, 0)).toEqual({
       kind: "before",
-      registration: global,
+      registration: middleware[0],
       from: "global",
     });
   });
 
   it("resolves group middleware, indexed after the globals, as before, from group", () => {
-    const global = makeMwReg(makeMiddlewareCls("RequestId"));
-    const auth = makeMwReg(makeMiddlewareCls("Auth"));
-    const cls = makeControllerCls("Grouped");
-    attachRoutes(cls, [{ method: "GET", path: "/api/x", handler: function() {} }]);
-    const reg = makeControllerReg(cls, { groupMiddleware: [auth], combinedGroupMw: [auth] });
-    const pipeline = compileHttp([reg], [global]).pipelines[0]!;
-
-    expect(resolveStepMiddleware(pipeline, [global], 0)).toEqual({
-      kind: "before",
-      registration: global,
-      from: "global",
+    const { pipeline, middleware } = compiled((http) => {
+      http.use(RequestId);
+      http.group("/api", (group) => {
+        group.use(Auth);
+        group.get("/x", () => null);
+      });
     });
-    expect(resolveStepMiddleware(pipeline, [global], 1)).toEqual({ kind: "before", registration: auth, from: "group" });
+
+    expect(resolveStepMiddleware(pipeline, middleware, 0)).toMatchObject({ kind: "before", from: "global" });
+    expect(resolveStepMiddleware(pipeline, middleware, 0)?.registration.cls).toBe(RequestId);
+    expect(resolveStepMiddleware(pipeline, middleware, 1)).toMatchObject({ kind: "before", from: "group" });
+    expect(resolveStepMiddleware(pipeline, middleware, 1)?.registration.cls).toBe(Auth);
   });
 
   it("resolves an isolated group's middleware from the group's own list, as before, from group", () => {
-    const global = makeMwReg(makeMiddlewareCls("RequestId"));
-    const internal = makeMwReg(makeMiddlewareCls("InternalOnly"));
-    const cls = makeControllerCls("IsolatedGroup");
-    attachRoutes(cls, [{ method: "GET", path: "/internal/x", handler: function() {} }]);
-    const reg = makeControllerReg(cls, { groupMiddleware: [internal], groupIsolated: true });
-    const pipeline = compileHttp([reg], [global]).pipelines[0]!;
-
-    expect(resolveStepMiddleware(pipeline, [global], 0)).toEqual({
-      kind: "before",
-      registration: internal,
-      from: "group",
+    const { pipeline, middleware } = compiled((http) => {
+      http.use(RequestId);
+      http.group("/internal", (group) => {
+        group.isolated();
+        group.use(Auth);
+        group.get("/x", () => null);
+      });
     });
+
+    expect(resolveStepMiddleware(pipeline, middleware, 0)).toMatchObject({ kind: "before", from: "group" });
+    expect(resolveStepMiddleware(pipeline, middleware, 0)?.registration.cls).toBe(Auth);
   });
 
   it("resolves the slots after the handler as after, then finally", () => {
-    const audit = makeMwReg(makeMiddlewareCls("Audit", { hooks: { after: true } }));
-    const cleanup = makeMwReg(makeMiddlewareCls("Cleanup", { hooks: { finally: true } }));
-    const cls = makeControllerCls("AfterAndFinally");
-    attachRoutes(cls, [{ method: "GET", path: "/af", handler: function() {} }]);
-    const pipeline = compileHttp([makeControllerReg(cls)], [audit, cleanup]).pipelines[0]!;
+    const { pipeline, middleware } = compiled((http) => {
+      http.use(Audit);
+      http.use(Cleanup);
+      http.get("/af", () => null);
+    });
 
-    expect(resolveStepMiddleware(pipeline, [audit, cleanup], pipeline.handlerExecIdx + 1)).toEqual({
+    expect(resolveStepMiddleware(pipeline, middleware, pipeline.handlerExecIdx + 1)).toMatchObject({
       kind: "after",
-      registration: audit,
       from: "global",
     });
-    expect(resolveStepMiddleware(pipeline, [audit, cleanup], pipeline.execCount - 1)).toEqual({
+    expect(resolveStepMiddleware(pipeline, middleware, pipeline.execCount - 1)).toMatchObject({
       kind: "finally",
-      registration: cleanup,
       from: "global",
     });
+    expect(resolveStepMiddleware(pipeline, middleware, pipeline.execCount - 1)?.registration.cls).toBe(Cleanup);
   });
 });

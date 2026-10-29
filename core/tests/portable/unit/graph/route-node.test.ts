@@ -30,14 +30,16 @@ function node(): RouteNode {
   }, new Set([Auth]));
 }
 
-describe("RouteNode", () => {
-  it("runs() matches middleware by class, so a different class with the same name does not match", () => {
+describe("runs()", () => {
+  it("matches middleware by class, so a different class with the same name does not match", () => {
     const route = node();
 
     expect(route.runs(Auth)).toBe(true);
     expect(route.runs(middlewareNamed("Auth"))).toBe(false);
   });
+});
 
+describe("node shape", () => {
   it("is frozen", () => {
     expect(Object.isFrozen(node())).toBe(true);
   });

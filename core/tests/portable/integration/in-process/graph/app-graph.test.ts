@@ -155,6 +155,14 @@ describe("Primary Behavior", () => {
     ]);
     expect(app.graph.route("GET", "/health/live")!.runs(RequestIdMiddleware)).toBe(false);
     expect(app.graph.route("GET", "/")!.runs(RequestIdMiddleware)).toBe(true);
+
+    class Impostor extends MiddlewareBase {
+      static override deps = [];
+      static override state = [];
+    }
+    Object.defineProperty(Impostor, "name", { value: "RequestIdMiddleware" });
+    expect(app.graph.route("GET", "/")!.runs(Impostor)).toBe(false);
+    expect(app.graph.routes({ through: Impostor })).toEqual([]);
   });
 
   it("returns undefined for a route that is not registered", () => {
@@ -183,7 +191,7 @@ describe("Primary Behavior", () => {
 });
 
 describe("Edge Cases", () => {
-  it("lets an allowlist test catch any route that skips auth", () => {
+  it("lists exactly the routes a middleware does not run on, which an allowlist can pin", () => {
     const open = app.graph.routes().filter((route) => !route.runs(AuthMiddleware));
 
     expect(open.map((route) => route.id).sort()).toEqual(["GET /", "GET /health/live", "GET /health/ready"]);

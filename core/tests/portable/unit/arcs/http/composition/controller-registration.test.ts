@@ -1,10 +1,8 @@
 /**
  * Unit tests for controllerRegistration: the route-shaped registration a controller class becomes.
  */
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { schema, str } from "@flare-ts/lib/schema";
-import type { FlareHttpContext } from "../../../../../../src/lib/arcs/http/transport/flare-http-context.js";
-import type { Container } from "../../../../../../src/lib/services/container.js";
 import { ControllerBase } from "../../../../../../src/lib/arcs/http/composition/classes/controller-base.js";
 import { httpContract } from "../../../../../../src/lib/arcs/http/composition/contract/http-contract.js";
 import { controllerRegistration } from "../../../../../../src/lib/arcs/http/composition/controller-registration.js";
@@ -12,6 +10,7 @@ import { Get, Post } from "../../../../../../src/lib/arcs/http/routing/decorator
 import { flareConfig } from "../../../../../../src/lib/config/flare-config.js";
 import { FlareService } from "../../../../../../src/lib/services/composition/flare-service.js";
 import { flareState } from "../../../../../../src/lib/state/flare-state.js";
+import { mockContainer, mockContext } from "../../../../../../src/lib/testing/mock.js";
 
 const NewUser = schema({ name: str });
 const UsersContract = httpContract({ create: { body: NewUser } });
@@ -36,6 +35,11 @@ class UsersController extends ControllerBase {
   @Post("/new")
   create() {
     return null;
+  }
+
+  /** What a handler sees: the repository from the request's container, and the request's context. */
+  request() {
+    return { repository: this.inject(UsersRepository), ctx: this.ctx };
   }
 }
 
@@ -78,10 +82,16 @@ describe("controllerRegistration", () => {
     expect(controllerRegistration("/users", UsersController).isolated).toBe(false);
   });
 
-  it("builds a factory that constructs the class for each request", () => {
-    const registration = controllerRegistration("/users", UsersController);
-    const instance = registration.factory({} as Container, {} as FlareHttpContext);
+  it("builds a factory that constructs a fresh controller per request, on that request's container and context", () => {
+    const repository = new UsersRepository(mockContainer(new Map()));
+    const container = mockContainer(new Map([[UsersRepository, repository]]));
+    const ctx = mockContext();
+    const { factory } = controllerRegistration("/users", UsersController);
 
-    expect(instance).toBeInstanceOf(UsersController);
+    const first = factory(container, ctx);
+    assert(first instanceof UsersController);
+
+    expect(factory(container, mockContext())).not.toBe(first);
+    expect(first.request()).toEqual({ repository, ctx });
   });
 });
