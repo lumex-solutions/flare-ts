@@ -58,6 +58,7 @@ function makeContext(
   return {
     controllers,
     globalMiddleware,
+    globalErrorHandlers: [],
     groups: [],
   };
 }

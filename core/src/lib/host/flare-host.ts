@@ -781,6 +781,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
     const httpCtx: HttpValidationContext = {
       controllers: allControllers,
       globalMiddleware: this.http.mwRegistrations,
+      globalErrorHandlers: this.http.errorHandlers,
       groups: this.http.groups,
       corsConfig: this.http.corsConfig,
       cookieSecretConfigured: Boolean(this.#config.cookies?.secret),

@@ -33,6 +33,7 @@ function makeContext(globalMiddleware: MiddlewareRegistration[]): HttpValidation
   return {
     controllers: [],
     globalMiddleware,
+    globalErrorHandlers: [],
     groups: [],
   };
 }

@@ -54,7 +54,7 @@ type HandlerFn = (...args: never[]) => unknown;
 type Resolved<TOptions, THandler extends HandlerFn> = { options: TOptions; handler: THandler; };
 
 /** RequestDescriptor fields usable as loose inline route-option keys (the alternative to `contract`). */
-const REQUEST_FIELDS = ["body", "route", "query", "response", "maxBodyBytes", "signedCookies"] as const;
+const REQUEST_FIELDS = ["body", "route", "query", "response", "maxBodyBytes", "signedCookies", "errors"] as const;
 
 /**
  * Shared base for {@link FlareApp} and {@link HttpGroup}.

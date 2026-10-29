@@ -12,6 +12,7 @@ import type {
   ContractToken as ContractTokenBase,
   TypedContract,
 } from "../../../../contract/contract.js";
+import type { FlareErrorClass } from "../../../../errors/types.js";
 import { contract } from "../../../../contract/contract.js";
 
 type QueryPrimitive =
@@ -108,6 +109,21 @@ export type RequestDescriptor = {
    * handling otherwise.
    */
   signedCookies?: boolean;
+
+  /**
+   * The error classes this route throws on purpose.
+   *
+   * Optional, and it changes nothing at runtime: the app graph reports them, and build validation checks
+   * that each sends its own wire name and an error status.
+   *
+   * @example
+   * ```ts
+   * httpContract({
+   *   signup: { body: NewUser, errors: [EmailTaken] },
+   * });
+   * ```
+   */
+  errors?: readonly FlareErrorClass[];
 };
 
 /** A branded HTTP contract token (the `"http"` kind), carrying a per-handler {@link RequestDescriptor} map. */

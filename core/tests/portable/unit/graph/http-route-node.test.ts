@@ -29,6 +29,7 @@ function node(): HttpRouteNode {
     input: {},
     state: { reads: [], writes: [] },
     services: [],
+    errors: ["UserNotFound"],
   }, new Set([Auth]));
 }
 
@@ -57,6 +58,7 @@ describe("node shape", () => {
       input: {},
       state: { reads: [], writes: [] },
       services: [],
+      errors: ["UserNotFound"],
     });
   });
 });

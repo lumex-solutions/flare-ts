@@ -34,7 +34,7 @@ function makeContext(
   controllers: ControllerRegistration[],
   cookieSecretConfigured: boolean,
 ): HttpValidationContext {
-  return { controllers, globalMiddleware: [], groups: [], cookieSecretConfigured };
+  return { controllers, globalMiddleware: [], globalErrorHandlers: [], groups: [], cookieSecretConfigured };
 }
 
 describe("signed cookie secret requirement", () => {
@@ -94,6 +94,7 @@ describe("signed cookie secret requirement", () => {
     const ctx: HttpValidationContext = {
       controllers: [makeControllerRegistration(Ctrl)],
       globalMiddleware: [],
+      globalErrorHandlers: [],
       groups: [],
     };
     const errors = new SignedCookiesValidator().validate(ctx);

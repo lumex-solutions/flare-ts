@@ -23,6 +23,7 @@ function makeContext(
     corsConfig: partial.corsConfig,
     controllers: partial.controllers ?? [],
     globalMiddleware: partial.globalMiddleware ?? [],
+    globalErrorHandlers: [],
     groups: partial.groups ?? [],
   };
 }

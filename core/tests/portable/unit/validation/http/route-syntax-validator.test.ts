@@ -33,6 +33,7 @@ function makeContext(controllers: ControllerRegistration[]): HttpValidationConte
   return {
     controllers,
     globalMiddleware: [],
+    globalErrorHandlers: [],
     groups: [],
   };
 }

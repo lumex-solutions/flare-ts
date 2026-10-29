@@ -17,6 +17,7 @@ import { Get, Post } from "../../../../src/lib/arcs/http/routing/decorators.js";
 import { WebSocketControllerBase } from "../../../../src/lib/arcs/ws/composition/classes/controller-base.js";
 import { WS_REGISTRATIONS } from "../../../../src/lib/arcs/ws/ws-arc.js";
 import { flareConfig } from "../../../../src/lib/config/flare-config.js";
+import { FlareError } from "../../../../src/lib/errors/flare-error.js";
 import { arcSourceOf, buildGraph, segmentsOf } from "../../../../src/lib/graph/build.js";
 import { FlareService } from "../../../../src/lib/services/composition/flare-service.js";
 import { flareState } from "../../../../src/lib/state/flare-state.js";
@@ -186,6 +187,23 @@ describe("buildGraph routes", () => {
     });
     expect(graph.routeById.get("PUT /avatar")!.input).toEqual({ body: { type: "string", format: "binary" } });
     expect(graph.routeById.get("GET /health")!.input).toEqual({});
+  });
+
+  it("lists the wire names of the errors a route declares", () => {
+    class EmailTaken extends FlareError {
+      static override status = 409;
+    }
+    class PlanLimitReached extends FlareError {
+      static override status = 402;
+      static override code = "PLAN_LIMIT_REACHED";
+    }
+    const graph = compiledGraph((http) => {
+      http.post("/signup", { errors: [EmailTaken, PlanLimitReached] }, () => null);
+      http.get("/health", () => null);
+    });
+
+    expect(httpRoute(graph, "POST /signup").errors).toEqual(["EmailTaken", "PLAN_LIMIT_REACHED"]);
+    expect(httpRoute(graph, "GET /health").errors).toEqual([]);
   });
 
   it("reads each method's own contract when several methods share a path", () => {

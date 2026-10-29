@@ -10,6 +10,7 @@ import { ContractValidator } from "../../../../../src/lib/validation/http/contra
 import { CorsValidator } from "../../../../../src/lib/validation/http/cors-validator.js";
 import { DeadMiddlewareValidator } from "../../../../../src/lib/validation/http/dead-middleware-validator.js";
 import { DuplicateRouteValidator } from "../../../../../src/lib/validation/http/duplicate-route-validator.js";
+import { ErrorDeclarationValidator } from "../../../../../src/lib/validation/http/error-declaration-validator.js";
 import { MiddlewareStateCycleValidator } from "../../../../../src/lib/validation/http/middleware-state-cycle-validator.js";
 import { RouteParamValidator } from "../../../../../src/lib/validation/http/route-param-validator.js";
 import { RoutePriorityAmbiguityValidator } from "../../../../../src/lib/validation/http/route-priority-ambiguity-validator.js";
@@ -27,11 +28,11 @@ function innerValidators<T>(
 }
 
 describe("createHttpValidator", () => {
-  it("composes exactly [CorsValidator, RouteSyntaxValidator, RouteParamValidator, DuplicateRouteValidator, RoutePriorityAmbiguityValidator, MiddlewareStateCycleValidator, ContractValidator, DeadMiddlewareValidator, SignedCookiesValidator] in that order", () => {
+  it("composes exactly [CorsValidator, RouteSyntaxValidator, RouteParamValidator, DuplicateRouteValidator, RoutePriorityAmbiguityValidator, MiddlewareStateCycleValidator, ContractValidator, DeadMiddlewareValidator, SignedCookiesValidator, ErrorDeclarationValidator] in that order", () => {
     const composite = createHttpValidator();
     const inner = innerValidators(composite);
 
-    expect(inner).toHaveLength(9);
+    expect(inner).toHaveLength(10);
     expect(inner[0]).toBeInstanceOf(CorsValidator);
     expect(inner[1]).toBeInstanceOf(RouteSyntaxValidator);
     expect(inner[2]).toBeInstanceOf(RouteParamValidator);
@@ -41,6 +42,7 @@ describe("createHttpValidator", () => {
     expect(inner[6]).toBeInstanceOf(ContractValidator);
     expect(inner[7]).toBeInstanceOf(DeadMiddlewareValidator);
     expect(inner[8]).toBeInstanceOf(SignedCookiesValidator);
+    expect(inner[9]).toBeInstanceOf(ErrorDeclarationValidator);
   });
 
   it("invokes every inner validator when .validate() runs and concatenates their errors in order", () => {
@@ -76,6 +78,7 @@ describe("createHttpValidator", () => {
     const ctx: HttpValidationContext = {
       controllers: [],
       globalMiddleware: [],
+      globalErrorHandlers: [],
       groups: [],
     };
 
@@ -95,7 +98,7 @@ describe("createHttpValidator", () => {
     ]);
   });
 
-  it("constructs inner validators in the order described by the source JSDoc (CORS -> route syntax -> route params -> duplicate routes -> route priority ambiguity -> middleware state cycles -> contracts -> dead middleware -> signed cookies)", () => {
+  it("constructs inner validators in the order described by the source JSDoc (CORS -> route syntax -> route params -> duplicate routes -> route priority ambiguity -> middleware state cycles -> contracts -> dead middleware -> signed cookies -> error declarations)", () => {
     // This pins the runtime run-order to the documented order. If either drifts,
     // this test fails and the divergence must be reconciled.
     const composite = createHttpValidator();
@@ -112,6 +115,7 @@ describe("createHttpValidator", () => {
       "ContractValidator",
       "DeadMiddlewareValidator",
       "SignedCookiesValidator",
+      "ErrorDeclarationValidator",
     ]);
   });
 });

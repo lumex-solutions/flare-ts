@@ -3,6 +3,7 @@
  * message, typed detail, cause, and response headers on each instance.
  */
 import type { JsonValue } from "@flare-ts/lib/schema";
+import { wireNameOf } from "./wire.js";
 
 /** What a {@link FlareError} carries besides its message. */
 export type FlareErrorOptions<TDetail extends JsonValue | undefined> = {
@@ -55,7 +56,7 @@ export class FlareError<TDetail extends JsonValue | undefined = undefined> exten
 
   constructor(...[message, options]: FlareErrorArgs<TDetail>) {
     super(message, options?.cause === undefined ? undefined : { cause: options.cause });
-    this.name = new.target.code ?? new.target.name;
+    this.name = wireNameOf(new.target);
     this.status = new.target.status;
     // The conditional tuple erases inside the body: options.detail is the detail when TDetail declares
     // one and undefined otherwise, which is exactly this field's type.

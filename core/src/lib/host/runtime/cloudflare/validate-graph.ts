@@ -348,6 +348,7 @@ function httpCtx(arc: HttpArc<"sync">, cookieSecretConfigured: boolean): HttpVal
   return {
     controllers: arcControllers(arc),
     globalMiddleware: arc.mwRegistrations,
+    globalErrorHandlers: arc.errorHandlers,
     groups: arc.groups,
     corsConfig: arc.corsConfig,
     cookieSecretConfigured,

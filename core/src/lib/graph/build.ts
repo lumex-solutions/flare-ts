@@ -18,6 +18,7 @@ import { isStreamBody } from "../arcs/http/composition/contract/http-contract.js
 import { HTTP_PIPELINES } from "../arcs/http/http-arc.js";
 import { SUPPORTED_METHODS } from "../arcs/http/routing/types/methods.js";
 import { WS_REGISTRATIONS } from "../arcs/ws/ws-arc.js";
+import { wireNameOf } from "../errors/wire.js";
 import { HttpRouteNode } from "./http-route-node.js";
 import { WebSocketRouteNode } from "./web-socket-route-node.js";
 
@@ -159,6 +160,7 @@ export function buildGraph(source: GraphSource): GraphModel {
             input: Object.freeze(input),
             state,
             services,
+            errors: Object.freeze((descriptor?.errors ?? []).map(wireNameOf)),
           }, middleware),
           tokens,
         );

@@ -45,6 +45,8 @@
 
 - Error handlers can be keyed to an error class: `host.http.error(EmailTaken, (err, context) => ...)` runs only for an `EmailTaken` or a subclass, with `err` typed as `EmailTaken`. The options form (`error(EmailTaken, { inject }, handler)`) and the class form (`error(EmailTaken, EmailTakenHandler)`) take the key too. Within the arc's handlers and within a group's, keyed handlers run before catch-alls, the most specific class first; the arc's handlers still run before the group's.
 
+- Routes can declare the errors they throw: `errors: [EmailTaken, UserNotFound]` in inline route options or an `httpContract` entry (so class controllers get it through their contract). Declaring is optional and changes nothing at request time. The app graph lists each HTTP route's declared errors by wire name (`route.errors`), and `host.build()` fails when two declared or handler-keyed error classes send the same wire name (`ERROR_NAME_COLLISION`) or a class's `static status` is not an integer from 400 to 599 (`ERROR_STATUS_INVALID`). A handler keyed to a class that no route declares, directly or through a subclass, and that is not a starter error, is a build warning (`ERROR_HANDLER_UNDECLARED`).
+
 - Log records follow an error's `cause` chain (up to five deep) into `error.cause`, and the pretty console format prints each cause under the stack.
 
 - **`AppGraph`**: the built app's routes and services, as Flare compiled them. Inject it like any service (`inject: { graph: AppGraph }` or `static deps = [AppGraph]`), or read it in tests as `handle.graph`.

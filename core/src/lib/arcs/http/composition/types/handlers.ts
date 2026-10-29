@@ -27,7 +27,7 @@ export type HttpHandlerScope<
   & { input: TypedRequestContext<C>; };
 
 /** The {@link RequestDescriptor} field names usable as loose inline route-option keys. */
-export type RequestKey = "body" | "route" | "query" | "response" | "maxBodyBytes" | "signedCookies";
+export type RequestKey = "body" | "route" | "query" | "response" | "maxBodyBytes" | "signedCookies" | "errors";
 
 /** Registration options common to both route-option forms (DI, state, and registration flags). */
 export type HttpRouteOptionsBase<D extends InjectMap = InjectMap> = {

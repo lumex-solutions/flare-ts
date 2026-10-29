@@ -5,6 +5,7 @@
 import type { CorsConfig } from "../../arcs/http/composition/types/cors.js";
 import type {
   ControllerRegistration,
+  ErrorHandlerRegistration,
   GroupRegistration,
   MiddlewareRegistration,
 } from "../../arcs/http/types/registration.js";
@@ -13,6 +14,7 @@ import { ContractValidator } from "./contract-validator.js";
 import { CorsValidator } from "./cors-validator.js";
 import { DeadMiddlewareValidator } from "./dead-middleware-validator.js";
 import { DuplicateRouteValidator } from "./duplicate-route-validator.js";
+import { ErrorDeclarationValidator } from "./error-declaration-validator.js";
 import { MiddlewareStateCycleValidator } from "./middleware-state-cycle-validator.js";
 import { RouteParamValidator } from "./route-param-validator.js";
 import { RoutePriorityAmbiguityValidator } from "./route-priority-ambiguity-validator.js";
@@ -31,6 +33,8 @@ export type HttpValidationContext = {
   readonly controllers: readonly ControllerRegistration[];
   /** Global (top-level) middleware registrations. */
   readonly globalMiddleware: readonly MiddlewareRegistration[];
+  /** The arc's own error handlers; each group's are on the group. */
+  readonly globalErrorHandlers: readonly ErrorHandlerRegistration[];
   /** All registered route groups. */
   readonly groups: readonly GroupRegistration[];
   /** Arc-level CORS policy, if configured via `host.http.cors()`. */
@@ -46,7 +50,8 @@ export type HttpValidationContext = {
  * Creates the composite validator for the HTTP arc layer.
  *
  * Runs in order: CORS -> route syntax -> route params -> duplicate routes -> route priority
- * ambiguity -> middleware state cycles -> contracts -> dead middleware -> signed cookies.
+ * ambiguity -> middleware state cycles -> contracts -> dead middleware -> signed cookies -> error
+ * declarations.
  * All validators run and collect their results; build does not halt on the first error.
  */
 export function createHttpValidator(): CompositeValidator<HttpValidationContext> {
@@ -60,5 +65,6 @@ export function createHttpValidator(): CompositeValidator<HttpValidationContext>
     new ContractValidator(),
     new DeadMiddlewareValidator(),
     new SignedCookiesValidator(),
+    new ErrorDeclarationValidator(),
   ]);
 }

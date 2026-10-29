@@ -220,6 +220,7 @@ describe("Edge Cases", () => {
       "input",
       "state",
       "services",
+      "errors",
     ]);
     expect(JSON.parse(JSON.stringify(app.graph.services()))).toEqual(app.graph.services());
   });

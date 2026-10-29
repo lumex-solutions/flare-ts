@@ -15,6 +15,7 @@ import type { ErrorHandlerRegistration } from "./types/registration.js";
 import { LOG_CONFIG } from "../../config/flare-config.js";
 import { ContentTooLargeError } from "../../errors/content-too-large-error.js";
 import { FlareError } from "../../errors/flare-error.js";
+import { isErrorStatus } from "../../errors/wire.js";
 import { toErrorField } from "../../logger/fields.js";
 import { Logger } from "../../logger/logger.js";
 import { stream } from "./composition/contract/http-contract.js";
@@ -159,9 +160,9 @@ export function handleControllerError(
 }
 
 // A 4xx response carries the message and detail; a 5xx carries only the wire name. A status outside
-// 400-599 is a bug in the error class, so the response falls back to 500 rather than send it.
+// 400-599 is a bug in the error class (build validation reports it), so the response sends 500 instead.
 function flareErrorResponse(err: FlareError<JsonValue | undefined>): FlareResponse {
-  const status = Number.isInteger(err.status) && err.status >= 400 && err.status <= 599 ? err.status : 500;
+  const status = isErrorStatus(err.status) ? err.status : 500;
   const body: Record<string, JsonValue> = { error: err.name };
   if (status < 500) {
     if (err.message !== "") body.message = err.message;
