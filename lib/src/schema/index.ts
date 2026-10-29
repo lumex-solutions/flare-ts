@@ -25,7 +25,7 @@ export type { ArrayTypedPrimitive, Primitive, PrimitiveJsonSchema, TypedPrimitiv
 export { model } from "./model.js";
 export { schema } from "./schema.js";
 
-export type { ModelTokenBuilder } from "./model.js";
+export type { ModelInstance, ModelTokenBuilder } from "./model.js";
 export type { BranchShape, DescriptorValue, DiscriminantValues, OpaqueSchemaToken, SchemaToken } from "./schema.js";
 export type { FieldError, JsonValue, ReadonlyJsonValue, SafeParseResult, SchemaError } from "./schema.js";
 

@@ -43,6 +43,18 @@ type UnionToIntersection<U> = (U extends unknown ? (x: U) => void : never) exten
 type NonUnionGuard<T> = [T] extends [UnionToIntersection<T>] ? unknown
   : "model() cannot wrap a union schema: a class cannot carry a union instance type. Use the schema token directly.";
 
+// Type-only: no model instance has this property at runtime.
+declare const MODEL_INSTANCE: unique symbol;
+
+/**
+ * The type every {@link model} instance satisfies and other class instances do not.
+ *
+ * A type that accepts plain data and model instances, but not a `Map` or another class's instance,
+ * includes this one. The marker is optional and exists only in the type, so plain data still assigns
+ * to a model class's type and instances are unchanged at runtime.
+ */
+export type ModelInstance = { readonly [MODEL_INSTANCE]?: true; };
+
 /**
  * Schema token that also acts as an abstract base class for DTO authoring.
  *
@@ -51,11 +63,11 @@ type NonUnionGuard<T> = [T] extends [UnionToIntersection<T>] ? unknown
  * class UserModel extends model({ id: uuid, name: string }) {}
  * ```
  *
- * Instances are typed as `T`, so properties are accessible directly without
- * any unwrapping. Only model tokens carry a construct signature; {@link SchemaToken}
+ * Instances are typed as `T` (and {@link ModelInstance}), so properties are accessible directly
+ * without any unwrapping. Only model tokens carry a construct signature; {@link SchemaToken}
  * values from {@link schema} are intentionally not extendable.
  */
-export type ModelTokenBuilder<T> = (abstract new(...args: never[]) => T) & SchemaToken<T>;
+export type ModelTokenBuilder<T> = (abstract new(...args: never[]) => T & ModelInstance) & SchemaToken<T>;
 
 /**
  * Creates an extendable schema token for naming and authoring model classes.

@@ -10,6 +10,8 @@
 
 ### Added
 
+- `ModelInstance` on `@flare-ts/lib/schema`: the type every `model()` instance satisfies and other class instances do not, so a type can accept model instances alongside plain data while still rejecting a `Map` or another class's instance. The marker exists only in the type: instances are unchanged at runtime, and plain data still assigns to a model class's type.
+
 - `ReadonlyJsonValue` on `@flare-ts/lib/schema`: a `JsonValue` whose arrays and objects may be readonly, and which may hold a `Date`, written as its ISO string. Every `JsonValue` is assignable to it. Arrays in `JsonValue` itself stay mutable, so `Array.isArray` still narrows a parsed value.
 
 ### Changed
