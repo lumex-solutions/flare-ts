@@ -52,6 +52,8 @@ export type {
   HttpRouteHandler,
   HttpRouteOptions,
 } from "./lib/arcs/http/composition/types/handlers.js";
+export type { HealthHandle } from "./lib/arcs/http/health/health-handle.js";
+export type { HealthCheckFn, HealthCheckOptions, HealthOptions } from "./lib/arcs/http/health/types.js";
 export type { HttpArc } from "./lib/arcs/http/http-arc.js";
 export type { HttpMethod } from "./lib/arcs/http/routing/types/methods.js";
 export { FlareCookies } from "./lib/arcs/http/transport/flare-cookies.js";

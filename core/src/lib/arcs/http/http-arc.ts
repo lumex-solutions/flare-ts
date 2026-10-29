@@ -10,6 +10,7 @@ import type { StateToken } from "../../state/flare-state.js";
 import type { HttpArcInspectSnapshot, RouterInspectSnapshot } from "../../testing/types/inspect-build.js";
 import type { MiddlewareBase } from "./composition/classes/middleware-base.js";
 import type { HttpGroupFn } from "./composition/group.js";
+import type { HealthOptions } from "./health/types.js";
 import type { RouteSegment } from "./routing/types/route.js";
 import type { CookieSigner } from "./transport/cookie-signer.js";
 import type { FlareHttpContext } from "./transport/flare-http-context.js";
@@ -19,14 +20,17 @@ import type { ExecFn } from "./types/exec-fn.js";
 import type { Pipeline } from "./types/pipeline.js";
 import type { CompiledQueryPrimitive } from "./types/pipeline.js";
 import type { GroupRegistration, MiddlewareRegistration } from "./types/registration.js";
+import { REGISTER_BUILD_HOOK } from "../../host/types/const.js";
 import { toErrorField } from "../../logger/fields.js";
-import { isValidInboundPath } from "../../routing/path.js";
+import { assertRegistrationPath, isValidInboundPath } from "../../routing/path.js";
 import { Container } from "../../services/container.js";
 import { compileHttp } from "./build.js";
 import { HttpBase } from "./composition/base.js";
 import { stream } from "./composition/contract/http-contract.js";
 import { FINALIZE_GROUP, HttpGroup } from "./composition/group.js";
 import { applyActualCorsHeaders, buildCorsPreflightResponse, checkOriginAllowed } from "./cors.js";
+import { HealthHandle } from "./health/health-handle.js";
+import { installHealthRoutes } from "./health/install.js";
 import { deriveAllowedMethods } from "./routing/allow-methods.js";
 import { INVALID_REQUEST_PATH_MESSAGE } from "./routing/path.js";
 import { METHOD_IDX_MAP } from "./routing/types/methods.js";
@@ -61,6 +65,7 @@ const _EMPTY_MW_CACHE: MiddlewareBase[] = [];
  */
 export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends HttpBase {
   #pipelines: Pipeline[] = [];
+  #health: HealthHandle | undefined;
   #execFns: ExecFn[] = [];
   #router?: Router;
   /** Pre-built once at compile time; reused every request when there are no scoped services. */
@@ -241,6 +246,37 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
    */
   public onStop(fn: LifecycleCallback<TLifecycle>): void {
     this.#onStopCallbacks.push(fn);
+  }
+
+  /**
+   * Registers liveness and readiness routes, `GET /health/live` and `GET /health/ready` by default.
+   *
+   * Liveness answers 200 whenever the process can answer at all. Readiness answers 200 once the host is
+   * ready and every check added with {@link HealthHandle.check} passes, and 503 while the host starts or
+   * drains or when a check fails. Both bodies carry only `{ status }`; a failed check is logged by name.
+   * They are ordinary routes, so they run the arc's middleware and appear in the app graph.
+   *
+   * @example
+   * ```ts
+   * host.http.health({ live: "/up", ready: false });
+   * ```
+   */
+  public health(options: HealthOptions = {}): HealthHandle {
+    if (this.#health !== undefined) {
+      throw new Error(`host.http.health() is already registered. Call it once and chain .check() on its result.`);
+    }
+    for (const path of [options.live, options.ready]) {
+      if (typeof path === "string") assertRegistrationPath(path, "Health route path");
+    }
+    const timeout = options.checkTimeout;
+    if (timeout !== undefined && !(Number.isFinite(timeout) && timeout > 0)) {
+      throw new Error(`host.http.health() checkTimeout must be a positive number of milliseconds, got ${timeout}.`);
+    }
+    const health = new HealthHandle();
+    this.#health = health;
+    // Installed at build, once every check is added, so the readiness route injects what all of them need.
+    this.host[REGISTER_BUILD_HOOK](() => installHealthRoutes(this, options, health.checks));
+    return health;
   }
 
   /**

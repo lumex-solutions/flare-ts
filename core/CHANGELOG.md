@@ -49,6 +49,11 @@
 
 - A WebSocket handler that throws a 4xx `FlareError` from `open` or `message` closes the socket with 4000 + status (a `ConflictError` closes 4409) and the error's wire name as the reason, on every backing. A class can choose its own code with `static closeCode` (4000-4999; anything else fails the build for a declared or handler-keyed class). A 5xx `FlareError` or any other error still closes 1011. The message and detail never go on the wire.
 
+- **Health checks.** `host.http.health()` registers `GET /health/live` and `GET /health/ready` as ordinary routes (they run the arc's middleware and appear in the app graph). Liveness answers 200 whenever the process can answer. Readiness answers 200 once the host is ready and every check passes, and 503 while the host starts or drains or when a check fails. Bodies carry only `{ "status": "ok" }` or `{ "status": "down" }`; which check failed, and why, goes to the log.
+  - `health({ live: "/up", ready: false })` moves a route or turns it off.
+  - `health().check("search-index", { inject: { search: SearchIndex } }, ({ search }, signal) => search.isWarm())` adds an opt-in readiness check with the usual inject map. Returning normally or `true` passes; returning `false`, throwing, or running past `checkTimeout` (default 2000 ms, when `signal` also aborts) fails.
+  - Checks run in parallel, and concurrent probes share one run.
+
 - Log records follow an error's `cause` chain (up to five deep) into `error.cause`, and the pretty console format prints each cause under the stack.
 
 - **`AppGraph`**: the built app's routes and services, as Flare compiled them. Inject it like any service (`inject: { graph: AppGraph }` or `static deps = [AppGraph]`), or read it in tests as `handle.graph`.
