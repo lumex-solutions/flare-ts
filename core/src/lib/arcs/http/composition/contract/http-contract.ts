@@ -113,8 +113,8 @@ export type RequestDescriptor = {
   /**
    * The error classes this route throws on purpose.
    *
-   * Optional, and it changes nothing at runtime: the app graph reports them, and build validation checks
-   * that each sends its own wire name and an error status.
+   * Declaring changes nothing at runtime: the app graph reports them, and build validation checks that each
+   * sends its own wire name, an error status, and a private-use close code if it sets one.
    *
    * @example
    * ```ts

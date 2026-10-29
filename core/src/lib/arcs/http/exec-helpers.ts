@@ -107,7 +107,7 @@ export function dispatchErrorHandlers(
     }
 
     const registration = handlers[idx]!;
-    if (registration.key !== undefined && !(err instanceof registration.key)) return tryNext(idx + 1);
+    if (registration.errorClass !== undefined && !(err instanceof registration.errorClass)) return tryNext(idx + 1);
 
     let handler: ErrorHandlerBase;
     try {
@@ -160,7 +160,7 @@ export function handleControllerError(
 }
 
 // A 4xx response carries the message and detail; a 5xx carries only the wire name. A status outside
-// 400-599 is a bug in the error class (build validation reports it), so the response sends 500 instead.
+// 400-599 is a bug in the error class (build validation reports it for a declared or handler-keyed class), so the response sends 500 instead.
 function flareErrorResponse(err: FlareError<JsonValue | undefined>): FlareResponse {
   const status = isErrorStatus(err.status) ? err.status : 500;
   const body: Record<string, JsonValue> = { error: err.name };

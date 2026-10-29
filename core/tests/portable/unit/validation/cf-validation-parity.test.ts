@@ -31,7 +31,7 @@ function innerValidatorNames(composite: object): string[] {
  * CF_EXCLUDED_VALIDATORS with a comment explaining why.
  */
 const CF_COVERED_VALIDATORS = new Set<string>([
-  // HTTP composite (all 10 -- createHttpValidator() is called per arc)
+  // HTTP composite (all 10: createHttpValidator() is called per arc)
   "CorsValidator",
   "RouteSyntaxValidator",
   "RouteParamValidator",
@@ -41,7 +41,7 @@ const CF_COVERED_VALIDATORS = new Set<string>([
   "ContractValidator",
   "DeadMiddlewareValidator",
   "SignedCookiesValidator",
-  "ErrorDeclarationValidator",
+  "ErrorClassValidator",
 
   // Service composite -- all 4 are run in validateCfGraph (3 globally + 1 per arc)
   "DependencyValidator",

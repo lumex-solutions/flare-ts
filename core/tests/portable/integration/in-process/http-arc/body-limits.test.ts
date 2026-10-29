@@ -356,8 +356,7 @@ describe("Cross-Feature Interactions", () => {
     async () => {
       const huge = "x".repeat(512);
       const res = await app.fetch("POST /dispatch", { body: { payload: huge } });
-      // Asserting via the class (not the literal 413) proves the response status comes from the
-      // error class rather than being hard-coded in the body-limits dispatch path.
+      // The response status is ContentTooLargeError's own, which is 413.
       expect(res.status).toBe(ContentTooLargeError.status);
       expect(ContentTooLargeError.status).toBe(413);
     },

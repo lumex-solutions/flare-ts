@@ -505,12 +505,12 @@ function compileResponseSerializers(
 // extends), then catch-alls; ties keep registration order. Dispatch skips a keyed handler the error is not
 // an instance of, so the first keyed handler that runs is the one closest to the error's own class.
 function orderErrorHandlers(handlers: readonly ErrorHandlerRegistration[]): ErrorHandlerRegistration[] {
-  const depthOf = (key: FlareErrorClass): number => {
+  const depthOf = (errorClass: FlareErrorClass): number => {
     let depth = 0;
-    for (let cls = Object.getPrototypeOf(key); cls !== null; cls = Object.getPrototypeOf(cls)) depth++;
+    for (let cls = Object.getPrototypeOf(errorClass); cls !== null; cls = Object.getPrototypeOf(cls)) depth++;
     return depth;
   };
-  const keyed = handlers.filter((handler) => handler.key !== undefined);
-  keyed.sort((a, b) => depthOf(b.key!) - depthOf(a.key!));
-  return [...keyed, ...handlers.filter((handler) => handler.key === undefined)];
+  const keyed = handlers.filter((handler) => handler.errorClass !== undefined);
+  keyed.sort((a, b) => depthOf(b.errorClass!) - depthOf(a.errorClass!));
+  return [...keyed, ...handlers.filter((handler) => handler.errorClass === undefined)];
 }

@@ -120,9 +120,9 @@ export function deliverHibernatedEvent(
 /**
  * Accepts a hibernatable connection: runs `open` exactly once and serializes the initial attachment, so the
  * connection can be fully reconstructed on any later wake. Never re-run. Every failure - including a
- * throwing param parser in `buildInput` - closes the socket (1011) and drops any channels joined
- * before the throw (the close event cannot clean an attachment-less socket from the index), and the
- * container is always disposed. Deps are ephemeral per event under hibernation; remembered values belong
+ * throwing param parser in `buildInput` - closes the socket (1011, or a thrown 4xx error's own code) and
+ * drops any channels joined before the throw (the close event cannot clean an attachment-less socket from
+ * the index), and the container is always disposed. Deps are ephemeral per event under hibernation; remembered values belong
  * in `ws.state`.
  *
  * The runtime owns the socket after hibernation accept; nothing in DO memory survives eviction. Route
@@ -176,7 +176,8 @@ export async function openHibernatable(input: WsHibernationInput & { id: string;
  * Delivers one hibernated event by reconstructing the connection from `socket`'s attachment. `message`
  * decodes through the shared pipeline operation (invalid closes 1008 there), delivers to the handler,
  * then re-serializes the attachment only when the handler changed `ws.state` or channel membership. A
- * throwing message handler gets the resident policy: the route's error handler runs, then close 1011.
+ * throwing message handler gets the resident policy: the route's error handler runs, then the socket closes with
+ * the code `closeForError` picks.
  * `close` drops channel membership; `error` does not (parity with the resident backing, where membership
  * drops at close). The container is always disposed - including when the reconstruction preamble itself
  * throws (a failing controller constructor or param parser is logged and closes 1011, never escaping
@@ -194,8 +195,8 @@ export function deliverHibernated(
 
   // The reconstruction preamble runs USER code (param parsers, and - for the controller form - the
   // controller constructor inside the pipeline's factory, per EVENT under hibernation, where the resident
-  // backing runs it once inside its guarded open chain). A throw here gets the same policy as a handler
-  // failure: logged, closed 1011, disposed - never an escape through webSocketMessage.
+  // backing runs it once inside its guarded open chain). A throw here is logged, closed 1011, and disposed -
+  // never an escape through webSocketMessage.
   let built: {
     ws: FlareWebSocketContext<unknown>;
     attState: WsAttachmentState;
@@ -237,8 +238,8 @@ export function deliverHibernated(
         writeAttachment(socket, { ...attachment, c: ws[WS_CHANNELS](), s: attState.snapshot() });
       }
     } catch (error) {
-      // The 16 KB over-budget throw gets the same policy as any other handler failure: logged and closed
-      // 1011, never an escape through webSocketMessage, and never a skipped dispose.
+      // The 16 KB over-budget throw is logged and closed 1011: never an escape through webSocketMessage, and
+      // never a skipped dispose.
       _log("error", "WebSocket state persistence failed", { error: toErrorField(error) });
       ws.close(1011, "State persistence failed");
     }
@@ -253,7 +254,7 @@ export function deliverHibernated(
   };
   // Resident-parity failure policy for a throwing message handler: surface it to the route's error
   // handler (the resident backing routes a handler throw through the connection's error method, which
-  // runs under the runner and logs a throwing error handler), then close 1011.
+  // runs under the runner and logs a throwing error handler), then close with the code closeForError picks.
   const handlerFailed = (e: unknown): void | Promise<void> => {
     _log("error", "WebSocket message handler failed", { error: toErrorField(e) });
     controller.error?.(asError(e));

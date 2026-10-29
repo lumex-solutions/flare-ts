@@ -5,7 +5,7 @@ export { BadRequestError } from "./lib/errors/bad-request-error.js";
 export { ConflictError } from "./lib/errors/conflict-error.js";
 export { ContentTooLargeError } from "./lib/errors/content-too-large-error.js";
 export { FlareError } from "./lib/errors/flare-error.js";
-export type { FlareErrorArgs, FlareErrorOptions } from "./lib/errors/flare-error.js";
+export type { FlareErrorOptions } from "./lib/errors/flare-error.js";
 export { ForbiddenError } from "./lib/errors/forbidden-error.js";
 export { NotFoundError } from "./lib/errors/not-found-error.js";
 export { RateLimitedError } from "./lib/errors/rate-limited-error.js";

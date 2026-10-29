@@ -25,6 +25,7 @@ export function toErrorField(err: unknown): LogError {
   return errorFieldAt(err, 0);
 }
 
+// `unknown`: a thrown value or an Error's cause, either of which can be anything.
 function errorFieldAt(err: unknown, depth: number): LogError {
   if (!(err instanceof Error)) return { message: String(err) };
 

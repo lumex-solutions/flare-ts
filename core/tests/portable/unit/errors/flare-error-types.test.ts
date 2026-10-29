@@ -1,7 +1,7 @@
 /**
  * Type-surface tests for the FlareError constructor's conditional detail argument. The assertions live
  * in the type checker (@ts-expect-error succeeds only if the compiler rejects the call); the runtime
- * expects only pin what the checked calls produce.
+ * assertions only pin what the checked calls produce.
  */
 import { describe, expect, it } from "vitest";
 import { FlareError } from "../../../../src/lib/errors/flare-error.js";

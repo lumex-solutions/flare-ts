@@ -1,8 +1,8 @@
 /**
  * Integration tests for error handlers keyed to an error class: a keyed handler answers only errors of
- * its class and subclasses, the most specific key answers first, and catch-alls run after keyed
- * handlers whatever the registration order. Function and class handlers take a key alike. Uses
- * in-process `app.test()`; transport framing is not the claim.
+ * its class and subclasses, the most specific key answers first, and, within one scope (these handlers
+ * are all the arc's), catch-alls run after keyed handlers whatever the registration order. Function and
+ * class handlers take a key alike. Uses in-process `app.test()`; transport framing is not the claim.
  */
 process.env["FLARE_MODE"] = "test";
 

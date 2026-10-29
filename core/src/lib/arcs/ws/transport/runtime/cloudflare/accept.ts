@@ -23,7 +23,7 @@ import { CfWebSocket } from "./web-socket.js";
  *
  * `accept()` runs synchronously (workerd requires it before the 101 is returned) and the listeners are
  * wired synchronously, but messages are queued until the async `open` resolves so no message is
- * delivered before `open`. A failing `open` closes the socket (1011).
+ * delivered before `open`. A failing `open` closes the socket with the code `closeForError` picks.
  */
 export function acceptCfWebSocket(
   socket: WebSocket,
@@ -68,8 +68,8 @@ export function acceptCfWebSocket(
     tail = tail
       .then(() => (live ? connection.message(data) : undefined))
       .catch((err) => {
-        // Mirror Node: surface to connection.error and close as the error maps (1011 for most). Swallowed so
-        // the chain still delivers close.
+        // Mirror Node: surface to connection.error and close with the code closeForError picks (1011 unless
+        // a 4xx or a closeCode class). Swallowed so the chain still delivers close.
         live = false;
         connection.error(err instanceof Error ? err : new Error(String(err)));
         const { code, reason } = closeForError(err, "Message handler failed");

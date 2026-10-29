@@ -47,8 +47,9 @@ export function acceptNodeUpgrade(
   );
 
   // A failing `open` (sync throw or rejected promise) must abort the connection, never bubble up as
-  // an unhandled rejection - and never silently: log it and send a close frame (1011, matching the CF
-  // resident transport) rather than a bare destroy, so the client sees more than an abrupt 1006.
+  // an unhandled rejection - and never silently: log it and send a close frame (the code closeForError
+  // picks, matching the CF resident transport) rather than a bare destroy, so the client sees more than an
+  // abrupt 1006.
   const openFailed = (error: unknown): void => {
     _log("error", "WebSocket open handler failed", { error: toErrorField(error) });
     const { code, reason } = closeForError(error, "Connection setup failed");

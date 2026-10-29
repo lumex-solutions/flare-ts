@@ -1066,7 +1066,7 @@ describe("error handler order", () => {
     const [pipeline] = host.http[HTTP_PIPELINES]().pipelines;
 
     // The arc's handlers, then the group's.
-    expect(pipeline!.errorHandlers.map((handler) => handler.key?.name ?? "catch-all")).toEqual([
+    expect(pipeline!.errorHandlers.map((handler) => handler.errorClass?.name ?? "catch-all")).toEqual([
       "UserNotFound",
       "NotFoundError",
       "catch-all",

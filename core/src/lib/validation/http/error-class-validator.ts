@@ -5,6 +5,7 @@
 import type { FlareErrorClass } from "../../errors/types.js";
 import type { IValidator, ValidationError } from "../types.js";
 import type { HttpValidationContext } from "./composite.js";
+import { isPrivateCloseCode } from "../../arcs/ws/transport/wire/protocol.js";
 import { BadRequestError } from "../../errors/bad-request-error.js";
 import { ConflictError } from "../../errors/conflict-error.js";
 import { ContentTooLargeError } from "../../errors/content-too-large-error.js";
@@ -13,7 +14,7 @@ import { NotFoundError } from "../../errors/not-found-error.js";
 import { RateLimitedError } from "../../errors/rate-limited-error.js";
 import { ServiceUnavailableError } from "../../errors/service-unavailable-error.js";
 import { UnauthorizedError } from "../../errors/unauthorized-error.js";
-import { isAppCloseCode, isErrorStatus, wireNameOf } from "../../errors/wire.js";
+import { isErrorStatus, wireNameOf } from "../../errors/wire.js";
 
 // Anyone may throw a starter error without declaring it (the framework throws ContentTooLargeError), so a
 // handler keyed to one, or to a class one extends, can always run.
@@ -29,13 +30,14 @@ const STARTER_ERRORS: readonly FlareErrorClass[] = [
 ];
 
 /**
- * Checks the error classes an HTTP arc names, declared on routes or keyed by error handlers.
+ * Validator for the error classes an HTTP arc names, declared on its routes or keyed by its error handlers.
  *
- * Two classes sending the same wire name, a class whose `static status` is not an integer from 400 to
- * 599, or one whose `static closeCode` is not from 4000 to 4999, fail the build. A handler keyed to a class that no route declares, itself or through a subclass,
- * and that no starter error is, is a warning: declaring is optional, so the handler may still run.
+ * Two classes sending the same wire name, a `static status` that is not an integer from 400 to 599, or a
+ * `static closeCode` outside 4000-4999 fail the build. A handler keyed to a class that no route declares,
+ * itself or through a subclass, warns, unless a starter error is that class or extends it: declaring is
+ * optional, so such a handler may still run.
  */
-export class ErrorDeclarationValidator implements IValidator<HttpValidationContext> {
+export class ErrorClassValidator implements IValidator<HttpValidationContext> {
   validate(ctx: HttpValidationContext): ValidationError[] {
     const declared = new Set<FlareErrorClass>();
     for (const controller of ctx.controllers) {
@@ -45,7 +47,7 @@ export class ErrorDeclarationValidator implements IValidator<HttpValidationConte
     }
     const keys = new Set<FlareErrorClass>();
     for (const handler of [...ctx.globalErrorHandlers, ...ctx.groups.flatMap((group) => group.errorHandlers)]) {
-      if (handler.key !== undefined) keys.add(handler.key);
+      if (handler.errorClass !== undefined) keys.add(handler.errorClass);
     }
 
     const results: ValidationError[] = [];
@@ -63,11 +65,11 @@ export class ErrorDeclarationValidator implements IValidator<HttpValidationConte
           hint: `Rename one of them, or give one a distinct static code.`,
         });
       }
-      if (cls.closeCode !== undefined && !isAppCloseCode(cls.closeCode)) {
+      if (cls.closeCode !== undefined && !isPrivateCloseCode(cls.closeCode)) {
         results.push({
           severity: "error",
           code: "ERROR_CLOSE_CODE_INVALID",
-          message: `Error class ${name} has static closeCode ${cls.closeCode}, which applications may not send.`,
+          message: `Error class ${name} has static closeCode ${cls.closeCode}, which is outside the private-use range.`,
           hint: `Set static closeCode to an integer from 4000 to 4999, or leave it unset.`,
         });
       }
@@ -87,7 +89,7 @@ export class ErrorDeclarationValidator implements IValidator<HttpValidationConte
       const name = wireNameOf(key);
       results.push({
         severity: "warning",
-        code: "ERROR_HANDLER_UNDECLARED",
+        code: "ERROR_HANDLER_UNDECLARED_KEY",
         message: `An error handler is keyed to ${name}, but no route declares ${name} or a subclass of it.`,
         hint: `Add ${name} to the errors of the routes that throw it, or remove the handler.`,
       });

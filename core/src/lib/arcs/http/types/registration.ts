@@ -76,7 +76,7 @@ export type ErrorHandlerRegistration = {
   readonly deps: readonly ServiceToken<FlareService>[];
   readonly cls: ErrorHandlerClass;
   /** The error class the handler is keyed to; absent on a catch-all handler. */
-  readonly key?: FlareErrorClass | undefined;
+  readonly errorClass?: FlareErrorClass | undefined;
 };
 
 export type GroupRegistration = {

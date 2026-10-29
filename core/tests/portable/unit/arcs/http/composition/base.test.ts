@@ -431,7 +431,7 @@ describe("error handler registration", () => {
     base.error(EmailTaken, eh);
     base.error(() => undefined);
 
-    expect(base.errorHandlers.map((reg) => reg.key)).toEqual([EmailTaken, EmailTaken, EmailTaken, undefined]);
+    expect(base.errorHandlers.map((reg) => reg.errorClass)).toEqual([EmailTaken, EmailTaken, EmailTaken, undefined]);
     expect(base.errorHandlers[1]!.cls.name).toBe("EmailTakenHandler");
     expect(base.errorHandlers[2]!.cls).toBe(eh);
   });
@@ -439,7 +439,7 @@ describe("error handler registration", () => {
   it("Keyed form: accepts FlareError itself as a key, for a handler that sees every FlareError", () => {
     base.error(FlareError, () => undefined);
 
-    expect(base.errorHandlers[0]!.key).toBe(FlareError);
+    expect(base.errorHandlers[0]!.errorClass).toBe(FlareError);
   });
 });
 

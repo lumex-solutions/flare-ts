@@ -1,6 +1,6 @@
 /**
- * Unit tests for {@link ErrorDeclarationValidator}: wire-name collisions and invalid statuses among the
- * error classes an arc names, and handlers keyed to a class no route declares. Contexts come from a
+ * Unit tests for {@link ErrorClassValidator}: wire-name collisions, invalid statuses, and invalid close
+ * codes among the error classes an arc names, and handlers keyed to a class no route declares. Contexts come from a
  * real host's HTTP arc, the way the host builds them.
  */
 import { describe, expect, it } from "vitest";
@@ -8,7 +8,7 @@ import type { HttpValidationContext } from "../../../../../src/lib/validation/ht
 import { ConflictError } from "../../../../../src/lib/errors/conflict-error.js";
 import { FlareError } from "../../../../../src/lib/errors/flare-error.js";
 import { NotFoundError } from "../../../../../src/lib/errors/not-found-error.js";
-import { ErrorDeclarationValidator } from "../../../../../src/lib/validation/http/error-declaration-validator.js";
+import { ErrorClassValidator } from "../../../../../src/lib/validation/http/error-class-validator.js";
 import { testHost } from "../../../helpers/test-host.js";
 
 type TestHttp = ReturnType<typeof testHost>["http"];
@@ -22,7 +22,7 @@ function validate(register: (http: TestHttp) => void) {
     globalErrorHandlers: http.errorHandlers,
     groups: http.groups,
   };
-  return new ErrorDeclarationValidator().validate(ctx);
+  return new ErrorClassValidator().validate(ctx);
 }
 
 class EmailTaken extends ConflictError {}
@@ -95,7 +95,7 @@ describe("keyed handlers", () => {
       http.error(EmailTaken, () => undefined);
     });
 
-    expect(results).toEqual([expect.objectContaining({ severity: "warning", code: "ERROR_HANDLER_UNDECLARED" })]);
+    expect(results).toEqual([expect.objectContaining({ severity: "warning", code: "ERROR_HANDLER_UNDECLARED_KEY" })]);
   });
 
   it("passes a handler whose class a route declares through a subclass", () => {
@@ -125,6 +125,6 @@ describe("keyed handlers", () => {
       });
     });
 
-    expect(results).toEqual([expect.objectContaining({ code: "ERROR_HANDLER_UNDECLARED" })]);
+    expect(results).toEqual([expect.objectContaining({ code: "ERROR_HANDLER_UNDECLARED_KEY" })]);
   });
 });

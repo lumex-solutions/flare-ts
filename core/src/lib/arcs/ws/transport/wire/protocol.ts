@@ -53,6 +53,14 @@ export function isControlOpcode(opcode: number): boolean {
 }
 
 /**
+ * Returns true for a close code in the private-use range, 4000-4999 (RFC 6455 section 7.4.2), the range
+ * a `FlareError` class may choose as its `closeCode`.
+ */
+export function isPrivateCloseCode(code: number): boolean {
+  return Number.isInteger(code) && code >= 4000 && code <= 4999;
+}
+
+/**
  * Returns true for a close code an endpoint may send or accept on the wire.
  *
  * Covers the registered protocol codes (RFC 6455 section 7.4.1) and the application range

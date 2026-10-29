@@ -1,7 +1,4 @@
-/**
- * The error class Flare applications throw: the HTTP status and wire name live on the class; the
- * message, typed detail, cause, and response headers on each instance.
- */
+/** The base class every Flare application error extends. */
 import type { JsonValue } from "@flare-ts/lib/schema";
 import { wireNameOf } from "./wire.js";
 
@@ -19,13 +16,13 @@ export type FlareErrorOptions<TDetail extends JsonValue | undefined> = {
   readonly headers?: Readonly<Record<string, string>>;
 };
 
-/** A {@link FlareError}'s constructor arguments: `detail` is required exactly when the class declares one. */
+/** Constructor arguments of a {@link FlareError}: `detail` is required exactly when the class declares one. */
 export type FlareErrorArgs<TDetail extends JsonValue | undefined> = [TDetail] extends [undefined]
   ? [message?: string, options?: FlareErrorOptions<undefined>]
   : [message: string | undefined, options: FlareErrorOptions<TDetail> & { readonly detail: TDetail; }];
 
 /**
- * An error a route throws to answer with a status of its choosing.
+ * Error a route throws to answer with a status of its choosing.
  *
  * The class sets the status (`static status`, 500 when unset) and the wire name sent as `error` in the
  * body (the class name, or `static code`). A 4xx response also carries the message and `detail`; a 5xx
@@ -59,7 +56,9 @@ export class FlareError<TDetail extends JsonValue | undefined = undefined> exten
   readonly status: number;
   /** The WebSocket close code, from the class. */
   readonly closeCode: number | undefined;
+  /** Data sent to the client with a 4xx response; never sent with a 5xx. */
   readonly detail: TDetail;
+  /** Headers the error's response carries. */
   readonly headers: Readonly<Record<string, string>> | undefined;
 
   constructor(...[message, options]: FlareErrorArgs<TDetail>) {

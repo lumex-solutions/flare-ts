@@ -1,6 +1,6 @@
 /**
  * Pins HTTP error-handler dispatch: default status mapping, registered handler
- * precedence, FlareError exposure, and logged-and-skipped failure modes.
+ * precedence, FlareError responses, and logged-and-skipped failure modes.
  * Exercised through the in-process `app.test()` harness so thrown errors
  * become response payloads and log records without opening a real port.
  * FLARE_MODE must be set before importing FlareHost so the node adapter's
