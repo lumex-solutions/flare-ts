@@ -2,12 +2,15 @@
  * Builds the app graph's nodes from what the host compiled: route nodes from the front door's HTTP
  * pipelines, service nodes from the registrations. Runs on the graph's first query.
  */
+import type { JsonSchema, OpaqueSchemaToken } from "@flare-ts/lib/schema";
+import { schema, toJsonSchema } from "@flare-ts/lib/schema";
 import type { MiddlewareClass } from "../arcs/http/composition/classes/middleware-base.js";
 import type { OpaqueConfigToken } from "../config/flare-config.js";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceToken } from "../services/types/token.js";
 import type { GraphSource, PipelineStep, ServiceNode } from "./types.js";
 import { resolveStepMiddleware } from "../arcs/http/build.js";
+import { stream } from "../arcs/http/composition/contract/http-contract.js";
 import { SUPPORTED_METHODS } from "../arcs/http/routing/types/methods.js";
 import { RouteNode } from "./route-node.js";
 
@@ -110,6 +113,16 @@ export function buildGraph(source: GraphSource): GraphModel {
       const id = `${method} ${path}`;
       const handlerName = registration.cls ? `${registration.name}.${handler.name}` : id;
       const handlerStep: PipelineStep = Object.freeze({ kind: "handler", name: handlerName });
+      const descriptor = pipeline.flareRoute.requestDescriptors[methodIdx];
+      const input: { route?: JsonSchema; query?: JsonSchema; body?: JsonSchema; } = {};
+      if (descriptor?.route) input.route = frozenCopy(toJsonSchema(schema(descriptor.route)));
+      if (descriptor?.query) input.query = frozenCopy(toJsonSchema(schema(descriptor.query)));
+      if (descriptor?.body === stream) {
+        input.body = Object.freeze<JsonSchema>({ type: "string", format: "binary" });
+      } else if (descriptor?.body) {
+        // The stream sentinel was excluded above, which the type system cannot connect to this union.
+        input.body = frozenCopy(toJsonSchema(descriptor.body as OpaqueSchemaToken));
+      }
       const route = new RouteNode({
         id,
         method,
@@ -117,6 +130,7 @@ export function buildGraph(source: GraphSource): GraphModel {
         group,
         handler: handlerName,
         pipeline: Object.freeze(steps.map((step) => step ?? handlerStep)),
+        input: Object.freeze(input),
         state,
         services,
       }, middleware);
@@ -151,6 +165,18 @@ export function buildGraph(source: GraphSource): GraphModel {
 /** Splits a path into its non-empty segments. */
 export function segmentsOf(path: string): string[] {
   return path.split("/").filter((segment) => segment !== "");
+}
+
+// Lib hands back its primitives' own schema objects, so the graph freezes a copy, never lib's originals.
+function frozenCopy(source: JsonSchema): JsonSchema {
+  const copy = structuredClone(source);
+  const pending: object[] = [copy];
+  for (let i = 0; i < pending.length; i++) {
+    for (const child of Object.values(Object.freeze(pending[i]!))) {
+      if (typeof child === "object" && child !== null) pending.push(child);
+    }
+  }
+  return copy;
 }
 
 function idOf(

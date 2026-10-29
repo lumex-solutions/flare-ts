@@ -25,6 +25,7 @@ function node(): RouteNode {
     group: undefined,
     handler: "GET /me",
     pipeline: [{ kind: "before", name: "Auth", from: "global" }, { kind: "handler", name: "GET /me" }],
+    input: {},
     state: { reads: [], writes: [] },
     services: [],
   }, new Set([Auth]));
@@ -51,6 +52,7 @@ describe("node shape", () => {
       path: "/me",
       handler: "GET /me",
       pipeline: [{ kind: "before", name: "Auth", from: "global" }, { kind: "handler", name: "GET /me" }],
+      input: {},
       state: { reads: [], writes: [] },
       services: [],
     });

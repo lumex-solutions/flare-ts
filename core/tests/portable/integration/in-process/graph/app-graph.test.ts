@@ -200,7 +200,17 @@ describe("Edge Cases", () => {
   it("converts every node to JSON as plain data, without methods", () => {
     const json = JSON.parse(JSON.stringify(app.graph.route("GET", "/api/users")!)) as Record<string, unknown>;
 
-    expect(Object.keys(json)).toEqual(["id", "method", "path", "group", "handler", "pipeline", "state", "services"]);
+    expect(Object.keys(json)).toEqual([
+      "id",
+      "method",
+      "path",
+      "group",
+      "handler",
+      "pipeline",
+      "input",
+      "state",
+      "services",
+    ]);
     expect(JSON.parse(JSON.stringify(app.graph.services()))).toEqual(app.graph.services());
   });
 

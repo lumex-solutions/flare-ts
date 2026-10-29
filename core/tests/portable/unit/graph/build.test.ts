@@ -2,13 +2,15 @@
  * Unit tests for buildGraph: service nodes from registrations and prebuilt services, route nodes from
  * compiled pipelines, and segmentsOf.
  */
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
+import { bool, int, optional, schema, str } from "@flare-ts/lib/schema";
 import type { GraphSource } from "../../../../src/lib/graph/types.js";
 import type { ServiceRegistration } from "../../../../src/lib/services/types/registration.js";
 import { compileHttp } from "../../../../src/lib/arcs/http/build.js";
 import { ControllerBase } from "../../../../src/lib/arcs/http/composition/classes/controller-base.js";
 import { ErrorHandlerBase } from "../../../../src/lib/arcs/http/composition/classes/error-handler-base.js";
 import { MiddlewareBase } from "../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
+import { stream } from "../../../../src/lib/arcs/http/composition/contract/http-contract.js";
 import { controllerRegistration } from "../../../../src/lib/arcs/http/composition/controller-registration.js";
 import { COMPILE_HTTP_ARC, HTTP_PIPELINES } from "../../../../src/lib/arcs/http/http-arc.js";
 import { Get, Post } from "../../../../src/lib/arcs/http/routing/decorators.js";
@@ -148,6 +150,36 @@ describe("buildGraph routes", () => {
     });
 
     expect(graph.routes[0]!.services).toEqual(["Signups", "Mailer"]);
+  });
+
+  it("records JSON Schemas for the request parts a route declares, and a streamed body as a binary string", () => {
+    const NewUser = schema({ name: str.max(80) });
+    const graph = compiledGraph((http) => {
+      http.post("/users/:id", { route: { id: int }, query: { notify: optional(bool) }, body: NewUser }, () => null);
+      http.put("/avatar", { body: stream }, () => null);
+      http.get("/health", () => null);
+    });
+
+    expect(graph.routeById.get("POST /users/:id")!.input).toEqual({
+      route: { type: "object", properties: { id: { type: "integer" } }, required: ["id"] },
+      query: { type: "object", properties: { notify: { type: "boolean" } } },
+      body: { type: "object", properties: { name: { type: "string", maxLength: 80 } }, required: ["name"] },
+    });
+    expect(graph.routeById.get("PUT /avatar")!.input).toEqual({ body: { type: "string", format: "binary" } });
+    expect(graph.routeById.get("GET /health")!.input).toEqual({});
+  });
+
+  it("freezes its own copy of each schema, leaving lib's primitive schemas untouched", () => {
+    const graph = compiledGraph((http) => {
+      http.get("/users/:id", { route: { id: int } }, () => null);
+    });
+    const routeSchema = graph.routes[0]!.input.route!;
+    assert("properties" in routeSchema);
+
+    expect(Object.isFrozen(routeSchema)).toBe(true);
+    expect(Object.isFrozen(routeSchema.properties["id"])).toBe(true);
+    expect(routeSchema.properties["id"]).not.toBe(int.jsonSchema);
+    expect(Object.isFrozen(int.jsonSchema)).toBe(false);
   });
 
   it("labels the steps after the handler, and an isolated group's middleware, by when and where they run", () => {
