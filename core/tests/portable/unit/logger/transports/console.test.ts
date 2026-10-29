@@ -211,6 +211,14 @@ describe("asynchronous console transport output", () => {
       const line = capture.log[0]!;
       expect(stripAnsi(line)).toContain("request_id=abc-123");
     });
+
+    it("prints a Date in meta as its ISO string, and an invalid Date as null, as the JSON format writes them", () => {
+      const meta = { placedAt: new Date("2026-10-29T10:00:00.000Z"), shippedAt: new Date("not a date") };
+      prettyTransport().write(makeRecord({ level: "info", message: "order placed", meta }));
+      const visible = stripAnsi(capture.log.join(" "));
+      expect(visible).toContain(`placedAt: "2026-10-29T10:00:00.000Z"`);
+      expect(visible).toContain("shippedAt: null");
+    });
   });
 
   describe("write(record) in pretty mode (with error)", () => {

@@ -10,7 +10,7 @@
 
 ### Added
 
-- `ReadonlyJsonValue` on `@flare-ts/lib/schema`: a `JsonValue` whose arrays and objects may be readonly. Every `JsonValue` is assignable to it. Arrays in `JsonValue` itself stay mutable, so `Array.isArray` still narrows a parsed value.
+- `ReadonlyJsonValue` on `@flare-ts/lib/schema`: a `JsonValue` whose arrays and objects may be readonly, and which may hold a `Date`, written as its ISO string. Every `JsonValue` is assignable to it. Arrays in `JsonValue` itself stay mutable, so `Array.isArray` still narrows a parsed value.
 
 ### Changed
 

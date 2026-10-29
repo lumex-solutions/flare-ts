@@ -77,7 +77,7 @@
 
 ### Changed
 
-- `FlareResponse` and the controller and middleware response helpers (`this.ok()`, `this.created()`, `this.badRequest()`, and the rest) take a `ReadonlyJsonValue` body instead of a `JsonValue`, and so do SSE event `data`, a `FlareError`'s detail, log call meta, and `.withLogging()` mappers. Readonly arrays and objects, `as const` values, and fields that may be `undefined` now compile there: `this.ok(STATUSES)` for an `as const` array, `logger.info("order placed", { userId: user?.id })`, and a `.withLogging()` mapper that returns a readonly field of its state. A `Date` still does not; send `date.toISOString()`. Only the types change.
+- `FlareResponse` and the controller and middleware response helpers (`this.ok()`, `this.created()`, `this.badRequest()`, and the rest) take a `ReadonlyJsonValue` body instead of a `JsonValue`, and so do SSE event `data`, a `FlareError`'s detail, log call meta, and `.withLogging()` mappers. Readonly arrays and objects, `as const` values, and fields that may be `undefined` now compile there: `this.ok(STATUSES)` for an `as const` array, `logger.info("order placed", { userId: user?.id })`, and a `.withLogging()` mapper that returns a readonly field of its state. So does a `Date`, which is written as its ISO string, as `JSON.stringify` writes it. Only the types change.
 
 - Error contexts name an inline route's handler stage by its path, or its `name` option, instead of a generated `SyntheticGET /path` class name.
 

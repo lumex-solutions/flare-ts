@@ -48,17 +48,18 @@ export type SafeParseResult<T> = { success: true; data: T; } | { success: false;
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue | undefined; };
 
 /**
- * A {@link JsonValue} whose arrays and objects may be readonly.
+ * A {@link JsonValue} whose arrays and objects may be readonly, and which may hold a `Date`.
  *
  * A function that only reads or serializes JSON takes this type, so readonly arrays and `as const` values
- * fit, and so does every `JsonValue`. Interfaces and class instances, `Date` included, do not fit: a
- * `Date` goes in as `date.toISOString()`.
+ * fit, and so does every `JsonValue`. A `Date` is written as its ISO string, by `JSON.stringify` and by
+ * a compiled serializer's `date` field alike. Interfaces and other class instances do not fit.
  */
 export type ReadonlyJsonValue =
   | string
   | number
   | boolean
   | null
+  | Date
   | readonly ReadonlyJsonValue[]
   | { readonly [key: string]: ReadonlyJsonValue | undefined; };
 

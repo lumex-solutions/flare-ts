@@ -262,6 +262,13 @@ function formatInspectableValue(value: unknown, depth: number, seen: WeakSet<obj
     );
   }
 
+  // A Date prints as JSON writes it: its ISO string, or null when it is invalid.
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime())
+      ? [`${A.dim}null${A.reset}`]
+      : [`${A.red}${JSON.stringify(value.toISOString())}${A.reset}`];
+  }
+
   if (typeof value !== "object") return [formatValue(value)];
 
   if (seen.has(value)) return [`${A.magenta}[Circular]${A.reset}`];

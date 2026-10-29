@@ -1,7 +1,7 @@
 /**
  * Compile-time claims for JSON response bodies: `FlareResponse`, the controller and middleware response
- * helpers, and SSE event data take a ReadonlyJsonValue, so readonly data, `as const` values, and fields
- * that may be `undefined` compile, and a Date does not. The file passing `tsc` IS the assertion (the
+ * helpers, and SSE event data take a ReadonlyJsonValue, so readonly data, `as const` values, fields that
+ * may be `undefined`, and a Date compile, and a Map does not. The file passing `tsc` IS the assertion (the
  * `@ts-expect-error` line fails the build if it stops erroring); the single runtime `it` only anchors it
  * as a vitest file.
  */
@@ -24,8 +24,9 @@ const STATUSES = ["pending", "paid", "shipped"] as const;
 const _created = () => new FlareResponse(201, order, { headers: { Location: `/orders/${order.id}` } });
 const _statuses = () => new FlareResponse(200, { statuses: STATUSES });
 const _event = (): SseEvent => ({ event: "order", data: order });
-// @ts-expect-error - a Date goes in as date.toISOString()
 const _date = () => new FlareResponse(200, { placedAt: new Date() });
+// @ts-expect-error - JSON.stringify writes a Map as {}
+const _map = () => new FlareResponse(200, { bySku: new Map([["mug", 2]]) });
 
 class OrdersController extends ControllerBase {
   static override deps = [];
@@ -50,7 +51,7 @@ class CouponMiddleware extends MiddlewareBase {
 }
 
 describe("JSON response body types", () => {
-  it("compiles: readonly data, as-const values, and undefined fields are bodies; a Date is not", () => {
+  it("compiles: readonly data, as-const values, undefined fields, and a Date are bodies; a Map is not", () => {
     expect([OrdersController, CouponMiddleware]).toHaveLength(2);
   });
 });
