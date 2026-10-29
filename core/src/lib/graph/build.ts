@@ -3,7 +3,7 @@
  * pipelines, service nodes from the registrations. Runs on the graph's first query.
  */
 import type { MiddlewareClass } from "../arcs/http/composition/classes/middleware-base.js";
-import type { ConfigToken } from "../config/flare-config.js";
+import type { OpaqueConfigToken } from "../config/flare-config.js";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceToken } from "../services/types/token.js";
 import type { GraphSource, RouteStage, ServiceNode } from "./types.js";
@@ -20,7 +20,7 @@ type ServiceEntry = {
 
 /** The graph's nodes, with the token lookup service queries need. */
 export type GraphModel = {
-  /** In the order the router tries them. */
+  /** Route nodes in the order the router tries them. */
   readonly routes: readonly RouteNode[];
   readonly services: readonly ServiceNode[];
   readonly serviceByToken: ReadonlyMap<ServiceToken<FlareService>, ServiceNode>;
@@ -34,7 +34,7 @@ export function buildGraph(source: GraphSource): GraphModel {
     token: ServiceToken<FlareService>,
     lifetime: "singleton" | "scoped",
     deps: readonly ServiceToken<FlareService>[],
-    config: readonly ConfigToken<unknown>[] | undefined,
+    config: readonly OpaqueConfigToken[] | undefined,
   ): void => {
     if (entries.has(token)) return;
     // Two classes can share a name; the second and later get a deterministic suffix.
@@ -50,7 +50,7 @@ export function buildGraph(source: GraphSource): GraphModel {
     // AppGraph), and the token type carries only its constructor, not the statics every FlareBase declares.
     const cls = token as unknown as {
       deps?: readonly ServiceToken<FlareService>[];
-      config?: readonly ConfigToken<unknown>[];
+      config?: readonly OpaqueConfigToken[];
     };
     add(token, "singleton", cls.deps ?? [], cls.config);
   }

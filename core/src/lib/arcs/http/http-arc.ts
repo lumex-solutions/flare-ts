@@ -43,6 +43,7 @@ export const CHAR_CODE_STAR = 42; // "*"
 export const COMPILE_HTTP_ARC: unique symbol = Symbol("COMPILE_HTTP_ARC");
 export const REEVALUATE_CONTAINER_STRATEGY: unique symbol = Symbol("REEVALUATE_CONTAINER_STRATEGY");
 export const INSPECT_HTTP_ARC: unique symbol = Symbol("INSPECT_HTTP_ARC");
+/** @internal */
 export const HTTP_PIPELINES: unique symbol = Symbol("HTTP_PIPELINES");
 export const START_HTTP_ARC: unique symbol = Symbol("START_HTTP_ARC");
 export const START_HTTP_ARC_ASYNC: unique symbol = Symbol("START_HTTP_ARC_ASYNC");
@@ -166,8 +167,9 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
   }
 
   /**
-   * @internal Returns the compiled pipelines and the global middleware their exec slots index into,
-   * for the app graph. Empty until the arc compiles.
+   * @internal Returns the compiled pipelines and the global middleware their exec slots index into.
+   *
+   * Empty until the arc compiles.
    */
   [HTTP_PIPELINES](): {
     readonly pipelines: readonly Pipeline[];

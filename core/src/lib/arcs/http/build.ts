@@ -157,9 +157,9 @@ function compilePipelines(
 }
 
 /**
- * Builds a human-readable name for every exec-index slot in the pipeline.
- * Index where factoryIdx === -1 is the handler slot; the name is the registration's name.
- * Other indices resolve to the middleware class name via {@link resolveStageMiddleware}.
+ * Names every exec slot in the pipeline.
+ *
+ * The handler slot takes the registration's name; every other slot takes its middleware's class name.
  */
 function compileExecStepNames(pipeline: Pipeline, globalMwRegs: MiddlewareRegistration[]): string[] {
   const names = new Array<string>(pipeline.execCount);

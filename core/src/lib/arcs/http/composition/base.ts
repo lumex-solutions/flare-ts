@@ -407,7 +407,7 @@ export abstract class HttpBase {
     }
 
     assertInjectKeys(options.inject ?? {});
-    const inject = (options.inject ?? {}) as InjectMap;
+    const inject: InjectMap = options.inject ?? {};
     const fn = handler;
     const routeHandler = function(this: ControllerBase) {
       // The receiver declares no static deps or config, so this.inject() and this.config() would refuse;

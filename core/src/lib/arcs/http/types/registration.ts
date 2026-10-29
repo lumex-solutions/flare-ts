@@ -1,7 +1,7 @@
 /**
  * The registration vocabulary: the shapes host registration records for controllers, middleware, groups, and error handlers.
  */
-import type { ConfigToken } from "../../../config/flare-config.js";
+import type { OpaqueConfigToken } from "../../../config/flare-config.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { ServiceFactory } from "../../../services/types/registration.js";
 import type { ServiceToken } from "../../../services/types/token.js";
@@ -32,9 +32,10 @@ export type GroupContext = {
   readonly combinedMw?: readonly MiddlewareRegistration[];
 };
 
-/** One route a registration serves: verb, path under the registration's path, handler, request shape. */
+/** One route a registration serves. */
 export type RouteRegistration = {
   readonly method: string;
+  /** Relative to the registration's path. */
   readonly path: string;
   readonly handler: ControllerHandler;
   readonly descriptor: RequestDescriptor | undefined;
@@ -56,7 +57,7 @@ export type ControllerRegistration = {
   readonly routes: RouteRegistration[];
   readonly deps: ServiceToken<FlareService>[];
   readonly state: StateToken[];
-  readonly config: readonly ConfigToken<unknown>[] | undefined;
+  readonly config: readonly OpaqueConfigToken[] | undefined;
   /** The controller class; present only for a class registered with `controller()`. */
   readonly cls?: ControllerClass;
   /** Group scope, present only when this controller is registered inside an `HttpGroup`. */

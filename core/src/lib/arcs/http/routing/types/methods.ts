@@ -4,7 +4,7 @@
 /** HTTP methods recognised by the router. Order matches {@link METHOD_IDX_MAP}. */
 export const SUPPORTED_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] as const;
 
-/** An HTTP method the router recognises. */
+/** HTTP method recognised by the router. */
 export type HttpMethod = (typeof SUPPORTED_METHODS)[number];
 
 /** Maps each supported HTTP method to its slot index in route handler arrays. */

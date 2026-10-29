@@ -1,6 +1,6 @@
 /**
- * Class-controller registration: turns a controller class into the route-shaped registration build and
- * validation read.
+ * Class-controller registration: turns a controller class into the {@link ControllerRegistration} that
+ * build and validation read.
  */
 import type { ControllerRegistration } from "../types/registration.js";
 import type { ControllerClass } from "./classes/controller-base.js";

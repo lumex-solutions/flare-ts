@@ -1,6 +1,4 @@
-/**
- * The app graph vocabulary: route stages, service nodes, and the host-side source the graph is built from.
- */
+/** The app graph vocabulary: the built app's routes and services as data apps and tools can query. */
 import type { Pipeline } from "../arcs/http/types/pipeline.js";
 import type { GroupRegistration, MiddlewareRegistration } from "../arcs/http/types/registration.js";
 import type { FlareService } from "../services/composition/flare-service.js";
@@ -9,7 +7,11 @@ import type { ServiceToken } from "../services/types/token.js";
 
 /** One step of a route's pipeline: the route's handler, or a middleware and where it was registered. */
 export type RouteStage =
-  | { readonly kind: "handler"; readonly name: string; }
+  | {
+    readonly kind: "handler";
+    /** `Controller.method` for a class route; the route id for an inline route. */
+    readonly name: string;
+  }
   | {
     /**
      * When the middleware runs relative to the handler.
@@ -24,8 +26,9 @@ export type RouteStage =
     readonly scope: "global" | "group";
   };
 
-/** Service of the built app: its lifetime, what it depends on, and the routes that resolve it. */
+/** One service of the built app: its lifetime, what it depends on, and the routes that resolve it. */
 export type ServiceNode = {
+  /** The class name, suffixed `#2`, `#3`, and so on when several service classes share one. */
   readonly id: string;
   readonly lifetime: "singleton" | "scoped";
   /** Ids of the services it injects. */
