@@ -1,0 +1,6 @@
+{
+  // lib's test files, typed against lib's own compiler options. lib/tsconfig.json types src only, so
+  // without this project the type-level suites here (`*-types.test.ts`) would never run under tsc.
+  "extends": "../tsconfig.json",
+  "include": ["**/*.ts"]
+}
