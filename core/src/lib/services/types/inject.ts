@@ -13,14 +13,21 @@ type OmitSymbols<T> = { [K in keyof T as K extends symbol ? never : K]: T[K]; };
  * Exposes the public surface of an injected service.
  *
  * Strips framework internals (`inject`, `onStart`, `onStop`, `dispose`) and all
- * symbol-keyed members so callers only see the service's own domain API.
+ * symbol-keyed members so callers only see the service's own domain API. Route
+ * handlers and `this.inject()` receive services as this type, so a function that
+ * takes an injected service types its parameter with it; the service class fits too.
  *
  * @example
  * ```ts
- * class MyController extends ControllerBase {
- *   static deps = [MyService] as const;
- *   private svc = this.inject(MyService); // type: Injected<MyService>
+ * function chargeOrder(payments: Injected<PaymentsClient>, order: Order): Promise<Receipt> {
+ *   return payments.charge(order.customerId, order.totalCents);
  * }
+ *
+ * host.http.post(
+ *   "/orders/:id/pay",
+ *   { route: { id: int }, inject: { orders: OrdersRepository, payments: PaymentsClient } },
+ *   async (_ctx, { input, orders, payments }) => chargeOrder(payments, await orders.find(input.route.id)),
+ * );
  * ```
  */
 export type Injected<T extends FlareBase> = OmitSymbols<Omit<T, "inject" | "onStart" | "onStop" | "dispose">>;

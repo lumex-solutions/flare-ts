@@ -26,7 +26,7 @@ export type { WebSocketRouteNode } from "./lib/graph/web-socket-route-node.js";
 // Services / DI
 export { FlareBase } from "./lib/services/composition/flare-base.js";
 export { FlareService } from "./lib/services/composition/flare-service.js";
-export type { InjectedMap, InjectMap } from "./lib/services/types/inject.js";
+export type { Injected, InjectedMap, InjectMap } from "./lib/services/types/inject.js";
 export type { ServiceToken } from "./lib/services/types/token.js";
 
 // Config

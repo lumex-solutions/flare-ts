@@ -69,6 +69,8 @@
   - `graph.services()` and `graph.service(token)` report each service's lifetime, deps, config sections, and the routes that resolve it.
   - Nodes are frozen and convert to JSON as plain data. The graph is read from the build on its first query and never touches the request path.
 
+- `Injected<T>` is exported from the root. Route handlers and `this.inject()` receive a service as `Injected<T>`, the service without its lifecycle hooks, which a parameter typed with the service class rejects. A parameter typed `Injected<PaymentsClient>` accepts the injected value and the service itself.
+
 - `FlareApp` without a type argument types an app from any runtime: the `test()` entrypoint every compiled app shares, so a helper can accept `host.build()`'s result without naming a runtime. `FlareApp<typeof node>` is unchanged and still resolves to that runtime's app.
 
 ### Changed
