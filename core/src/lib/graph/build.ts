@@ -12,15 +12,21 @@ import type { OpaqueConfigToken } from "../config/flare-config.js";
 import type { HostRuntimeLifecycle } from "../host/types/lifecycle.js";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceToken } from "../services/types/token.js";
-import type { ArcSource, GraphSource, PipelineStep, RouteNode, ServiceNode } from "./types.js";
+import type {
+  ArcSource,
+  GraphSource,
+  HttpRouteNode,
+  PipelineStep,
+  RouteNode,
+  ServiceNode,
+  WebSocketRouteNode,
+} from "./types.js";
 import { resolveStepMiddleware } from "../arcs/http/build.js";
 import { isStreamBody } from "../arcs/http/composition/contract/http-contract.js";
 import { HTTP_PIPELINES } from "../arcs/http/http-arc.js";
 import { SUPPORTED_METHODS } from "../arcs/http/routing/types/methods.js";
 import { WS_REGISTRATIONS } from "../arcs/ws/ws-arc.js";
 import { wireNameOf } from "../errors/wire.js";
-import { HttpRouteNode } from "./http-route-node.js";
-import { WebSocketRouteNode } from "./web-socket-route-node.js";
 
 type ServiceEntry = {
   readonly id: string;
@@ -36,6 +42,8 @@ export type GraphModel = {
   readonly routeById: ReadonlyMap<string, RouteNode>;
   /** Each route's path split into segments, for path filters. */
   readonly routeSegments: ReadonlyMap<RouteNode, readonly string[]>;
+  /** The middleware classes each HTTP route runs, by route id; a WebSocket route has no entry. */
+  readonly middlewareById: ReadonlyMap<string, ReadonlySet<MiddlewareClass>>;
   readonly services: readonly ServiceNode[];
   readonly serviceByToken: ReadonlyMap<ServiceToken<FlareService>, ServiceNode>;
 };
@@ -74,6 +82,7 @@ export function buildGraph(source: GraphSource): GraphModel {
   const routes: RouteNode[] = [];
   const routeById = new Map<string, RouteNode>();
   const routeSegments = new Map<RouteNode, readonly string[]>();
+  const middlewareById = new Map<string, ReadonlySet<MiddlewareClass>>();
   const usedBy = new Map<ServiceToken<FlareService>, string[]>();
   // Breadth-first, so a route's direct deps are listed before the ones they pull in.
   const servicesOf = (direct: readonly ServiceToken<FlareService>[]): ServiceToken<FlareService>[] => {
@@ -148,24 +157,24 @@ export function buildGraph(source: GraphSource): GraphModel {
         } else if (body !== undefined) {
           input.body = frozenCopy(toJsonSchema(body));
         }
-        addRoute(
-          new HttpRouteNode({
-            id,
-            method,
-            path,
-            group,
-            durableObject,
-            handler: handlerName,
-            pipeline: Object.freeze(steps.map((step) => step ?? handlerStep)),
-            input: Object.freeze(input),
-            state,
-            services,
-            errors: Object.freeze(
-              (descriptor?.errors ?? []).map((cls) => Object.freeze({ name: wireNameOf(cls), status: cls.status })),
-            ),
-          }, middleware),
-          tokens,
-        );
+        const route: HttpRouteNode = Object.freeze({
+          kind: "http",
+          id,
+          method,
+          path,
+          group,
+          durableObject,
+          handler: handlerName,
+          pipeline: Object.freeze(steps.map((step) => step ?? handlerStep)),
+          input: Object.freeze(input),
+          state,
+          services,
+          errors: Object.freeze(
+            (descriptor?.errors ?? []).map((cls) => Object.freeze({ name: wireNameOf(cls), status: cls.status })),
+          ),
+        });
+        middlewareById.set(id, middleware);
+        addRoute(route, tokens);
       });
     }
 
@@ -181,21 +190,20 @@ export function buildGraph(source: GraphSource): GraphModel {
       if (descriptor?.params) input.params = frozenCopy(toJsonSchema(schema(descriptor.params)));
       if (descriptor?.query) input.query = frozenCopy(toJsonSchema(schema(descriptor.query)));
       if (descriptor?.incoming) input.incoming = frozenCopy(toJsonSchema(descriptor.incoming));
-      addRoute(
-        new WebSocketRouteNode({
-          id,
-          path: registration.pattern,
-          durableObject,
-          handler: registration.kind === "controller" ? registration.cls.name : id,
-          input: Object.freeze(input),
-          state: Object.freeze({
-            reads: Object.freeze(registration.state.map((token) => token.name)),
-            writes: Object.freeze((registration.upgrade?.provides ?? []).map((token) => token.name)),
-          }),
-          services: Object.freeze(tokens.map((token) => idOf(token, entries))),
+      const route: WebSocketRouteNode = Object.freeze({
+        kind: "ws",
+        id,
+        path: registration.pattern,
+        durableObject,
+        handler: registration.kind === "controller" ? registration.cls.name : id,
+        input: Object.freeze(input),
+        state: Object.freeze({
+          reads: Object.freeze(registration.state.map((token) => token.name)),
+          writes: Object.freeze((registration.upgrade?.provides ?? []).map((token) => token.name)),
         }),
-        tokens,
-      );
+        services: Object.freeze(tokens.map((token) => idOf(token, entries))),
+      });
+      addRoute(route, tokens);
     }
   };
   addArcs(source.frontDoor, undefined);
@@ -215,7 +223,14 @@ export function buildGraph(source: GraphSource): GraphModel {
     serviceByToken.set(token, node);
   }
 
-  return { routes: Object.freeze(routes), routeById, routeSegments, services: Object.freeze(services), serviceByToken };
+  return {
+    routes: Object.freeze(routes),
+    routeById,
+    routeSegments,
+    middlewareById,
+    services: Object.freeze(services),
+    serviceByToken,
+  };
 }
 
 /** Reads one context's compiled arcs as the graph takes them; a Durable Object with no HTTP routes has none. */

@@ -5,8 +5,7 @@
 import { assert, describe, expect, it } from "vitest";
 import { bool, int, optional, schema, str } from "@flare-ts/lib/schema";
 import type { GraphModel } from "../../../../src/lib/graph/build.js";
-import type { HttpRouteNode } from "../../../../src/lib/graph/http-route-node.js";
-import type { ArcSource, GraphSource } from "../../../../src/lib/graph/types.js";
+import type { ArcSource, GraphSource, HttpRouteNode } from "../../../../src/lib/graph/types.js";
 import type { ServiceRegistration } from "../../../../src/lib/services/types/registration.js";
 import { ControllerBase } from "../../../../src/lib/arcs/http/composition/classes/controller-base.js";
 import { ErrorHandlerBase } from "../../../../src/lib/arcs/http/composition/classes/error-handler-base.js";
@@ -159,6 +158,20 @@ describe("buildGraph routes", () => {
     expect(graph.routeSegments.get(graph.routes[0]!)).toEqual(["items"]);
   });
 
+  it("builds each route as a frozen plain object that JSON round-trips unchanged", () => {
+    const host = testHost();
+    host.http.get("/items/:id", { route: { id: int } }, () => null);
+    host.ws.route("/chat").message(() => {});
+    const graph = buildGraph(source({ frontDoor: arcsOf(host) }));
+
+    expect(graph.routes.map((route) => route.kind)).toEqual(["http", "ws"]);
+    for (const route of graph.routes) {
+      expect(Object.getPrototypeOf(route)).toBe(Object.prototype);
+      expect(Object.isFrozen(route)).toBe(true);
+      expect(JSON.parse(JSON.stringify(route))).toEqual(route);
+    }
+  });
+
   it("counts the services a route's error handlers inject among the services it resolves", () => {
     class SignupErrors extends ErrorHandlerBase {
       static override deps = [Signups];
@@ -265,6 +278,31 @@ describe("buildGraph routes", () => {
       { kind: "handler", name: "GET /internal/jobs" },
       { kind: "finally", name: "Cleanup", from: "group" },
     ]);
+  });
+
+  it("records the middleware classes each HTTP route runs, by route id", () => {
+    class Audit extends MiddlewareBase {
+      static override deps = [];
+      static override state = [];
+      override after(): void {}
+    }
+    class Cleanup extends MiddlewareBase {
+      static override deps = [];
+      static override state = [];
+      override finally(): void {}
+    }
+    const graph = compiledGraph((http) => {
+      http.use(Audit);
+      http.group("/internal", (group) => {
+        group.isolated();
+        group.use(Cleanup);
+        group.get("/jobs", () => null);
+      });
+      http.get("/items", () => null);
+    });
+
+    expect(graph.middlewareById.get("GET /items")).toEqual(new Set([Audit]));
+    expect(graph.middlewareById.get("GET /internal/jobs")).toEqual(new Set([Cleanup]));
   });
 });
 

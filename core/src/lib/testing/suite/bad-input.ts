@@ -1,6 +1,6 @@
 /** The bad input the prebuilt suite sends each route: requests its contract should refuse, or a bare one. */
 import type { JsonSchema } from "@flare-ts/lib/schema";
-import type { HttpRouteNode } from "../../graph/http-route-node.js";
+import type { HttpRouteNode } from "../../graph/types.js";
 import type { TestRequestInit } from "../types/flare-test-req.js";
 
 /** One bad-input request the suite sends a route, and what is wrong with it. */

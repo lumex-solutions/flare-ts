@@ -152,20 +152,20 @@ describe("Primary Behavior", () => {
     expect(ids("/api/*")).toEqual(["GET /api/users"]);
   });
 
-  it("filters routes by middleware class, and route.runs() matches by class", () => {
+  it("filters routes by middleware class, and graph.runs() matches by class", () => {
     expect(app.graph.routes({ through: AuthMiddleware }).map((route) => route.id).sort()).toEqual([
       "GET /api/users",
       "GET /api/users/:id",
     ]);
-    expect(app.graph.route("GET", "/health/live")!.runs(RequestIdMiddleware)).toBe(false);
-    expect(app.graph.route("GET", "/")!.runs(RequestIdMiddleware)).toBe(true);
+    expect(app.graph.runs(app.graph.route("GET", "/health/live")!, RequestIdMiddleware)).toBe(false);
+    expect(app.graph.runs(app.graph.route("GET", "/")!, RequestIdMiddleware)).toBe(true);
 
     class Impostor extends MiddlewareBase {
       static override deps = [];
       static override state = [];
     }
     Object.defineProperty(Impostor, "name", { value: "RequestIdMiddleware" });
-    expect(app.graph.route("GET", "/")!.runs(Impostor)).toBe(false);
+    expect(app.graph.runs(app.graph.route("GET", "/")!, Impostor)).toBe(false);
     expect(app.graph.routes({ through: Impostor })).toEqual([]);
   });
 
@@ -196,7 +196,8 @@ describe("Primary Behavior", () => {
 
 describe("Edge Cases", () => {
   it("lists exactly the routes a middleware does not run on, which an allowlist can pin", () => {
-    const open = app.graph.routes().filter((route) => !route.runs(AuthMiddleware));
+    const guarded = new Set(app.graph.routes({ through: AuthMiddleware }));
+    const open = app.graph.routes().filter((route) => !guarded.has(route));
 
     expect(open.map((route) => route.id).sort()).toEqual([
       "GET /",

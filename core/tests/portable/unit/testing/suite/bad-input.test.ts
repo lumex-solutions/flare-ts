@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { int, optional, schema, str } from "@flare-ts/lib/schema";
-import type { HttpRouteNode } from "../../../../../src/lib/graph/http-route-node.js";
+import type { HttpRouteNode } from "../../../../../src/lib/graph/types.js";
 import { stream } from "../../../../../src/lib/arcs/http/composition/contract/http-contract.js";
 import { badInputFor } from "../../../../../src/lib/testing/suite/bad-input.js";
 import { testHost } from "../../../helpers/test-host.js";

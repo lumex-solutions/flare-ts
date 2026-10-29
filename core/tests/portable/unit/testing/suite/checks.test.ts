@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { int, schema, str } from "@flare-ts/lib/schema";
-import type { HttpRouteNode } from "../../../../../src/lib/graph/http-route-node.js";
+import type { HttpRouteNode } from "../../../../../src/lib/graph/types.js";
 import type { ObservedError } from "../../../../../src/lib/testing/suite/checks.js";
 import { MiddlewareBase } from "../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
 import { HEALTH_PATHS, OBSERVE_ERRORS } from "../../../../../src/lib/arcs/http/http-arc.js";

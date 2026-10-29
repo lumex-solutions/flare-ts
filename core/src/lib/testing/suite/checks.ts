@@ -5,7 +5,7 @@
 import type { JsonValue } from "@flare-ts/lib/schema";
 import type { FlareErrorClass } from "../../errors/types.js";
 import type { AppGraph } from "../../graph/app-graph.js";
-import type { HttpRouteNode } from "../../graph/http-route-node.js";
+import type { HttpRouteNode } from "../../graph/types.js";
 import type { ValidationError } from "../../validation/types.js";
 import type { TestAppHandle } from "../test-app-handle.js";
 import type { RoutePolicy } from "./types.js";
@@ -54,7 +54,7 @@ export function policyFindings(graph: AppGraph, policy: RoutePolicy): string[] {
   if (matched.length === 0) return [`No route matches ${policy.path}.`];
   const runsAnywhere = graph.routes({ through: policy.runs }).length > 0;
   return matched
-    .filter((route) => !route.runs(policy.runs))
+    .filter((route) => route.kind === "ws" || !graph.runs(route, policy.runs))
     .map((route) => {
       if (route.kind === "ws") return `${route.id} is a WebSocket route, which runs no HTTP middleware.`;
       if (!runsAnywhere) return `${route.id} skips it: ${policy.runs.name} runs on no route.`;

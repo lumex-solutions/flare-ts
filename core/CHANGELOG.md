@@ -65,9 +65,9 @@
   - An HTTP route reports its id (`GET /api/users/:id`), handler, group, pipeline in run order (each middleware with when it runs and whether it was registered globally or on the group), the JSON Schemas of the route params, query, and body its contract declares, the state it reads and writes, and every service it resolves, directly or through other services.
   - A WebSocket route (`WS /chat/:room`) reports its handler, the JSON Schemas of its params, query, and inbound messages, the state it reads and its upgrade hook writes, and the services its handlers and upgrade hook resolve.
   - On Cloudflare, a Durable Object's routes lead with its class (`Room GET /history`) and name it in `route.durableObject`; `Bindings` appears as a service, and `DurableState` and `WebSocketChannels` too when the app has a Durable Object.
-  - `graph.routes({ path: "/admin/**", through: AuthMiddleware })` filters by a glob over the registered path and by middleware class; `route.runs(AuthMiddleware)` checks one route (always `false` on a WebSocket route, which HTTP middleware never runs on); `graph.route("GET", "/users/:id")` and `graph.route("WS", "/chat")` look one up on the front door.
+  - `graph.routes({ path: "/admin/**", through: AuthMiddleware })` filters by a glob over the registered path and by middleware class; `graph.runs(route, AuthMiddleware)` checks one HTTP route, matching by class (it takes no WebSocket route, since HTTP middleware never runs on one; a WebSocket route's `state.writes` names what its upgrade hook provides); `graph.route("GET", "/users/:id")` and `graph.route("WS", "/chat")` look one up on the front door.
   - `graph.services()` and `graph.service(token)` report each service's lifetime, deps, config sections, and the routes that resolve it.
-  - Nodes are frozen and convert to JSON as plain data. The graph is read from the build on its first query and never touches the request path.
+  - Nodes are frozen plain objects of JSON data. The graph is read from the build on its first query and never touches the request path.
 
 - `Injected<T>` is exported from the root. Route handlers and `this.inject()` receive a service as `Injected<T>`, the service without its lifecycle hooks, which a parameter typed with the service class rejects. A parameter typed `Injected<PaymentsClient>` accepts the injected value and the service itself.
 

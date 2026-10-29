@@ -1,10 +1,12 @@
 /**
- * Unit tests for AppGraph: building on first query and reusing the result until reset, and the path
- * patterns and lookups its queries accept across HTTP and WebSocket routes.
+ * Unit tests for AppGraph: building on first query and reusing the result until reset, the path
+ * patterns and lookups its queries accept across HTTP and WebSocket routes, and middleware matching
+ * by class.
  */
 import { describe, expect, it } from "vitest";
 import type { GraphSource } from "../../../../src/lib/graph/types.js";
 import { ControllerBase } from "../../../../src/lib/arcs/http/composition/classes/controller-base.js";
+import { MiddlewareBase } from "../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
 import { COMPILE_HTTP_ARC } from "../../../../src/lib/arcs/http/http-arc.js";
 import { Get } from "../../../../src/lib/arcs/http/routing/decorators.js";
 import { AppGraph, RESET_GRAPH } from "../../../../src/lib/graph/app-graph.js";
@@ -42,8 +44,15 @@ class Mailer extends FlareService {
   static override deps = [];
 }
 
+class AuthMiddleware extends MiddlewareBase {
+  static override deps = [];
+  static override state = [];
+  override before(): void {}
+}
+
 function source(): GraphSource {
   const host = testHost();
+  host.http.use(AuthMiddleware);
   host.http.controller("/admin", AdminController);
   host.http.controller("/public", PublicController);
   host.ws.route("/admin/live").message(() => {});
@@ -95,6 +104,40 @@ describe("routes() path filter", () => {
       "/admin",
       "/public",
     ]);
+  });
+});
+
+describe("routes() middleware filter", () => {
+  it("matches the HTTP routes a middleware runs on, never a WebSocket route", () => {
+    expect(graphOf(source).routes({ through: AuthMiddleware }).map((route) => route.id).sort()).toEqual([
+      "GET /admin",
+      "GET /admin/users/:id",
+      "GET /public",
+    ]);
+  });
+});
+
+describe("runs()", () => {
+  it("matches middleware by class, so a different class with the same name does not match", () => {
+    class Impostor extends MiddlewareBase {
+      static override deps = [];
+      static override state = [];
+    }
+    Object.defineProperty(Impostor, "name", { value: "AuthMiddleware" });
+    const graph = graphOf(source);
+    const route = graph.route("GET", "/admin")!;
+
+    expect(graph.runs(route, AuthMiddleware)).toBe(true);
+    expect(graph.runs(route, Impostor)).toBe(false);
+  });
+
+  it("throws for a route this graph does not have", () => {
+    const graph = graphOf(source);
+    const elsewhere = { ...graph.route("GET", "/admin")!, id: "GET /elsewhere" };
+
+    expect(() => graph.runs(elsewhere, AuthMiddleware)).toThrow(
+      `"GET /elsewhere" is not an HTTP route of this app. Pass a route this graph returned.`,
+    );
   });
 });
 

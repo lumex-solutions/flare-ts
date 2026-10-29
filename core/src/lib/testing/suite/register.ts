@@ -1,7 +1,7 @@
 /** The prebuilt test suite: one call registers Flare's own checks of an app as ordinary vitest tests. */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { HttpArc } from "../../arcs/http/http-arc.js";
-import type { HttpRouteNode } from "../../graph/http-route-node.js";
+import type { HttpRouteNode } from "../../graph/types.js";
 import type { IFlareTestHost } from "../../host/flare-host.js";
 import type { FlareApp } from "../../host/types/app.js";
 import type { HostRuntimeLifecycle } from "../../host/types/lifecycle.js";

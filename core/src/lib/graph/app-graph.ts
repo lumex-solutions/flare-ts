@@ -4,9 +4,7 @@ import type { HttpMethod } from "../arcs/http/routing/types/methods.js";
 import type { Container } from "../services/container.js";
 import type { ServiceToken } from "../services/types/token.js";
 import type { GraphModel } from "./build.js";
-import type { HttpRouteNode } from "./http-route-node.js";
-import type { GraphSource, RouteNode, ServiceNode } from "./types.js";
-import type { WebSocketRouteNode } from "./web-socket-route-node.js";
+import type { GraphSource, HttpRouteNode, RouteNode, ServiceNode, WebSocketRouteNode } from "./types.js";
 import { FlareService } from "../services/composition/flare-service.js";
 import { buildGraph, segmentsOf } from "./build.js";
 
@@ -57,7 +55,7 @@ export class AppGraph extends FlareService {
     const glob = path === undefined ? undefined : segmentsOf(path);
     return model.routes.filter((route) =>
       (glob === undefined || matchSegments(glob, 0, model.routeSegments.get(route)!, 0))
-      && (through === undefined || route.runs(through))
+      && (through === undefined || model.middlewareById.get(route.id)?.has(through) === true)
     );
   }
 
@@ -67,6 +65,21 @@ export class AppGraph extends FlareService {
   route(protocol: "WS", path: string): WebSocketRouteNode | undefined;
   route(method: HttpMethod | "WS", path: string): RouteNode | undefined {
     return this.#built().routeById.get(`${method} ${path}`);
+  }
+
+  /**
+   * Returns whether `middleware` runs on `route`, matched by class, so another class with the same name
+   * does not count.
+   *
+   * Takes HTTP routes only: HTTP middleware never runs on a WebSocket route, whose guard is its `upgrade`
+   * hook (its `state.writes` names what that hook provides).
+   */
+  runs(route: HttpRouteNode, middleware: MiddlewareClass): boolean {
+    const middlewares = this.#built().middlewareById.get(route.id);
+    if (middlewares === undefined) {
+      throw new Error(`"${route.id}" is not an HTTP route of this app. Pass a route this graph returned.`);
+    }
+    return middlewares.has(middleware);
   }
 
   /** Returns every service. */

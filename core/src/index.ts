@@ -19,9 +19,7 @@ export type { HostState } from "./lib/host/types/state.js";
 // App graph
 export { AppGraph } from "./lib/graph/app-graph.js";
 export type { RouteFilter } from "./lib/graph/app-graph.js";
-export type { HttpRouteNode } from "./lib/graph/http-route-node.js";
-export type { PipelineStep, RouteNode, ServiceNode } from "./lib/graph/types.js";
-export type { WebSocketRouteNode } from "./lib/graph/web-socket-route-node.js";
+export type { HttpRouteNode, PipelineStep, RouteNode, ServiceNode, WebSocketRouteNode } from "./lib/graph/types.js";
 
 // Services / DI
 export { FlareBase } from "./lib/services/composition/flare-base.js";
