@@ -11,13 +11,19 @@ import type { PipelineStep } from "./types.js";
  */
 export class HttpRouteNode {
   readonly kind: "http";
-  /** `METHOD path`, e.g. `GET /api/users/:id`. */
+  /**
+   * `METHOD path`, e.g. `GET /api/users/:id`.
+   *
+   * A Durable Object's route leads with its class, e.g. `Room GET /history`.
+   */
   readonly id: string;
   readonly method: HttpMethod;
   /** The full path pattern as registered, group prefix included. */
   readonly path: string;
   /** Prefix of the group the route was registered in. */
   readonly group: string | undefined;
+  /** The Durable Object class whose arc serves the route; undefined for the front door. */
+  readonly durableObject: string | undefined;
   /** `Controller.method` for a class route; the route id for an inline route. */
   readonly handler: string;
   readonly pipeline: readonly PipelineStep[];
@@ -39,6 +45,7 @@ export class HttpRouteNode {
     this.method = fields.method;
     this.path = fields.path;
     this.group = fields.group;
+    this.durableObject = fields.durableObject;
     this.handler = fields.handler;
     this.pipeline = fields.pipeline;
     this.input = fields.input;

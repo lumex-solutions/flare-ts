@@ -46,13 +46,26 @@ export type ServiceNode = {
   readonly usedBy: readonly string[];
 };
 
-/** @internal Host-side input the graph is built from: the front door's arcs and the services. */
-export type GraphSource = {
+/** @internal The routes of one set of arcs: the front door's, or one Durable Object's. */
+export type ArcSource = {
   readonly pipelines: readonly Pipeline[];
-  /** The front door's global middleware, which pipeline exec slots index into. */
+  /** The arc's global middleware, which pipeline exec slots index into. */
   readonly middleware: readonly MiddlewareRegistration[];
   readonly groups: readonly GroupRegistration[];
   readonly webSockets: readonly WsRegistration[];
+};
+
+/** @internal What a runtime adapter adds to the graph beyond the host's own registrations. */
+export type AdapterGraphSource = {
+  /** Each Durable Object's arcs, named by its class. */
+  readonly durableObjects: readonly (ArcSource & { readonly name: string; })[];
+  /** Services the runtime seeds into each request or Durable Object instead of registering (Bindings). */
+  readonly seeded: readonly ServiceToken<FlareService>[];
+};
+
+/** @internal Host-side input the graph is built from: the arcs, and the services. */
+export type GraphSource = AdapterGraphSource & {
+  readonly frontDoor: ArcSource;
   readonly scoped: readonly ServiceRegistration<FlareService>[];
   readonly singletons: readonly ServiceRegistration<FlareService>[];
   /** Services the host creates itself rather than from a registration (the Logger, the graph). */

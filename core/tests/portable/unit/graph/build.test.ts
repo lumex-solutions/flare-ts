@@ -1,12 +1,12 @@
 /**
  * Unit tests for buildGraph: service nodes from registrations and prebuilt services, route nodes from
- * compiled pipelines and WebSocket registrations, and segmentsOf.
+ * the front door's and each Durable Object's arcs, and segmentsOf.
  */
 import { assert, describe, expect, it } from "vitest";
 import { bool, int, optional, schema, str } from "@flare-ts/lib/schema";
 import type { GraphModel } from "../../../../src/lib/graph/build.js";
 import type { HttpRouteNode } from "../../../../src/lib/graph/http-route-node.js";
-import type { GraphSource } from "../../../../src/lib/graph/types.js";
+import type { ArcSource, GraphSource } from "../../../../src/lib/graph/types.js";
 import type { ServiceRegistration } from "../../../../src/lib/services/types/registration.js";
 import { compileHttp } from "../../../../src/lib/arcs/http/build.js";
 import { ControllerBase } from "../../../../src/lib/arcs/http/composition/classes/controller-base.js";
@@ -41,15 +41,20 @@ function registration(cls: typeof Mailer | typeof Signups): ServiceRegistration<
 
 function source(overrides: Partial<GraphSource> = {}): GraphSource {
   return {
-    pipelines: [],
-    middleware: [],
-    groups: [],
-    webSockets: [],
+    frontDoor: { pipelines: [], middleware: [], groups: [], webSockets: [] },
+    durableObjects: [],
+    seeded: [],
     scoped: [],
     singletons: [],
     prebuilt: [],
     ...overrides,
   };
+}
+
+// A real host's arcs, compiled, read the way the host hands them to the graph.
+function arcsOf(host: ReturnType<typeof testHost>): ArcSource {
+  host.http[COMPILE_HTTP_ARC]();
+  return { ...host.http[HTTP_PIPELINES](), groups: host.http.groups, webSockets: host.ws[WS_REGISTRATIONS]() };
 }
 
 function httpRoute(graph: GraphModel, id: string): HttpRouteNode {
@@ -120,19 +125,17 @@ describe("buildGraph routes", () => {
 
   function itemsGraph() {
     const { pipelines } = compileHttp([controllerRegistration("/items", ItemsController)], []);
-    return buildGraph(source({ pipelines, scoped: [registration(Signups), registration(Mailer)] }));
+    return buildGraph(source({
+      frontDoor: { pipelines, middleware: [], groups: [], webSockets: [] },
+      scoped: [registration(Signups), registration(Mailer)],
+    }));
   }
 
   // Registers through a real host's HTTP arc and compiles it, so the pipelines are what build produces.
   function compiledGraph(register: (http: ReturnType<typeof testHost>["http"]) => void) {
     const host = testHost();
     register(host.http);
-    host.http[COMPILE_HTTP_ARC]();
-    return buildGraph(source({
-      ...host.http[HTTP_PIPELINES](),
-      groups: host.http.groups,
-      scoped: [registration(Signups), registration(Mailer)],
-    }));
+    return buildGraph(source({ frontDoor: arcsOf(host), scoped: [registration(Signups), registration(Mailer)] }));
   }
 
   it("builds one node per method at a path, each with its own handler step", () => {
@@ -248,7 +251,7 @@ describe("buildGraph WebSocket routes", () => {
     const host = testHost();
     register(host.ws);
     return buildGraph(source({
-      webSockets: host.ws[WS_REGISTRATIONS](),
+      frontDoor: { pipelines: [], middleware: [], groups: [], webSockets: host.ws[WS_REGISTRATIONS]() },
       scoped: [registration(Signups), registration(Mailer)],
     }));
   }
@@ -294,10 +297,39 @@ describe("buildGraph WebSocket routes", () => {
     const host = testHost();
     host.ws.route("/chat").message(() => {});
     host.http.get("/health", () => null);
-    host.http[COMPILE_HTTP_ARC]();
-    const graph = buildGraph(source({ ...host.http[HTTP_PIPELINES](), webSockets: host.ws[WS_REGISTRATIONS]() }));
+    const graph = buildGraph(source({ frontDoor: arcsOf(host) }));
 
     expect(graph.routes.map((route) => route.id)).toEqual(["GET /health", "WS /chat"]);
+  });
+});
+
+describe("buildGraph Durable Object arcs", () => {
+  it("lists each Durable Object's routes after the front door's, ids led by the class it belongs to", () => {
+    const front = testHost();
+    front.http.get("/health", () => null);
+    // A Durable Object's arcs are the same HttpArc and WebSocketArc a host has.
+    const room = testHost();
+    room.http.get("/history", () => null);
+    room.ws.route("/live").message(() => {});
+    const graph = buildGraph(source({
+      frontDoor: arcsOf(front),
+      durableObjects: [{ name: "Room", ...arcsOf(room) }],
+    }));
+
+    expect(graph.routes.map((route) => [route.id, route.durableObject])).toEqual([
+      ["GET /health", undefined],
+      ["Room GET /history", "Room"],
+      ["Room WS /live", "Room"],
+    ]);
+    expect(graph.routes.map((route) => route.handler)).toEqual(["GET /health", "Room GET /history", "Room WS /live"]);
+  });
+
+  it("reports the services the runtime seeds as scoped nodes, with deps from their class statics", () => {
+    const graph = buildGraph(source({ seeded: [Signups] }));
+
+    expect(graph.services).toEqual([
+      { id: "Signups", lifetime: "scoped", deps: ["Mailer"], config: [], usedBy: [] },
+    ]);
   });
 });
 

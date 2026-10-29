@@ -15,6 +15,7 @@ function node(): WebSocketRouteNode {
   return new WebSocketRouteNode({
     id: "WS /chat",
     path: "/chat",
+    durableObject: undefined,
     handler: "WS /chat",
     input: {},
     state: { reads: [], writes: ["Session"] },

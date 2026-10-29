@@ -11,6 +11,7 @@ import type { FlareDurableObjectClass, SeedMap } from "./do/durable-object.js";
 import type { CloudflareHostExtension, DurableHandle } from "./registration.js";
 import type { MountRecord, PendingMountRecord } from "./router.js";
 import type { CfValidationGraph } from "./validate-graph.js";
+import { HTTP_PIPELINES } from "../../../arcs/http/http-arc.js";
 import { WebSocketChannels } from "../../../arcs/ws/channels/web-socket-channels.js";
 import { WS_REGISTRATIONS } from "../../../arcs/ws/ws-arc.js";
 import { CfConsoleTransport } from "../../../logger/runtime/cloudflare/cf-console-transport.js";
@@ -19,6 +20,7 @@ import { FlareValidationError } from "../../../validation/flare-validation-error
 import { FlareAppBase } from "../../flare-app-base.js";
 import { COMPILE_INSTANCE_CONTAINER, REGISTER_BUILD_HOOK, SET_HOST_STATE } from "../../types/const.js";
 import { Bindings } from "./bindings.js";
+import { DurableState } from "./do/durable-state.js";
 import { buildCfTestRequest, WORKER_CHANNELS_UNSUPPORTED } from "./handlers/cf-handler-base.js";
 import { WorkerHandler } from "./handlers/worker-handler.js";
 import { durableRegistration, registerDurableObject } from "./registration.js";
@@ -204,6 +206,23 @@ export const cf: CloudflareAdapter = {
         compileDurableWsArcs(allDurables);
         return results;
       });
+    });
+
+    // The app graph reads each Durable Object's arcs once built (a zero-route DO's nulled HTTP arc reads
+    // as empty), and the services Cloudflare seeds per request or instance instead of registering.
+    host[REGISTER_BUILD_HOOK]((buildCtx) => {
+      buildCtx.extendGraph(() => ({
+        durableObjects: durableObjects.map((cls) => {
+          const registration = durableRegistration(cls)!;
+          return {
+            name: cls.name,
+            ...(registration.arc?.[HTTP_PIPELINES]() ?? { pipelines: [], middleware: [] }),
+            groups: registration.arc?.groups ?? [],
+            webSockets: registration.wsArc?.[WS_REGISTRATIONS]() ?? [],
+          };
+        }),
+        seeded: [Bindings, DurableState, WebSocketChannels],
+      }));
     });
 
     return {

@@ -10,10 +10,16 @@ import type { MiddlewareClass } from "../arcs/http/composition/classes/middlewar
  */
 export class WebSocketRouteNode {
   readonly kind: "ws";
-  /** `WS path`, e.g. `WS /chat/:room`. */
+  /**
+   * `WS path`, e.g. `WS /chat/:room`.
+   *
+   * A Durable Object's route leads with its class, e.g. `Room WS /live`.
+   */
   readonly id: string;
   /** The path pattern as registered. */
   readonly path: string;
+  /** The Durable Object class whose arc serves the route; undefined for the front door. */
+  readonly durableObject: string | undefined;
   /** The controller class name for a class route; the route id for a function route. */
   readonly handler: string;
   /**
@@ -31,6 +37,7 @@ export class WebSocketRouteNode {
     this.kind = "ws";
     this.id = fields.id;
     this.path = fields.path;
+    this.durableObject = fields.durableObject;
     this.handler = fields.handler;
     this.input = fields.input;
     this.state = fields.state;

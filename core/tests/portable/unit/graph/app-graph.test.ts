@@ -51,10 +51,9 @@ function source(): GraphSource {
   const ws = testHost().ws;
   ws.route("/admin/live").message(() => {});
   return {
-    pipelines,
-    middleware: [],
-    groups: [],
-    webSockets: ws[WS_REGISTRATIONS](),
+    frontDoor: { pipelines, middleware: [], groups: [], webSockets: ws[WS_REGISTRATIONS]() },
+    durableObjects: [],
+    seeded: [],
     scoped: [{ token: Mailer, cls: Mailer, factory: () => new Mailer(mockContainer(new Map())) }],
     singletons: [],
     prebuilt: [],

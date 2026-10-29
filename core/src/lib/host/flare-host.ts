@@ -5,7 +5,7 @@
 import type { JsonObject } from "@flare-ts/lib";
 import { type DescriptorValue, schema } from "@flare-ts/lib";
 import type { OpaqueConfigToken } from "../config/flare-config.js";
-import type { GraphSource } from "../graph/types.js";
+import type { AdapterGraphSource, GraphSource } from "../graph/types.js";
 import type { LogContext } from "../logger/types.js";
 import type { LoggerTransportClass } from "../logger/types.js";
 import type { FlareService } from "../services/composition/flare-service.js";
@@ -118,6 +118,12 @@ export interface FlareBuildContext {
    */
   ownValidation(validate: () => ValidationError[]): void;
   /**
+   * Adds what the adapter hosts beyond the host's own registrations to the app graph: Cloudflare's
+   * per-Durable-Object arcs and the services it seeds per request or instance. The graph calls `source`
+   * on its first query, after the build has compiled every arc.
+   */
+  extendGraph(source: () => AdapterGraphSource): void;
+  /**
    * When a hook sets this, the host skips module-level singleton instantiation. An adapter whose
    * exported instances each need their own singleton graph sets it and compiles the singletons
    * itself (e.g. per exported instance) instead of once at module load.
@@ -229,6 +235,8 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
   #buildHooks: Array<(ctx: FlareBuildContext) => void> = [];
   /** Set when a build hook calls `ctx.ownValidation`; the host runs it instead of its generic suite. */
   #adapterValidator: (() => ValidationError[]) | undefined;
+  /** Set when a build hook calls `ctx.extendGraph`; the graph reads it alongside the host's own arcs. */
+  #adapterGraph: (() => AdapterGraphSource) | undefined;
   #singletonsCompiled = false;
   /** Cookie signer derived from `cookies.secret`; `null` until first computed, `undefined` when unset. */
   #cookieSigner: CookieSigner | null | undefined = null;
@@ -685,6 +693,9 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
       ownValidation: (validate) => {
         this.#adapterValidator = validate;
       },
+      extendGraph: (source) => {
+        this.#adapterGraph = source;
+      },
       deferSingletonCompile: false,
       registeredServiceTokens: new Set<ServiceToken<FlareService>>([
         ...this.#scopedRegistrations.map((r) => r.token),
@@ -946,10 +957,11 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
 
   #graphSource(): GraphSource {
     const registered = new Set(this.#singletonRegistrations.map((r) => r.token));
+    const adapter = this.#adapterGraph?.();
     return {
-      ...this.http[HTTP_PIPELINES](),
-      groups: this.http.groups,
-      webSockets: this.ws[WS_REGISTRATIONS](),
+      frontDoor: { ...this.http[HTTP_PIPELINES](), groups: this.http.groups, webSockets: this.ws[WS_REGISTRATIONS]() },
+      durableObjects: adapter?.durableObjects ?? [],
+      seeded: adapter?.seeded ?? [],
       scoped: this.#scopedRegistrations,
       singletons: this.#singletonRegistrations,
       prebuilt: [...this.#singletons.keys()].filter((token) => !registered.has(token)),

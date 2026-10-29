@@ -23,6 +23,7 @@ function node(): HttpRouteNode {
     method: "GET",
     path: "/me",
     group: undefined,
+    durableObject: undefined,
     handler: "GET /me",
     pipeline: [{ kind: "before", name: "Auth", from: "global" }, { kind: "handler", name: "GET /me" }],
     input: {},
