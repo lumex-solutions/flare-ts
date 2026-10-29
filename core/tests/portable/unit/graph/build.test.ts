@@ -98,7 +98,7 @@ describe("buildGraph routes", () => {
       ["GET /items", "ItemsController.list"],
       ["POST /items", "ItemsController.create"],
     ]);
-    expect(graph.routes[1]!.pipeline).toEqual([{ stage: "handler", name: "ItemsController.create" }]);
+    expect(graph.routes[1]!.pipeline).toEqual([{ kind: "handler", name: "ItemsController.create" }]);
     expect(graph.routes[0]!.services).toEqual(["Signups", "Mailer"]);
     expect(graph.serviceByToken.get(Mailer)!.usedBy).toEqual(["GET /items", "POST /items"]);
   });

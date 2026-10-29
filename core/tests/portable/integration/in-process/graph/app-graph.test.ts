@@ -117,10 +117,10 @@ describe("Primary Behavior", () => {
     expect(route.handler).toBe("UsersController.get");
     expect(route.group).toBe("/api");
     expect(route.pipeline).toEqual([
-      { stage: "before", name: "RequestIdMiddleware", scope: "global" },
-      { stage: "before", name: "AuthMiddleware", scope: "group" },
-      { stage: "handler", name: "UsersController.get" },
-      { stage: "after", name: "AuditLogMiddleware", scope: "global" },
+      { kind: "before", name: "RequestIdMiddleware", scope: "global" },
+      { kind: "before", name: "AuthMiddleware", scope: "group" },
+      { kind: "handler", name: "UsersController.get" },
+      { kind: "after", name: "AuditLogMiddleware", scope: "global" },
     ]);
   });
 

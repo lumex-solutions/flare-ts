@@ -7,22 +7,22 @@ import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceRegistration } from "../services/types/registration.js";
 import type { ServiceToken } from "../services/types/token.js";
 
-/** One step of a route's pipeline. */
-export type RouteStage = {
-  /**
-   * Where the step runs relative to the handler.
-   *
-   * - `"before"` - Middleware that runs before the handler.
-   * - `"handler"` - The route's handler.
-   * - `"after"` - Middleware that runs on the handler's result.
-   * - `"finally"` - Middleware that runs last, whatever happened.
-   */
-  readonly stage: "before" | "handler" | "after" | "finally";
-  /** The middleware class name, or for the handler stage the route's handler. */
-  readonly name: string;
-  /** Where the middleware was registered; absent on the handler stage. */
-  readonly scope?: "global" | "group";
-};
+/** One step of a route's pipeline: the route's handler, or a middleware and where it was registered. */
+export type RouteStage =
+  | { readonly kind: "handler"; readonly name: string; }
+  | {
+    /**
+     * When the middleware runs relative to the handler.
+     *
+     * - `"before"` - Before the handler.
+     * - `"after"` - On the handler's result.
+     * - `"finally"` - Last, whatever happened.
+     */
+    readonly kind: "before" | "after" | "finally";
+    /** The middleware class name. */
+    readonly name: string;
+    readonly scope: "global" | "group";
+  };
 
 /** Service of the built app: its lifetime, what it depends on, and the routes that resolve it. */
 export type ServiceNode = {

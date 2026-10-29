@@ -7,7 +7,6 @@ import type { HttpErrorContext } from "../../../logger/types.js";
 import type { InjectMap } from "../../../services/types/inject.js";
 import type { HandlerScope } from "../../../services/types/scope.js";
 import type { HttpMethod } from "../routing/types/methods.js";
-import type { ControllerHandler } from "../routing/types/route.js";
 import type { FlareHttpContext } from "../transport/flare-http-context.js";
 import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../transport/types/response.js";
 import type {
@@ -409,12 +408,27 @@ export abstract class HttpBase {
 
     assertInjectKeys(options.inject ?? {});
     const inject = (options.inject ?? {}) as InjectMap;
-    const route: RouteRegistration = {
-      method,
-      path: "",
-      handler: inlineRouteHandler(method, handler, inject),
-      descriptor: routeDescriptor(options),
+    const fn = handler;
+    const routeHandler = function(this: ControllerBase) {
+      // The receiver declares no static deps or config, so this.inject() and this.config() would refuse;
+      // the scope resolves through the container, and only the tokens this route declared.
+      // The cast restates the pairing the erased storage cannot: this scope's `input` was parsed
+      // from the SAME contract the handler's typed signature was checked against at registration.
+      return fn(
+        this.ctx,
+        attachScopeDeps(
+          {
+            config: <T>(token: ConfigToken<T>): T => this.container.resolveCfg(token),
+            input: this.ctx[REQUEST_INPUT](),
+          },
+          inject,
+          (token) => this.container.resolveDep(token),
+        ) as HttpHandlerScope,
+      );
     };
+    // Validator messages identify a route's handler by its name.
+    Object.defineProperty(routeHandler, "name", { value: method });
+    const route: RouteRegistration = { method, path: "", handler: routeHandler, descriptor: routeDescriptor(options) };
 
     if (existing) {
       existing.routes.push(route);
@@ -598,30 +612,6 @@ function routeDescriptor(options: HttpRouteOptions): RequestDescriptor | undefin
   // Assembled field-by-field from REQUEST_FIELDS; the loop realizes exactly the
   // descriptor shape, which the checker cannot follow through dynamic keys.
   return descriptor as RequestDescriptor | undefined;
-}
-
-/** Builds the handler an inline route's pipeline invokes against the {@link InlineRoute} receiver. */
-function inlineRouteHandler(method: HttpMethod, fn: HttpRouteHandler, inject: InjectMap): ControllerHandler {
-  const handler = function(this: ControllerBase) {
-    // The receiver declares no static deps or config, so this.inject() and this.config() would refuse;
-    // the scope resolves through the container, and only the tokens this route declared.
-    // The cast restates the pairing the erased storage cannot: this scope's `input` was parsed
-    // from the SAME contract the handler's typed signature was checked against at registration.
-    return fn(
-      this.ctx,
-      attachScopeDeps(
-        {
-          config: <T>(token: ConfigToken<T>): T => this.container.resolveCfg(token),
-          input: this.ctx[REQUEST_INPUT](),
-        },
-        inject,
-        (token) => this.container.resolveDep(token),
-      ) as HttpHandlerScope,
-    );
-  };
-  // Validator messages identify a route's handler by its name.
-  Object.defineProperty(handler, "name", { value: method });
-  return handler;
 }
 
 /** Receiver every inline route's handler runs against; the route itself is data on its registration. */

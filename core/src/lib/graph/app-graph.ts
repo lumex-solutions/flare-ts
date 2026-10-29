@@ -43,8 +43,10 @@ export class AppGraph extends FlareService {
     const routes = this.#built().routes;
     if (!filter) return routes;
     const { path, through } = filter;
+    const pattern = path === undefined ? undefined : segmentsOf(path);
     return routes.filter((route) =>
-      (path === undefined || matchesPath(path, route.path)) && (through === undefined || route.runs(through))
+      (pattern === undefined || matchSegments(pattern, 0, segmentsOf(route.path), 0))
+      && (through === undefined || route.runs(through))
     );
   }
 
@@ -71,10 +73,6 @@ export class AppGraph extends FlareService {
   #built(): GraphModel {
     return this.#model ??= buildGraph(this.#source());
   }
-}
-
-function matchesPath(pattern: string, path: string): boolean {
-  return matchSegments(segmentsOf(pattern), 0, segmentsOf(path), 0);
 }
 
 function segmentsOf(path: string): string[] {

@@ -83,13 +83,18 @@ export function resolveStageMiddleware(
   const factoryIdx = pipeline.middlewareFactoryByExecIdx[execIdx]!;
   if (factoryIdx < 0) return undefined;
   const group = pipeline.registration.group;
-  const registration = group?.isolated
-    ? group.middleware[factoryIdx]
-    : factoryIdx >= globalMwRegs.length && group?.combinedMw
-    ? group.combinedMw[factoryIdx - globalMwRegs.length]
-    : globalMwRegs[factoryIdx];
+  let registration: MiddlewareRegistration | undefined;
+  let scope: "global" | "group" = "group";
+  if (group?.isolated) {
+    registration = group.middleware[factoryIdx];
+  } else if (factoryIdx >= globalMwRegs.length && group?.combinedMw) {
+    registration = group.combinedMw[factoryIdx - globalMwRegs.length];
+  } else {
+    registration = globalMwRegs[factoryIdx];
+    scope = "global";
+  }
   if (!registration) return undefined;
-  return { registration, scope: group?.isolated || factoryIdx >= globalMwRegs.length ? "group" : "global" };
+  return { registration, scope };
 }
 
 function compilePipelines(
