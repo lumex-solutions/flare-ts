@@ -1,7 +1,7 @@
 /**
  * Normalizes every handler return shape into a response the runtime adapter can send.
  */
-import type { JsonValue } from "@flare-ts/lib/schema";
+import type { ReadonlyJsonValue } from "@flare-ts/lib/schema";
 import type { Pipeline } from "../types/pipeline.js";
 import type { HandlerResult, ResponseLike, Serializer } from "./types/response.js";
 import { FINALIZE_JSON_BODY, FlareResponse } from "./flare-response.js";
@@ -74,14 +74,14 @@ export function normalizeHandlerResult(value: HandlerResult, pipeline: Pipeline,
 
     // Fast path: plain {} or []: the most common schema-less return type.
     // Skips the brand-symbol lookup and asyncIterator check entirely.
-    // Use the JsonValue constructor branch (not the string branch) so the response
+    // Use the JSON constructor branch (not the string branch) so the response
     // goes through FINALIZE_JSON_BODY, consistent with the this.ok() / this.created()
     // path. Passing a pre-serialized string to the constructor hits the text/plain
     // branch and misattributes Content-Type before the headers spread corrects it.
     if (ctor === Object || ctor === Array) {
-      const r = new FlareResponse(200, value as JsonValue);
+      const r = new FlareResponse(200, value as ReadonlyJsonValue);
       const serialize = (perStatus && perStatus[200]) ?? JSON.stringify;
-      r[FINALIZE_JSON_BODY](serialize(value as JsonValue));
+      r[FINALIZE_JSON_BODY](serialize(value as ReadonlyJsonValue));
       return r;
     }
 
@@ -90,7 +90,7 @@ export function normalizeHandlerResult(value: HandlerResult, pipeline: Pipeline,
       const pipelineSerializer = perStatus && perStatus[200];
       const compiledSerializer = (ctor as unknown as SymbolIndexedCtor)[_COMPILED_SERIALIZER] as Serializer | undefined;
       const serialize = pipelineSerializer ?? compiledSerializer ?? JSON.stringify;
-      return new FlareResponse(200, serialize(value as JsonValue), {
+      return new FlareResponse(200, serialize(value as ReadonlyJsonValue), {
         headers: { "Content-Type": "application/json" },
       });
     }
@@ -113,7 +113,7 @@ export function normalizeHandlerResult(value: HandlerResult, pipeline: Pipeline,
 
     // Any other object (custom class not branded as a model).
     const serialize = (perStatus && perStatus[200]) ?? JSON.stringify;
-    return new FlareResponse(200, serialize(value as JsonValue), {
+    return new FlareResponse(200, serialize(value as ReadonlyJsonValue), {
       headers: { "Content-Type": "application/json" },
     });
   }

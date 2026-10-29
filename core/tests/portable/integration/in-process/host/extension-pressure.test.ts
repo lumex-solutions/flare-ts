@@ -5,7 +5,7 @@
 process.env["FLARE_MODE"] = "test";
 
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import { str } from "@flare-ts/lib/schema";
 import { defineHostExtension, FlareResponse, FlareService, flareConfig, flareState } from "../../../../../src/index.js";
 import { testHost } from "../../../helpers/test-host.js";
@@ -45,7 +45,7 @@ const apiKeyAuthExt = defineHostExtension((host) => {
   return { apiKeyCaller: CallerState };
 });
 
-function cfg(): JsonObject {
+function cfg(): Record<string, JsonValue> {
   return { host: { env: "test" }, log: { level: "fatal", format: "json" }, apiKey: { header: "x-api-key" } };
 }
 

@@ -9,7 +9,7 @@
 process.env["FLARE_MODE"] = "test";
 
 import { describe, expect, expectTypeOf, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import { str } from "@flare-ts/lib/schema";
 import type { SingletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
@@ -32,12 +32,12 @@ class SilentTransport extends LoggerTransport {
 }
 
 function adapter(
-  json: JsonObject = {},
+  json: Record<string, JsonValue> = {},
 ): HostRuntimeAdapter<FlareAppBase, LoggerTransportClass, "async", SingletonExtension> {
   return {
     runtime: "node",
     lifecycle: "async",
-    get flareJsonFile(): JsonObject {
+    get flareJsonFile(): Record<string, JsonValue> {
       return json;
     },
     env: {},

@@ -66,7 +66,7 @@ function invalidSchemaError<T>(path: string, message: string, received: string):
  * Returns `undefined` if the key is absent or its value is not a string or number.
  */
 function tryGetValue(
-  obj: { [key: string]: JsonValue; },
+  obj: { [key: string]: JsonValue | undefined; },
   key: string | number | symbol,
 ): string | number | undefined {
   const value = obj[String(key)];

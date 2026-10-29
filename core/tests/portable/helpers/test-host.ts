@@ -2,7 +2,7 @@
  * Resolves the executing vitest pool's runtime adapter and builds FlareHost
  * instances for portable integration tests. Synthetic flare.json defaults to {}.
  */
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { HostExtension } from "../../../src/lib/host/extensions/extension.js";
 import type { node } from "../../../src/lib/host/runtime/node/node.js";
 import { FlareHost } from "../../../src/index.js";
@@ -29,19 +29,19 @@ export function portableAdapterName(): PortableAdapterName {
 // Resolved once at module load (top-level await) so testHost stays synchronous inside suites.
 // Variable specifiers + @vite-ignore: both helper modules are runtime-typed, and a static specifier
 // would pull a runtime root's types into the other pool's tsconfig. Each resolves only in its pool.
-const adapterFor: (flareJson: JsonObject) => unknown = await (async () => {
+const adapterFor: (flareJson: Record<string, JsonValue>) => unknown = await (async () => {
   if (portableAdapterName() === "cloudflare") {
     const spec = "../../cloudflare/helpers/cf-test-adapter.js";
     const mod = (await import(/* @vite-ignore */ spec)) as {
-      cfTestAdapter: (flareJson: JsonObject) => unknown;
+      cfTestAdapter: (flareJson: Record<string, JsonValue>) => unknown;
     };
-    return (flareJson: JsonObject) => mod.cfTestAdapter(flareJson);
+    return (flareJson: Record<string, JsonValue>) => mod.cfTestAdapter(flareJson);
   }
   const spec = "../../node/helpers/node-adapter.js";
   const mod = (await import(/* @vite-ignore */ spec)) as {
-    nodeAdapter: (flareJson: JsonObject) => unknown;
+    nodeAdapter: (flareJson: Record<string, JsonValue>) => unknown;
   };
-  return (flareJson: JsonObject) => mod.nodeAdapter(flareJson);
+  return (flareJson: Record<string, JsonValue>) => mod.nodeAdapter(flareJson);
 })();
 
 /**
@@ -49,7 +49,7 @@ const adapterFor: (flareJson: JsonObject) => unknown = await (async () => {
  * synthetic `flareJson` (default `{}`) and `FLARE_MODE=test`; nothing is read from disk.
  */
 export function testHost<const E extends readonly HostExtension[] = readonly []>(
-  flareJson: JsonObject = {},
+  flareJson: Record<string, JsonValue> = {},
   extensions?: E,
 ): FlareHost<NodeAdapter, E> {
   // The node-adapter typing is the portable authoring surface; when the cloudflare pool resolves

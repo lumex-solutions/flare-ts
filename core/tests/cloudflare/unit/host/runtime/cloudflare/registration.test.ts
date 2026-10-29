@@ -4,14 +4,14 @@
  * arc and resolver writes, and mount-path validation at the handle.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import { DurableState, FlareDurableObject } from "../../../../../../src/cloudflare.js";
 import { FlareHost, FlareService, flareState } from "../../../../../../src/index.js";
 import { DO_HOST } from "../../../../../../src/lib/host/runtime/cloudflare/do/durable-object.js";
 import { durableRegistration } from "../../../../../../src/lib/host/runtime/cloudflare/registration.js";
 import { cfProdAdapter } from "../../../../helpers/cf-test-adapter.js";
 
-function cfJson(): JsonObject {
+function cfJson(): Record<string, JsonValue> {
   return { host: { env: "test", requestIdHeader: false }, log: { level: "fatal", format: "json" } };
 }
 

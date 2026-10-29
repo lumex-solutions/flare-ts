@@ -1,7 +1,7 @@
 /**
  * The response value handlers return: status, headers, body, and streaming variants.
  */
-import type { JsonValue } from "@flare-ts/lib/schema";
+import type { ReadonlyJsonValue } from "@flare-ts/lib/schema";
 import type { ResponseHeaders, ResponseInit } from "./types/response.js";
 
 /** @internal */
@@ -21,21 +21,21 @@ export class FlareResponse {
   readonly headers: ResponseHeaders;
   readonly bodyStream: AsyncIterable<Uint8Array> | null;
   #body: Uint8Array | string | null;
-  #jsonBody: JsonValue | null;
+  #jsonBody: ReadonlyJsonValue | null;
 
   get body(): Uint8Array | string | null {
     return this.#body;
   }
-  get jsonBody(): JsonValue | null {
+  get jsonBody(): ReadonlyJsonValue | null {
     return this.#jsonBody;
   }
 
   constructor(status: number);
-  constructor(status: number, body: JsonValue, init?: ResponseInit);
+  constructor(status: number, body: ReadonlyJsonValue, init?: ResponseInit);
   constructor(status: number, body: Uint8Array, init?: ResponseInit);
   constructor(status: number, body: AsyncIterable<Uint8Array>, init?: ResponseInit);
 
-  constructor(status: number, body?: JsonValue | Uint8Array | AsyncIterable<Uint8Array>, init?: ResponseInit) {
+  constructor(status: number, body?: ReadonlyJsonValue | Uint8Array | AsyncIterable<Uint8Array>, init?: ResponseInit) {
     const headers = init?.headers;
     this.status = status;
     this.bodyStream = null;

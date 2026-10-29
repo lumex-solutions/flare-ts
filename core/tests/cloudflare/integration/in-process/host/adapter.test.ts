@@ -4,7 +4,7 @@
  * via host.http.* against the .export() terminal.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib/schema";
+import type { JsonValue } from "@flare-ts/lib/schema";
 import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import type { FlareHttpContext } from "../../../../../src/index.js";
 import { buildCf, cf } from "../../../../../src/cloudflare.js";
@@ -19,7 +19,10 @@ import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 const REQUEST_ID_RE = /^[0-9a-f]{8}-\d+$/i;
 
 /** Base flare.json for the worker terminal: silence logs unless a test opts in. */
-function cfJson(host: JsonObject = {}, log: JsonObject = { level: "fatal", format: "json" }): JsonObject {
+function cfJson(
+  host: Record<string, JsonValue> = {},
+  log: Record<string, JsonValue> = { level: "fatal", format: "json" },
+): Record<string, JsonValue> {
   return { host: { env: "test", ...host }, log };
 }
 
@@ -54,7 +57,7 @@ describe("cf adapter (module-scope constant)", () => {
     const container = new Container(
       new FlareRegistrationMap(),
       new Map(),
-      { log: { level: "info" } } as unknown as JsonObject,
+      { log: { level: "info" } } as unknown as Record<string, JsonValue>,
     );
     const logger = cf.createLogger([], container);
     expect(logger).toBeInstanceOf(CfLogger);
@@ -69,7 +72,7 @@ describe("cf adapter (module-scope constant)", () => {
 
 describe("buildCf(flareJson)", () => {
   it("returns an adapter whose flareJsonFile getter returns the same flareJson reference passed in", () => {
-    const fj: JsonObject = { host: { env: "production" } };
+    const fj: Record<string, JsonValue> = { host: { env: "production" } };
     const adapter = buildCf(fj);
     expect(adapter.flareJsonFile).toBe(fj);
   });
@@ -82,7 +85,7 @@ describe("buildCf(flareJson)", () => {
   });
 
   it("empty flareJson === {} yields an adapter whose flareJsonFile === the same {} reference", () => {
-    const empty: JsonObject = {};
+    const empty: Record<string, JsonValue> = {};
     const adapter = buildCf(empty);
     expect(adapter.flareJsonFile).toBe(empty);
   });

@@ -5,14 +5,14 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { Bindings, DurableState, FlareDurableObject } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse, FlareService } from "../../../../../src/index.js";
 import { makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 
-function cfJson(): JsonObject {
+function cfJson(): Record<string, JsonValue> {
   return { host: { env: "test", requestIdHeader: false }, log: { level: "fatal", format: "json" } };
 }
 

@@ -2,7 +2,7 @@
  * Request-scoped state: the deep-readonly view, the token vocabulary and builder-stage
  * types, and the `flareState` factory with its internal accessor seams.
  */
-import type { JsonValue } from "@flare-ts/lib";
+import type { ReadonlyJsonValue } from "@flare-ts/lib";
 
 type WithLoggingBuilder<T, TReturn> = {
   withLogging(mapper: StateLogMapper<T>): TReturn;
@@ -74,7 +74,7 @@ export type StateGetter = {
 };
 
 /** The mapper `.withLogging()` registers: projects a state value into log-safe fields. */
-export type StateLogMapper<T> = (value: DeepReadonly<T>) => Record<string, JsonValue | undefined>;
+export type StateLogMapper<T> = (value: DeepReadonly<T>) => Record<string, ReadonlyJsonValue | undefined>;
 
 /**
  * Builder returned by `flareState<T>()`. Both `.withDefault()` and

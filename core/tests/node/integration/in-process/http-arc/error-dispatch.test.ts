@@ -9,7 +9,7 @@
 process.env["FLARE_MODE"] = "test";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { HttpErrorContext, LogRecord } from "../../../../../src/index.js";
 import type { Container } from "../../../../../src/lib/services/container.js";
 import type { TestAppHandle } from "../../../../../src/testing.js";
@@ -41,7 +41,7 @@ function resetRecords(): void {
 /** Returns a node adapter with test config and no default logger transports. */
 function makeAdapter() {
   return nodeAdapter(
-    { host: { env: "test" }, log: { level: "info" } } as JsonObject,
+    { host: { env: "test" }, log: { level: "info" } } as Record<string, JsonValue>,
     { FLARE_MODE: "test" },
     { defaultLoggerTransports: [] },
   );

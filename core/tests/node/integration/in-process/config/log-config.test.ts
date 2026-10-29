@@ -5,7 +5,7 @@
 process.env["FLARE_MODE"] = "test";
 
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { SingletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
 import type { FlareAppNode } from "../../../../../src/lib/host/runtime/node/flare-app-node.js";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
@@ -27,7 +27,7 @@ import { registerMinimalPingRoute } from "../../../../portable/helpers/host-fixt
  * (and pulling only the safe fields off `node`) keeps the test hermetic.
  */
 function adapterWith(
-  opts: { flareJson?: JsonObject; env?: Record<string, string | undefined>; },
+  opts: { flareJson?: Record<string, JsonValue>; env?: Record<string, string | undefined>; },
 ): HostRuntimeAdapter<FlareAppNode, LoggerTransportClass, "async", SingletonExtension> {
   return {
     runtime: node.runtime,
@@ -47,7 +47,7 @@ function adapterWith(
 // HostRuntimeAdapter type) typechecks. An explicit `FlareHost<FlareAppNode>`
 // annotation collapses the generic to `never` because the type parameter is
 // supposed to be the adapter, not the app.
-function testHost(opts: { flareJson?: JsonObject; env?: Record<string, string | undefined>; }) {
+function testHost(opts: { flareJson?: Record<string, JsonValue>; env?: Record<string, string | undefined>; }) {
   const host = new FlareHost(adapterWith(opts));
   registerMinimalPingRoute(host);
   return host;
@@ -356,7 +356,10 @@ describe("Failure Modes", () => {
   });
 
   it("rejects `transports` set to a non-object (e.g. a string)", async () => {
-    const host = testHost({ flareJson: { log: { transports: "console" as unknown as JsonObject } }, env: {} });
+    const host = testHost({
+      flareJson: { log: { transports: "console" as unknown as Record<string, JsonValue> } },
+      env: {},
+    });
     expect(() => host.build()).toThrow();
   });
 });

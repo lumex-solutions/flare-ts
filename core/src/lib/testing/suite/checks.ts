@@ -2,7 +2,7 @@
  * The prebuilt test suite's checks, each returning its findings: one line per problem, naming the
  * offending route or service. An empty list passes.
  */
-import type { JsonValue } from "@flare-ts/lib/schema";
+import type { ReadonlyJsonValue } from "@flare-ts/lib/schema";
 import type { FlareErrorClass } from "../../errors/types.js";
 import type { AppGraph } from "../../graph/app-graph.js";
 import type { HttpRouteNode } from "../../graph/types.js";
@@ -109,7 +109,7 @@ export function errorNameFindings(observed: readonly ObservedError[]): string[] 
 }
 
 // A route declares an error when it names the error's class or any class that class extends.
-function declares(route: HttpRouteNode, error: FlareError<JsonValue | undefined>): boolean {
+function declares(route: HttpRouteNode, error: FlareError<ReadonlyJsonValue | undefined>): boolean {
   // TypeScript types `constructor` as Function and `Object.getPrototypeOf` as any; on a FlareError, the
   // constructor and each class up its chain to FlareError are FlareError classes.
   for (let cls = error.constructor as FlareErrorClass; cls !== FlareError; cls = Object.getPrototypeOf(cls)) {

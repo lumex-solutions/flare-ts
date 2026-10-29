@@ -6,7 +6,7 @@
  * no miniflare binding needed.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import { FlareHttpContext } from "../../../../../../src/lib/arcs/http/transport/flare-http-context.js";
 import { FlareRequest } from "../../../../../../src/lib/arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../../../../../src/lib/arcs/http/transport/flare-response.js";
@@ -42,7 +42,7 @@ function makeCtx(url = "https://flare.test/", reqId = "test-req-id"): FlareHttpC
   return new FlareHttpContext(flareReq);
 }
 
-function cfJson(host: JsonObject = {}): JsonObject {
+function cfJson(host: Record<string, JsonValue> = {}): Record<string, JsonValue> {
   return {
     host: { env: "test", requestIdHeader: false, ...host },
     log: { level: "fatal", format: "json" },

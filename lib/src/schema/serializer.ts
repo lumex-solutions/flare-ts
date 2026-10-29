@@ -3,7 +3,7 @@
  * exporter, both introspecting tokens through the descriptor brand.
  */
 import type { Primitive } from "./primitives/index.js";
-import type { JsonValue, OpaqueSchemaToken } from "./schema.js";
+import type { JsonValue, OpaqueSchemaToken, ReadonlyJsonValue } from "./schema.js";
 import { SCHEMA_BRAND, SCHEMA_DESCRIPTOR, SCHEMA_REQUIRED } from "./schema.js";
 
 type ArraySchemaDescriptor = readonly [IntrospectableSchemaToken];
@@ -53,7 +53,7 @@ export type JsonSchema =
 /**
  * A compiled function serializing a JSON value that matches its source schema token.
  */
-export type SchemaSerializer = (doc: JsonValue) => string;
+export type SchemaSerializer = (doc: ReadonlyJsonValue) => string;
 
 const VALID_IDENTIFIER = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
 const DIRTY_RE = /[\x00-\x1f"\\]/;
@@ -95,8 +95,8 @@ export function compileSerializer(token: OpaqueSchemaToken): SchemaSerializer {
     // array and join to avoid growing ConsString ropes on large arrays.
     const itemDescriptor = (descriptor as ArraySchemaDescriptor)[0]![SCHEMA_DESCRIPTOR] as ObjectDescriptor;
     const inner = buildSerializer(itemDescriptor);
-    return function serializeArray(doc: JsonValue): string {
-      const arr = doc as JsonValue[];
+    return function serializeArray(doc: ReadonlyJsonValue): string {
+      const arr = doc as readonly ReadonlyJsonValue[];
       const parts = new Array<string>(arr.length);
       for (let i = 0; i < arr.length; i++) parts[i] = inner(arr[i]!);
       return "[" + parts.join(",") + "]";
@@ -184,7 +184,7 @@ function buildPrimitiveArrayHelper(
   )(...closureVals) as (arr: JsonValue[]) => string;
 }
 
-function jsonStringifyFallback(doc: JsonValue): string {
+function jsonStringifyFallback(doc: ReadonlyJsonValue): string {
   return JSON.stringify(doc);
 }
 

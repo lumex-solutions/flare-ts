@@ -2,7 +2,7 @@
  * Unit tests for {@link ConsoleTransport} formatting and output routing.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib/schema";
+import type { JsonValue } from "@flare-ts/lib/schema";
 import type { LogContext, LogError, LogLevel, LogMeta, LogRecord } from "../../../../../src/lib/logger/types.js";
 import { HOST_CONFIG, LOG_CONFIG } from "../../../../../src/lib/config/flare-config.js";
 import { toErrorField } from "../../../../../src/lib/logger/fields.js";
@@ -20,7 +20,7 @@ function makeContainer(
   host: Record<string, unknown> = { env: "development" },
   log: Record<string, unknown> = {},
 ): Container {
-  return new Container(new FlareRegistrationMap(), new Map(), { host, log } as unknown as JsonObject);
+  return new Container(new FlareRegistrationMap(), new Map(), { host, log } as unknown as Record<string, JsonValue>);
 }
 
 function makeRecord(partial: Partial<LogRecord> & { level: LogLevel; message: string; }): LogRecord {

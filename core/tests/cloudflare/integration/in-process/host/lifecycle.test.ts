@@ -4,7 +4,7 @@
  * cfProdAdapter.export() so the production terminal runs without the test-mode shim.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import { cf } from "../../../../../src/cloudflare.js";
@@ -26,7 +26,7 @@ function buildSyncAdapter(): HostRuntimeAdapter<FlareAppCF, typeof SilentCFWTran
   return {
     runtime: "cloudflare",
     lifecycle: "sync",
-    get flareJsonFile(): JsonObject {
+    get flareJsonFile(): Record<string, JsonValue> {
       return {};
     },
     env: {},
@@ -66,7 +66,7 @@ describe("Primary Behavior", () => {
       const adapter: HostRuntimeAdapter<FlareAppCF, typeof RecordingTransport, "sync"> = {
         runtime: "cloudflare",
         lifecycle: "sync",
-        get flareJsonFile(): JsonObject {
+        get flareJsonFile(): Record<string, JsonValue> {
           return {};
         },
         env: {},

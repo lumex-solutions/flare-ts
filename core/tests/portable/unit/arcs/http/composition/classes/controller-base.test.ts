@@ -2,7 +2,7 @@
  * Unit tests for ControllerBase response helpers and constructor wiring.
  */
 import { describe, it, expect } from "vitest";
-import type { JsonValue } from "@flare-ts/lib/schema";
+import type { ReadonlyJsonValue } from "@flare-ts/lib/schema";
 import type { FlareHttpContext } from "../../../../../../../src/lib/arcs/http/transport/flare-http-context.js";
 import type { ResponseLike } from "../../../../../../../src/lib/arcs/http/transport/types/response.js";
 import { ControllerBase } from "../../../../../../../src/lib/arcs/http/composition/classes/controller-base.js";
@@ -16,10 +16,10 @@ import { Container } from "../../../../../../../src/lib/services/container.js";
  * assert the response-shape behaviour for both branches (`null`, string, JSON).
  */
 class TestController extends ControllerBase {
-  public callOk(body: JsonValue): ResponseLike {
+  public callOk(body: ReadonlyJsonValue): ResponseLike {
     return this.ok(body);
   }
-  public callCreated(body: JsonValue): ResponseLike {
+  public callCreated(body: ReadonlyJsonValue): ResponseLike {
     return this.created(body);
   }
   public callNoContent(): ResponseLike {
@@ -28,22 +28,22 @@ class TestController extends ControllerBase {
   public callRedirect(location: string, options?: { permanent?: boolean; preserveMethod?: boolean; }): ResponseLike {
     return this.redirect(location, options);
   }
-  public callBadRequest(body: JsonValue): ResponseLike {
+  public callBadRequest(body: ReadonlyJsonValue): ResponseLike {
     return this.badRequest(body);
   }
-  public callUnauthorized(body: JsonValue): ResponseLike {
+  public callUnauthorized(body: ReadonlyJsonValue): ResponseLike {
     return this.unauthorized(body);
   }
-  public callForbidden(body: JsonValue): ResponseLike {
+  public callForbidden(body: ReadonlyJsonValue): ResponseLike {
     return this.forbidden(body);
   }
-  public callNotFound(body: JsonValue): ResponseLike {
+  public callNotFound(body: ReadonlyJsonValue): ResponseLike {
     return this.notFound(body);
   }
-  public callTooManyRequests(body: JsonValue): ResponseLike {
+  public callTooManyRequests(body: ReadonlyJsonValue): ResponseLike {
     return this.tooManyRequests(body);
   }
-  public callError(body: JsonValue): ResponseLike {
+  public callError(body: ReadonlyJsonValue): ResponseLike {
     return this.error(body);
   }
 }

@@ -75,6 +75,8 @@
 
 ### Changed
 
+- `FlareResponse` and the controller and middleware response helpers (`this.ok()`, `this.created()`, `this.badRequest()`, and the rest) take a `ReadonlyJsonValue` body instead of a `JsonValue`, and so do SSE event `data`, a `FlareError`'s detail, log call meta, and `.withLogging()` mappers. Readonly arrays and objects, `as const` values, and fields that may be `undefined` now compile there: `this.ok(STATUSES)` for an `as const` array, `logger.info("order placed", { userId: user?.id })`, and a `.withLogging()` mapper that returns a readonly field of its state. A `Date` still does not; send `date.toISOString()`. Only the types change.
+
 - Error contexts name an inline route's handler stage by its path, or its `name` option, instead of a generated `SyntheticGET /path` class name.
 
 ### Fixed
@@ -82,6 +84,8 @@
 - A later inline route at a shared path now validates its own request contract. With `host.http.get("/users", ...)` registered first, `host.http.post("/users", { body: NewUser }, ...)` never applied its descriptor, so the body, query, and route parameters of every method after the first went unvalidated.
 
 ### Internal
+
+- Config is typed by what it holds: an adapter's raw `flareJsonFile` is a `Record<string, JsonValue>`, and the resolved config in adapter build contexts is a `FlareConfig`, so the Cloudflare build check reads `cookies.secret` and `websockets` without casts. Code that only reads config sections by key, such as the container and config validation, takes `Record<string, JsonValue>`.
 
 - Registrations are route-shaped: each one carries its routes as data (method, path, handler, request descriptor) alongside its deps, state, and config. Class controllers are converted once by `controllerRegistration()`; inline routes build the record directly instead of generating a controller class per path. Build, the validators, and the Cloudflare graph read the record rather than the class. The request pipeline and its generated code are unchanged.
 

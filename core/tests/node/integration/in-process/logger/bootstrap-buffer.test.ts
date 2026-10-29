@@ -8,7 +8,7 @@
 process.env.FLARE_MODE = "test";
 
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import { FlareHost, LoggerTransport, type LogRecord } from "../../../../../src/index.js";
 import { _log } from "../../../../../src/lib/logger/bootstrap.js";
 import { nodeAdapter } from "../../../../node/helpers/node-adapter.js";
@@ -23,7 +23,7 @@ function newTestHost(adapter: ReturnType<typeof nodeAdapter>) {
 // Adapter helpers that inject test config and drop the default ConsoleTransport
 // so each test observes only its own registered transports.
 
-function makeNodeAdapter(config: JsonObject) {
+function makeNodeAdapter(config: Record<string, JsonValue>) {
   return nodeAdapter(config, { FLARE_MODE: "test" }, { defaultLoggerTransports: [] });
 }
 

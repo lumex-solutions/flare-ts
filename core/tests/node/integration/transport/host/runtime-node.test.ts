@@ -8,7 +8,7 @@ process.env["FLARE_MODE"] = "test";
 import type { AddressInfo } from "node:net";
 import { once } from "node:events";
 import { afterEach, describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib/schema";
+import type { JsonValue } from "@flare-ts/lib/schema";
 import type { FlareAppNode, NodeRunHandle } from "../../../../../src/lib/host/runtime/node/flare-app-node.js";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import type { LogRecord, LoggerTransportClass } from "../../../../../src/lib/logger/types.js";
@@ -47,7 +47,7 @@ function resetRecords(): void {
  * `app.run()` + node:http server).
  */
 function nodeAdapter(
-  flareJson: JsonObject,
+  flareJson: Record<string, JsonValue>,
   transports: readonly LoggerTransportClass[] = [SilentTransport],
 ): HostRuntimeAdapter<FlareAppNode> {
   return {
@@ -58,7 +58,7 @@ function nodeAdapter(
     createApp: node.createApp.bind(node),
     createLogger: node.createLogger.bind(node),
     createTestRequest: node.createTestRequest.bind(node),
-    get flareJsonFile(): JsonObject {
+    get flareJsonFile(): Record<string, JsonValue> {
       return flareJson;
     },
   };

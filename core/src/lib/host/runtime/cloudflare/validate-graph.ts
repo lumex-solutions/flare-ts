@@ -1,12 +1,11 @@
 /**
  * The Cloudflare build validator: per-context service graphs, mounts, and channels checked at build.
  */
-import type { JsonObject } from "@flare-ts/lib";
 import type { HttpArc } from "../../../arcs/http/http-arc.js";
 import type { ControllerRegistration, MiddlewareRegistration } from "../../../arcs/http/types/registration.js";
 import type { WsRegistration } from "../../../arcs/ws/composition/types/registration.js";
 import type { WebSocketArc } from "../../../arcs/ws/ws-arc.js";
-import type { ConfigToken, WebSocketsConfig, OpaqueConfigToken } from "../../../config/flare-config.js";
+import type { ConfigToken, OpaqueConfigToken } from "../../../config/flare-config.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { ServiceRegistration } from "../../../services/types/registration.js";
 import type { ServiceToken } from "../../../services/types/token.js";
@@ -15,6 +14,7 @@ import type { HttpValidationContext } from "../../../validation/http/composite.j
 import type { ServiceValidationContext } from "../../../validation/service/composite.js";
 import type { ValidationError } from "../../../validation/types.js";
 import type { WsValidationContext } from "../../../validation/ws/composite.js";
+import type { FlareConfig } from "../../types/config.js";
 import type { FlareDurableObjectClass } from "./do/durable-object.js";
 import { COMPILE_HTTP_ARC } from "../../../arcs/http/http-arc.js";
 import { WebSocketChannels } from "../../../arcs/ws/channels/web-socket-channels.js";
@@ -54,7 +54,7 @@ export type CfValidationGraph = {
   /** Built-in config tokens exempt from field-presence checks (HOST_CONFIG, LOG_CONFIG). */
   readonly defaultConfigTokens: ReadonlySet<OpaqueConfigToken>;
   /** The fully resolved config object. */
-  readonly resolvedConfig: Readonly<JsonObject>;
+  readonly resolvedConfig: Readonly<FlareConfig>;
 };
 
 /**
@@ -126,7 +126,7 @@ export function validateCfGraph(graph: CfValidationGraph): ValidationError[] {
 
   // HTTP per arc: front door (Worker context) + each per-DO arc (DO context). The cookie-secret fact is
   // host-level, so it is computed once and applied to every arc's context.
-  const cookieSecretConfigured = Boolean((graph.resolvedConfig as { cookies?: { secret?: string; }; }).cookies?.secret);
+  const cookieSecretConfigured = Boolean(graph.resolvedConfig.cookies?.secret);
   results.push(...createHttpValidator().validate(httpCtx(graph.frontDoor, cookieSecretConfigured)));
   for (const { arc } of graph.durables) {
     results.push(...createHttpValidator().validate(httpCtx(arc, cookieSecretConfigured)));
@@ -302,7 +302,7 @@ function durableDepErrors(graph: CfValidationGraph): ValidationError[] {
  * config section is host-global and would otherwise report duplicate errors per context.
  */
 function wsValidationErrors(graph: CfValidationGraph): ValidationError[] {
-  const wsConfig = (graph.resolvedConfig as { websockets?: WebSocketsConfig; }).websockets;
+  const wsConfig = graph.resolvedConfig.websockets;
   const syntax = new WsRouteSyntaxValidator();
   const conflict = new WsRouteConflictValidator();
   const ambiguity = new WsRoutePriorityAmbiguityValidator();

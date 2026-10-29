@@ -14,7 +14,7 @@
  *   2. requestIdHeader does not inject x-request-id on a WS response.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { FlareAppCF } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
@@ -23,7 +23,7 @@ import { makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 
 // requestIdHeader: true drives the non-FlareResponse branch that must not reconstruct the Response.
-function cfJsonWithReqId(): JsonObject {
+function cfJsonWithReqId(): Record<string, JsonValue> {
   return { host: { env: "test", requestIdHeader: true }, log: { level: "fatal", format: "json" } };
 }
 

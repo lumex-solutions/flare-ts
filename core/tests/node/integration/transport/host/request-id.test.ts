@@ -7,14 +7,14 @@ process.env["FLARE_MODE"] = "test";
 import type { AddressInfo } from "node:net";
 import { once } from "node:events";
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
 import { node } from "../../../../../src/node.js";
 
 function nodeAdapter(
-  flareJson: JsonObject,
+  flareJson: Record<string, JsonValue>,
   env: Record<string, string | undefined> = {},
 ): HostRuntimeAdapter<ReturnType<typeof node.createApp>> {
   return {
@@ -25,7 +25,7 @@ function nodeAdapter(
     createApp: node.createApp.bind(node),
     createLogger: node.createLogger.bind(node),
     createTestRequest: node.createTestRequest.bind(node),
-    get flareJsonFile(): JsonObject {
+    get flareJsonFile(): Record<string, JsonValue> {
       return flareJson;
     },
   };

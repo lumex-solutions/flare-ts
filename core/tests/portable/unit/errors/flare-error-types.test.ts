@@ -36,6 +36,14 @@ class EmailTaken extends FlareError<{ email: string; }> {
   static override status = 409;
 }
 
+class OutOfStock extends FlareError<{ readonly skus: readonly string[]; }> {
+  static override status = 409;
+}
+
+// A detail may hold readonly data, as `as const` values are.
+const SKUS = ["mug", "tee"] as const;
+const _readonlyDetail = () => new OutOfStock("sold out", { detail: { skus: SKUS } });
+
 // @ts-expect-error - UserNotFound declares no detail type
 const _withDetail = () => new UserNotFound("no such user", { detail: { id: "u1" } });
 

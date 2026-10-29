@@ -2,7 +2,7 @@
  * Shared stub adapters, loggers, and service builders for {@link FlareHost} unit tests.
  * Tests drive the host through a configurable {@link HostRuntimeAdapter} without running HTTP.
  */
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { FlareRequest } from "../../../../../src/lib/arcs/http/transport/flare-request.js";
 import type { SingletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
 import type { IFlareApp } from "../../../../../src/lib/host/flare-app-base.js";
@@ -21,7 +21,7 @@ import { FlareService as FlareServiceBase } from "../../../../../src/lib/service
 
 interface AdapterOpts {
   env?: Record<string, string | undefined>;
-  flareJsonFile?: JsonObject;
+  flareJsonFile?: Record<string, JsonValue>;
   flareJsonThrows?: Error;
   defaultLoggerTransports?: LoggerTransportClass[];
 }
@@ -48,7 +48,7 @@ export class StubLogger extends Logger {
 export function makeAdapter(opts: AdapterOpts = {}): AnyAdapter {
   const env = opts.env ?? {};
   const adapter: Partial<AnyAdapter> & {
-    flareJsonFile: JsonObject;
+    flareJsonFile: Record<string, JsonValue>;
     env: Record<string, string | undefined>;
   } = {
     runtime: "node",

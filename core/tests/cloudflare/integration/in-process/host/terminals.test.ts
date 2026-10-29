@@ -4,14 +4,14 @@
  * worker request does not attempt to resolve DurableState (HAZARD A regression guard).
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { DurableState, FlareDurableObject } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse } from "../../../../../src/index.js";
 import { makeEnv, makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 
-function cfJson(host: JsonObject = {}): JsonObject {
+function cfJson(host: Record<string, JsonValue> = {}): Record<string, JsonValue> {
   return {
     host: { env: "test", requestIdHeader: false, ...host },
     log: { level: "fatal", format: "json" },

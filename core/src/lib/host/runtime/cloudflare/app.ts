@@ -1,7 +1,7 @@
 /**
  * The Cloudflare runtime: the cf adapter, FlareAppCF's export() terminal, and Durable Object mount registration.
  */
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { CfLoggerTransportClass } from "../../../logger/runtime/cloudflare/cf-transport.js";
 import type { TestRequestInput } from "../../../testing/types/flare-test-req.js";
 import type { ValidationError } from "../../../validation/types.js";
@@ -95,7 +95,7 @@ export const cf: CloudflareAdapter = {
   lifecycle: "sync",
   // A fresh object each read - CF has no filesystem, so the bare adapter carries no config and must
   // not share a mutable default. `buildCf(flareJson)` supplies the bundled config instead.
-  get flareJsonFile(): JsonObject {
+  get flareJsonFile(): Record<string, JsonValue> {
     return {};
   },
   env: {},
@@ -251,7 +251,10 @@ export const cf: CloudflareAdapter = {
  * overrides. The build runs at module scope, before any request carries the Worker's `env`, so
  * these reach it only through this parameter.
  */
-export function buildCf(flareJsonFile: JsonObject, env: Record<string, string | undefined> = {}): CloudflareAdapter {
+export function buildCf(
+  flareJsonFile: Record<string, JsonValue>,
+  env: Record<string, string | undefined> = {},
+): CloudflareAdapter {
   return {
     runtime: cf.runtime,
     lifecycle: cf.lifecycle,

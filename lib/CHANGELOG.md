@@ -2,7 +2,19 @@
 
 ## 0.4.0
 
-No changes. Released alongside `@flare-ts/core` 0.4.0.
+### Breaking
+
+- `JsonObject` is removed. Use `Record<string, JsonValue>`.
+
+- An object field of a `JsonValue` may be `undefined` (`{ [key: string]: JsonValue | undefined }`), which is what reading a missing key gives. Code that reads a field and passes it on where `undefined` is not allowed now needs a check.
+
+### Added
+
+- `ReadonlyJsonValue` on `@flare-ts/lib/schema`: a `JsonValue` whose arrays and objects may be readonly. Every `JsonValue` is assignable to it. Arrays in `JsonValue` itself stay mutable, so `Array.isArray` still narrows a parsed value.
+
+### Changed
+
+- `SchemaSerializer`, the type of the functions `compileSerializer` returns, takes a `ReadonlyJsonValue`. Every `JsonValue` still fits, so existing calls compile unchanged.
 
 ## 0.3.0
 

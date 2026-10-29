@@ -6,7 +6,7 @@
 process.env.FLARE_MODE = "test";
 
 import { afterEach, describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { LogContext } from "../../../../../src/lib/logger/types.js";
 import { FlareHost, LoggerTransport, type LogRecord } from "../../../../../src/index.js";
 import { runWithLogStore } from "../../../../../src/index.js";
@@ -35,7 +35,7 @@ function stripAnsi(value: string): string {
 }
 
 /** Builds a node adapter with test config and optionally drops the default ConsoleTransport. */
-function makeAdapter(config: JsonObject, options?: { keepDefaultTransports?: boolean; }) {
+function makeAdapter(config: Record<string, JsonValue>, options?: { keepDefaultTransports?: boolean; }) {
   return nodeAdapter(
     config,
     { FLARE_MODE: "test" },

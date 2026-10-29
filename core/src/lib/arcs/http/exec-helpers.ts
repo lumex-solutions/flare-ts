@@ -4,7 +4,7 @@
  * skips property-chain lookups per request.
  */
 
-import type { JsonValue, SchemaToken } from "@flare-ts/lib/schema";
+import type { JsonValue, ReadonlyJsonValue, SchemaToken } from "@flare-ts/lib/schema";
 import type { HttpErrorContext } from "../../logger/types.js";
 import type { Container } from "../../services/container.js";
 import type { ErrorHandlerBase } from "./composition/classes/error-handler-base.js";
@@ -161,9 +161,9 @@ export function handleControllerError(
 
 // A 4xx response carries the message and detail; a 5xx carries only the wire name. A status outside
 // 400-599 is a bug in the error class (build validation reports it for a declared or handler-keyed class), so the response sends 500 instead.
-function flareErrorResponse(err: FlareError<JsonValue | undefined>): FlareResponse {
+function flareErrorResponse(err: FlareError<ReadonlyJsonValue | undefined>): FlareResponse {
   const status = isErrorStatus(err.status) ? err.status : 500;
-  const body: Record<string, JsonValue> = { error: err.name };
+  const body: Record<string, ReadonlyJsonValue> = { error: err.name };
   if (status < 500) {
     if (err.message !== "") body.message = err.message;
     if (err.detail !== undefined) body.detail = err.detail;

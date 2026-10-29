@@ -8,7 +8,7 @@
 process.env.FLARE_MODE = "test";
 
 import { afterEach, describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { LogContext } from "../../../../../src/lib/logger/types.js";
 import { FlareHost } from "../../../../../src/index.js";
 import { runWithLogStore } from "../../../../../src/index.js";
@@ -33,7 +33,7 @@ function visibleLength(value: string): number {
 // Adapter helpers: inject a synthetic flare.json while preserving the real
 // runtime adapter's default ConsoleTransport (or CfConsoleTransport) so this
 // suite exercises the actual transport that ships with each adapter.
-function makeNodeAdapter(config: JsonObject) {
+function makeNodeAdapter(config: Record<string, JsonValue>) {
   return nodeAdapter(config, { FLARE_MODE: "test" });
 }
 
@@ -383,7 +383,7 @@ describe("Failure Modes", () => {
     try {
       cap = captureConsole();
       // Build a meta object that contains a back-reference to itself.
-      // LogMeta is typed as Record<string, JsonValue>, which excludes
+      // LogMeta is typed as Record<string, ReadonlyJsonValue>, which excludes
       // self-referencing values; cast through `unknown` to reach the runtime
       // path the spec describes (formatInspectableValue handles `seen` cycles).
       const meta: Record<string, unknown> = { tag: "loop" };

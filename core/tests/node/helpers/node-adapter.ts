@@ -2,7 +2,7 @@
  * Test helpers that build Node {@link HostRuntimeAdapter} instances with synthetic
  * flare.json and env maps for in-process host integration tests.
  */
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { SingletonExtension } from "../../../src/lib/host/extensions/singleton.js";
 import type { FlareAppNode } from "../../../src/lib/host/runtime/node/flare-app-node.js";
 import type { HostRuntimeAdapter } from "../../../src/lib/host/types/adapter.js";
@@ -22,7 +22,7 @@ export interface NodeAdapterOpts {
  * Avoids `{...node}` spread because that evaluates `flareJsonFile` from CWD.
  */
 export function nodeAdapter(
-  flareJson: JsonObject,
+  flareJson: Record<string, JsonValue>,
   env: Record<string, string | undefined> = { FLARE_MODE: "test" },
   opts: NodeAdapterOpts = {},
 ): NodeTestAdapter {
@@ -35,7 +35,7 @@ export function nodeAdapter(
     createLogger: node.createLogger.bind(node),
     createTestRequest: node.createTestRequest.bind(node),
     extendHost: node.extendHost!.bind(node),
-    get flareJsonFile(): JsonObject {
+    get flareJsonFile(): Record<string, JsonValue> {
       return flareJson;
     },
   };
@@ -56,7 +56,7 @@ export function nodeAdapterWithReadError(
     createLogger: node.createLogger.bind(node),
     createTestRequest: node.createTestRequest.bind(node),
     extendHost: node.extendHost!.bind(node),
-    get flareJsonFile(): JsonObject {
+    get flareJsonFile(): Record<string, JsonValue> {
       throw err;
     },
   };

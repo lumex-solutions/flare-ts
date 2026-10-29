@@ -7,7 +7,7 @@
 process.env["FLARE_MODE"] = "test";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib/schema";
+import type { JsonValue } from "@flare-ts/lib/schema";
 import { str } from "@flare-ts/lib/schema";
 import type { TestAppHandle } from "../../../../../src/testing.js";
 import { Get } from "../../../../../src/decorators.js";
@@ -159,7 +159,7 @@ class GhostReaderController extends ControllerBase {
   }
 }
 
-const SHARED_FLARE_JSON: JsonObject = {
+const SHARED_FLARE_JSON: Record<string, JsonValue> = {
   host: { env: "test", port: 0 },
   log: { level: "fatal", format: "json" },
   db: { url: "postgres://example/db", password: "s3cret" },

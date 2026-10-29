@@ -1,9 +1,9 @@
 /** The base class every Flare application error extends. */
-import type { JsonValue } from "@flare-ts/lib/schema";
+import type { ReadonlyJsonValue } from "@flare-ts/lib/schema";
 import { wireNameOf } from "./wire.js";
 
 /** What a {@link FlareError} carries besides its message. */
-export type FlareErrorOptions<TDetail extends JsonValue | undefined> = {
+export type FlareErrorOptions<TDetail extends ReadonlyJsonValue | undefined> = {
   /** Data sent to the client with a 4xx response. */
   readonly detail?: TDetail;
   /**
@@ -17,7 +17,7 @@ export type FlareErrorOptions<TDetail extends JsonValue | undefined> = {
 };
 
 /** Constructor arguments of a {@link FlareError}: `detail` is required exactly when the class declares one. */
-export type FlareErrorArgs<TDetail extends JsonValue | undefined> = [TDetail] extends [undefined]
+export type FlareErrorArgs<TDetail extends ReadonlyJsonValue | undefined> = [TDetail] extends [undefined]
   ? [message?: string, options?: FlareErrorOptions<undefined>]
   : [message: string | undefined, options: FlareErrorOptions<TDetail> & { readonly detail: TDetail; }];
 
@@ -38,7 +38,7 @@ export type FlareErrorArgs<TDetail extends JsonValue | undefined> = [TDetail] ex
  * }
  * ```
  */
-export class FlareError<TDetail extends JsonValue | undefined = undefined> extends Error {
+export class FlareError<TDetail extends ReadonlyJsonValue | undefined = undefined> extends Error {
   /** The HTTP status this class responds with: an integer from 400 to 599. */
   static status = 500;
   /** The wire name sent as `error`, when it should not be the class name, e.g. under a minifying bundler. */

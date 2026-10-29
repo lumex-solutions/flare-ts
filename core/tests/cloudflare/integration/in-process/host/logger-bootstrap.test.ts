@@ -4,7 +4,7 @@
  * supplies FLARE_MODE) and host.build().test() so bootstrap runs through the public host API.
  */
 import { afterEach, describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import { FlareHost } from "../../../../../src/index.js";
 import { CfConsoleTransport } from "../../../../../src/lib/logger/runtime/cloudflare/cf-console-transport.js";
 import { CfLogger } from "../../../../../src/lib/logger/runtime/cloudflare/cf-logger.js";
@@ -12,7 +12,7 @@ import { cfLoggerTestAdapter } from "../../../helpers/cf-test-adapter.js";
 import { registerMinimalPingRoute } from "../../../helpers/minimal-route.js";
 
 function makeCfAdapter(
-  config: JsonObject,
+  config: Record<string, JsonValue>,
   opts: { defaults?: readonly (typeof CfConsoleTransport)[]; } = {},
 ): ReturnType<typeof cfLoggerTestAdapter> {
   // Cast to the helper's parameter type - `typeof CfConsoleTransport` is a

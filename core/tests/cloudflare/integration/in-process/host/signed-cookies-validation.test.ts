@@ -4,12 +4,12 @@
  * resolved config and threaded into each arc's HTTP validation context, not just on the host suite.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import { FlareHost, FlareResponse } from "../../../../../src/index.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 
-function cfJson(cookies?: { secret: string; }): JsonObject {
-  const json: JsonObject = {
+function cfJson(cookies?: { secret: string; }): Record<string, JsonValue> {
+  const json: Record<string, JsonValue> = {
     host: { env: "test", requestIdHeader: false },
     log: { level: "fatal", format: "json" },
   };

@@ -7,7 +7,7 @@
 process.env["FLARE_MODE"] = "test";
 
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { FlareRequest } from "../../../../../src/lib/arcs/http/transport/flare-request.js";
 import type { SingletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
 import type { IFlareApp } from "../../../../../src/lib/host/flare-app-base.js";
@@ -24,8 +24,8 @@ import { FlareAppNode } from "../../../../../src/lib/host/runtime/node/flare-app
 import { node } from "../../../../../src/node.js";
 
 type CustomAdapterInit = {
-  flareJson?: JsonObject;
-  flareJsonGetter?: () => JsonObject;
+  flareJson?: Record<string, JsonValue>;
+  flareJsonGetter?: () => Record<string, JsonValue>;
   env?: Record<string, string | undefined>;
   defaultLoggerTransports?: readonly LoggerTransportClass[];
   createApp?: (host: IFlareHost) => IFlareApp;
@@ -69,7 +69,7 @@ function makeCustomAdapter(
   return {
     runtime: "node",
     lifecycle: "async",
-    get flareJsonFile(): JsonObject {
+    get flareJsonFile(): Record<string, JsonValue> {
       if (jsonReadCount) jsonReadCount.value += 1;
       if (init.flareJsonGetter) return init.flareJsonGetter();
       return flareJson;

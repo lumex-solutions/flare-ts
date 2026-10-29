@@ -2,7 +2,7 @@
  * Production-style Cloudflare adapter factories for tests, mirroring `cf` setup without test-mode shims.
  */
 
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { CloudflareAdapter } from "../../../src/lib/host/runtime/cloudflare/index.js";
 import type { CfLoggerTransportClass } from "../../../src/lib/logger/runtime/cloudflare/cf-transport.js";
 import { cf } from "../../../src/lib/host/runtime/cloudflare/index.js";
@@ -17,7 +17,7 @@ type CfTransport = typeof cf.defaultLoggerTransports[number];
  * Test mode (`host.build().test()`) reads `adapter.env.FLARE_MODE`, not `process.env`.
  */
 export function cfTestAdapter(
-  flareJson: JsonObject,
+  flareJson: Record<string, JsonValue>,
   opts: {
     env?: Record<string, string | undefined>;
     defaultLoggerTransports?: readonly CfTransport[];
@@ -33,7 +33,7 @@ export function cfTestAdapter(
     createTestRequest: cf.createTestRequest,
     setup: cf.setup,
     extendHost: cf.extendHost!,
-    get flareJsonFile(): JsonObject {
+    get flareJsonFile(): Record<string, JsonValue> {
       return flareJson;
     },
   };
@@ -41,7 +41,7 @@ export function cfTestAdapter(
 
 /** Builds a CF adapter without test mode for production-path tests that call the terminal (`.export()`). */
 export function cfProdAdapter(
-  flareJson: JsonObject,
+  flareJson: Record<string, JsonValue>,
   env: Record<string, string | undefined> = {},
 ): CloudflareAdapter {
   return {
@@ -54,7 +54,7 @@ export function cfProdAdapter(
     createTestRequest: cf.createTestRequest,
     setup: cf.setup,
     extendHost: cf.extendHost!,
-    get flareJsonFile(): JsonObject {
+    get flareJsonFile(): Record<string, JsonValue> {
       return flareJson;
     },
   };
@@ -62,7 +62,7 @@ export function cfProdAdapter(
 
 /** Builds a logger-focused CF test adapter with empty default transports unless overridden. */
 export function cfLoggerTestAdapter(
-  flareJson: JsonObject,
+  flareJson: Record<string, JsonValue>,
   opts: {
     env?: Record<string, string | undefined>;
     defaultLoggerTransports?: readonly CfLoggerTransportClass[];

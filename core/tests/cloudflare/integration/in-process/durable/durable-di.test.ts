@@ -9,7 +9,7 @@
  * distinct ids never share container state.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { Bindings, composeDurableInstance, DurableState, FlareDurableObject } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse, FlareService, flareState } from "../../../../../src/index.js";
@@ -23,7 +23,7 @@ const RESERVED_STATE_HEADER = "x-flare-state";
 type DurableInstance = ReturnType<typeof composeDurableInstance>;
 
 /** Base flare.json for the durable/worker terminals: silence logs, emit no x-request-id noise. */
-function cfJson(host: JsonObject = {}): JsonObject {
+function cfJson(host: Record<string, JsonValue> = {}): Record<string, JsonValue> {
   return {
     host: { env: "test", requestIdHeader: false, ...host },
     log: { level: "fatal", format: "json" },

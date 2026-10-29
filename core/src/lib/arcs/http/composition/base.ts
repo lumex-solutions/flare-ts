@@ -1,7 +1,7 @@
 /**
  * The registration core both authoring forms feed: routes, middleware, groups, and error handlers compile to one shape here.
  */
-import type { JsonValue } from "@flare-ts/lib/schema";
+import type { ReadonlyJsonValue } from "@flare-ts/lib/schema";
 import type { ConfigToken } from "../../../config/flare-config.js";
 import type { FlareErrorClass } from "../../../errors/types.js";
 import type { HttpErrorContext } from "../../../logger/types.js";
@@ -320,12 +320,12 @@ export abstract class HttpBase {
    * Within its scope (the arc's handlers, or a group's), keyed handlers run before catch-alls, the most
    * specific class first.
    */
-  public error<E extends FlareError<JsonValue | undefined>>(
+  public error<E extends FlareError<ReadonlyJsonValue | undefined>>(
     errorClass: FlareErrorClass<E>,
     handler: ErrorHandlerClass,
   ): void;
   /** Registers an error handler that runs only for errors of `errorClass` or a subclass, typed as that class. */
-  public error<E extends FlareError<JsonValue | undefined>>(
+  public error<E extends FlareError<ReadonlyJsonValue | undefined>>(
     errorClass: FlareErrorClass<E>,
     handler: (
       err: E,
@@ -334,7 +334,7 @@ export abstract class HttpBase {
     ) => ResponseLike | void | Promise<ResponseLike | void>,
   ): void;
   /** Registers an error handler with its own inject map that runs only for errors of `errorClass` or a subclass. */
-  public error<E extends FlareError<JsonValue | undefined>, const D extends InjectMap>(
+  public error<E extends FlareError<ReadonlyJsonValue | undefined>, const D extends InjectMap>(
     errorClass: FlareErrorClass<E>,
     options: HttpErrorHandlerOptions<D>,
     handler: (

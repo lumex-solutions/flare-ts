@@ -8,7 +8,7 @@
 process.env["FLARE_MODE"] = "test";
 
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { RequestAdapter } from "../../../../../src/lib/arcs/http/transport/types/adapter.js";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import type { LogRecord } from "../../../../../src/lib/logger/types.js";
@@ -31,7 +31,7 @@ function buildAsyncAdapter(): HostRuntimeAdapter<FlareAppBase> {
   return {
     runtime: "node",
     lifecycle: "async",
-    get flareJsonFile(): JsonObject {
+    get flareJsonFile(): Record<string, JsonValue> {
       return {};
     },
     env: { FLARE_MODE: "test" },

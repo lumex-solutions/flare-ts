@@ -2,7 +2,7 @@
  * The per-request DI container: lazy resolution, scoped caching, cycle detection,
  * and reverse-order disposal.
  */
-import type { JsonObject } from "@flare-ts/lib/schema";
+import type { JsonValue } from "@flare-ts/lib/schema";
 import type { ConfigToken } from "../config/flare-config.js";
 import type { FlareService } from "./composition/flare-service.js";
 import type { ServiceToken } from "./types/token.js";
@@ -26,7 +26,7 @@ export class Container {
     /** Pre-created singleton instances checked before scoped resolution. */
     private readonly singletons: ReadonlyMap<ServiceToken<FlareService>, FlareService> = new Map(),
     /** Resolved config object produced by resolveFlareConfig() during host.build(). */
-    private readonly config: JsonObject = {},
+    private readonly config: Readonly<Record<string, JsonValue>> = {},
   ) {}
 
   /** The pre-created singleton instances this container resolves before scoped services. */
@@ -36,7 +36,7 @@ export class Container {
 
   /** Returns the resolved config value for the given token. */
   resolveCfg<T>(token: ConfigToken<T>): T {
-    // The resolved config is a plain JsonObject; the token's phantom type carries
+    // The resolved config is a plain JSON object; the token's phantom type carries
     // the section shape the parse step already validated.
     return this.config[token.key] as T;
   }

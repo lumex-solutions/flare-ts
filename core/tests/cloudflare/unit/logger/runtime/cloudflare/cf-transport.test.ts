@@ -3,7 +3,7 @@
  * synchronous lifecycle hook contract.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib/schema";
+import type { JsonValue } from "@flare-ts/lib/schema";
 import type { FlareService } from "../../../../../../src/lib/services/composition/flare-service.js";
 import type { ServiceToken } from "../../../../../../src/lib/services/types/token.js";
 import { CfLoggerTransport } from "../../../../../../src/lib/logger/runtime/cloudflare/cf-transport.js";
@@ -11,7 +11,7 @@ import { Container } from "../../../../../../src/lib/services/container.js";
 import { FlareRegistrationMap } from "../../../../../../src/lib/services/registration-map.js";
 
 function makeContainer(): Container {
-  return new Container(new FlareRegistrationMap(), new Map(), {} as JsonObject);
+  return new Container(new FlareRegistrationMap(), new Map(), {} as Record<string, JsonValue>);
 }
 
 describe("synchronous transport base class contract", () => {

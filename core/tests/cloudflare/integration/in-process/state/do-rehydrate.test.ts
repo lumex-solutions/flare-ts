@@ -7,7 +7,7 @@
  * front-door gating.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { composeDurableInstance, durable, FlareDurableObject } from "../../../../../src/cloudflare.js";
 import {
@@ -26,7 +26,7 @@ const RESERVED_STATE_HEADER = "x-flare-state";
 // wire contract, pinned literally: if this name changes the crossing protocol changes and this suite must fail
 const RESERVED_TRACE_HEADER = "x-flare-trace";
 
-function cfJson(host: JsonObject = {}, log: JsonObject = {}): JsonObject {
+function cfJson(host: Record<string, JsonValue> = {}, log: Record<string, JsonValue> = {}): Record<string, JsonValue> {
   return {
     host: { env: "test", requestIdHeader: false, ...host },
     log: { level: "fatal", format: "json", ...log },
@@ -42,7 +42,7 @@ class RehydrateTestDO extends FlareDurableObject {
 }
 
 // Build a host that registers RehydrateTestDO and builds the DO arc.
-function buildDoHost(logCfg: JsonObject = {}): FlareHost {
+function buildDoHost(logCfg: Record<string, JsonValue> = {}): FlareHost {
   const host = new FlareHost(cfProdAdapter(cfJson({}, logCfg)));
   host.http.get("/_", () => new FlareResponse(200));
   const room = host.durableObject(RehydrateTestDO);

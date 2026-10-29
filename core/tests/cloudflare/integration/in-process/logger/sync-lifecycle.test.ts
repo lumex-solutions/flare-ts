@@ -4,7 +4,7 @@
  * buffer drains after all transports start under the workerd pool.
  */
 import { afterEach, describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { LogRecord } from "../../../../../src/index.js";
 import { CfLoggerTransport, FlareHost } from "../../../../../src/index.js";
 import { loggerALS } from "../../../../../src/lib/logger/context.js";
@@ -18,12 +18,12 @@ type LifecycleEvent =
   | { kind: "stop"; name: string; };
 
 /** Builds a test adapter that drops default CfConsoleTransport so only registered transports fire. */
-function makeCfAdapter(config: JsonObject): ReturnType<typeof cfTestAdapter> {
+function makeCfAdapter(config: Record<string, JsonValue>): ReturnType<typeof cfTestAdapter> {
   return cfLoggerTestAdapter(config);
 }
 
 /** Builds a test adapter that retains the default CfConsoleTransport stack. */
-function makeCfAdapterKeepDefaults(config: JsonObject): ReturnType<typeof cfTestAdapter> {
+function makeCfAdapterKeepDefaults(config: Record<string, JsonValue>): ReturnType<typeof cfTestAdapter> {
   return cfTestAdapter(config);
 }
 

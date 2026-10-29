@@ -2,7 +2,7 @@
  * Log vocabulary: levels, the context shapes records carry, the record type, and the
  * transport constructor type host composition consumes.
  */
-import type { JsonValue } from "@flare-ts/lib";
+import type { ReadonlyJsonValue } from "@flare-ts/lib";
 import type { Container } from "../services/container.js";
 import type { LogError } from "./fields.js";
 import type { LoggerTransport } from "./transport.js";
@@ -63,10 +63,10 @@ export type HttpErrorContext = HttpLogContext & {
 };
 
 /** Free-form structured metadata attached to a single log call. */
-export type LogMeta = Record<string, JsonValue>;
+export type LogMeta = Record<string, ReadonlyJsonValue | undefined>;
 
 /** Ambient state attached to every record emitted within a request scope. */
-export type LogState = Record<string, JsonValue>;
+export type LogState = Record<string, ReadonlyJsonValue | undefined>;
 
 /** Fully assembled record handed to every transport's `write` method. */
 export type LogRecord = {

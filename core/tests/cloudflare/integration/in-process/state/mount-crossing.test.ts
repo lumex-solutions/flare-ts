@@ -5,7 +5,7 @@
  * end by production code, never touched directly by the test.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import type {
   FlareHttpContext,
@@ -24,7 +24,7 @@ const RESERVED_STATE_HEADER = "x-flare-state";
 // wire contract, pinned literally: if this name changes the crossing protocol changes and this suite must fail
 const RESERVED_TRACE_HEADER = "x-flare-trace";
 
-function cfJson(): JsonObject {
+function cfJson(): Record<string, JsonValue> {
   return { host: { env: "test", requestIdHeader: false }, log: { level: "fatal", format: "json" } };
 }
 

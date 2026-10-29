@@ -7,12 +7,12 @@
  * (ws.subscribe in a front-door handler) is pinned at runtime by the parity matrix's worker leg.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import { FlareDurableObject } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse, FlareService, WebSocketChannels } from "../../../../../src/index.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 
-const cfJson: JsonObject = {
+const cfJson: Record<string, JsonValue> = {
   host: { env: "test", requestIdHeader: false },
   log: { level: "fatal", format: "json" },
 };

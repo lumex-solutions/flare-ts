@@ -7,13 +7,13 @@
  * prototype-chain lookup) lives in tests/cloudflare/unit/host/runtime/cloudflare/registration.test.ts.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import { composeDurableInstance, DurableState, FlareDurableObject } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse } from "../../../../../src/index.js";
 import { makeEnv, makeFakeDurableState } from "../../../helpers/cf-runtime-harness.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 
-function cfJson(): JsonObject {
+function cfJson(): Record<string, JsonValue> {
   return { host: { env: "test", requestIdHeader: false }, log: { level: "fatal", format: "json" } };
 }
 

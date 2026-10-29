@@ -6,7 +6,7 @@
 process.env["FLARE_MODE"] = "test";
 
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
 import { FlareHost, FlareResponse, FlareService, Logger } from "../../../../../src/index.js";
@@ -65,7 +65,7 @@ function nodeAdapterWithEnv(
     createApp: node.createApp.bind(node),
     createLogger: node.createLogger.bind(node),
     createTestRequest: node.createTestRequest.bind(node),
-    get flareJsonFile(): JsonObject {
+    get flareJsonFile(): Record<string, JsonValue> {
       return { host: { env: "test" }, log: { level: "fatal", format: "json" } };
     },
   };

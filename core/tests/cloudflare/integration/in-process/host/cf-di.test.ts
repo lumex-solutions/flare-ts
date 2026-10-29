@@ -4,11 +4,11 @@
  * FlareHost API and cfProdAdapter so build-time registration is exercised on the real adapter path.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import { FlareHost, FlareService } from "../../../../../src/index.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 
-function cfJson(): JsonObject {
+function cfJson(): Record<string, JsonValue> {
   return { host: { env: "test", requestIdHeader: false }, log: { level: "fatal", format: "json" } };
 }
 

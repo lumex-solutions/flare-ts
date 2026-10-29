@@ -1,7 +1,7 @@
 /**
  * The runtime adapter contract: what each runtime supplies to compose a host.
  */
-import type { JsonObject } from "@flare-ts/lib/schema";
+import type { JsonValue } from "@flare-ts/lib/schema";
 import type { FlareRequest } from "../../arcs/http/transport/flare-request";
 import type { Logger } from "../../logger/logger";
 import type { LoggerTransportClass } from "../../logger/types";
@@ -33,7 +33,7 @@ export interface HostRuntimeAdapter<
   /** Whether lifecycle hooks (`onStart`, `onStop`) are allowed to return Promises. */
   lifecycle: TLifecycle;
   /** Raw contents of `flare.json` for this runtime. Implementations may use a lazy getter. */
-  flareJsonFile: JsonObject;
+  flareJsonFile: Record<string, JsonValue>;
   /** Environment variables exposed by the runtime, used by the config-resolution env-merge pass. */
   env: Record<string, string | undefined>;
   /** Transport classes always installed by this runtime (e.g. console for Node). */

@@ -1,7 +1,7 @@
 /**
  * The resolved host-config vocabulary.
  */
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { CookiesConfig, HostConfig, LogConfig, WebSocketsConfig } from "../../config/flare-config.js";
 
 /**
@@ -10,7 +10,7 @@ import type { CookiesConfig, HostConfig, LogConfig, WebSocketsConfig } from "../
  * Resolution precedence is framework defaults, host-registered defaults, environment values,
  * and `flare.json` values.
  */
-export type FlareConfig = JsonObject & {
+export type FlareConfig = Record<string, JsonValue> & {
   host?: HostConfig;
   log?: LogConfig;
   cookies?: CookiesConfig;

@@ -5,14 +5,14 @@
 process.env["FLARE_MODE"] = "test";
 
 import { afterEach, describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { LoggerTransportClass, LogRecord } from "../../../../../src/lib/logger/types.js";
 import { FlareHost, LoggerTransport } from "../../../../../src/index.js";
 import { nodeAdapter } from "../../../../node/helpers/node-adapter.js";
 import { registerMinimalPingRoute } from "../../../../portable/helpers/host-fixtures.js";
 
 /** Builds a node test adapter with no default logger transports. */
-function makeNodeAdapter(config: JsonObject) {
+function makeNodeAdapter(config: Record<string, JsonValue>) {
   return nodeAdapter(config, { FLARE_MODE: "test" }, { defaultLoggerTransports: [] });
 }
 
@@ -28,7 +28,7 @@ class DefaultRecordingTransport extends LoggerTransport {
 }
 
 /** Builds a node test adapter whose default transport is `DefaultRecordingTransport`. */
-function makeNodeAdapterWithRecordingDefault(config: JsonObject) {
+function makeNodeAdapterWithRecordingDefault(config: Record<string, JsonValue>) {
   return nodeAdapter(config, { FLARE_MODE: "test" }, { defaultLoggerTransports: [DefaultRecordingTransport] });
 }
 

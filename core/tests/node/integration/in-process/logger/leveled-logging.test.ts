@@ -8,7 +8,7 @@
 process.env.FLARE_MODE = "test";
 
 import { afterEach, describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { LogContext } from "../../../../../src/lib/logger/types.js";
 import { FlareHost, LoggerTransport, type LogRecord } from "../../../../../src/index.js";
 import { runWithLogStore } from "../../../../../src/index.js";
@@ -54,7 +54,7 @@ class ThrowingTransport extends LoggerTransport {
 
 // Adapter helper: inject test config and drop the default ConsoleTransport so
 // the test only observes records routed through its registered transports.
-function makeAdapter(config: JsonObject) {
+function makeAdapter(config: Record<string, JsonValue>) {
   return nodeAdapter(config, { FLARE_MODE: "test" }, { defaultLoggerTransports: [] });
 }
 

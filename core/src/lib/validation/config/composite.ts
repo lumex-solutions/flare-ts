@@ -2,7 +2,7 @@
  * The config validation layer: the context shape config validators inspect and the
  * composite factory that assembles them.
  */
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { ConfigToken, OpaqueConfigToken } from "../../config/flare-config.js";
 import { CompositeValidator } from "../composite-validator.js";
 import { MissingConfigKeyValidator } from "./missing-config-key-validator.js";
@@ -21,7 +21,7 @@ export type ConfigValidationContext = {
   /** Built-in tokens exempt from field-level presence checks (e.g. HOST_CONFIG, LOG_CONFIG). */
   readonly defaultTokens: ReadonlySet<OpaqueConfigToken>;
   /** The fully resolved config object produced by #compileConfig. */
-  readonly resolvedConfig: Readonly<JsonObject>;
+  readonly resolvedConfig: Readonly<Record<string, JsonValue>>;
   /** Declared config arrays from every registered class (controllers, services, middleware). */
   readonly classConfigDeclarations: ReadonlyArray<readonly ConfigToken<unknown>[] | undefined>;
 };

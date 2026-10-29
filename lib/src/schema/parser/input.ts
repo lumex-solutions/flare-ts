@@ -10,14 +10,12 @@ import type { JsonValue } from "../schema.js";
  * JSON strings and ArrayBuffers are parsed; plain objects are passed through.
  * Throws for any other JsonValue (arrays, primitives).
  */
-export function resolveInput(raw: ArrayBuffer | string | JsonValue): { [key: string]: JsonValue; } {
+export function resolveInput(raw: ArrayBuffer | string | JsonValue): { [key: string]: JsonValue | undefined; } {
   if (raw instanceof ArrayBuffer || typeof raw === "string") {
     return tryParseJSON(raw);
   }
   if (typeof raw === "object" && raw !== null && !Array.isArray(raw)) {
-    // The guards above prove raw is a non-null, non-array object; only the
-    // index-signature view is being restated.
-    return raw as { [key: string]: JsonValue; };
+    return raw;
   }
   throw new Error("Expected object");
 }
@@ -55,7 +53,7 @@ function parseJSON(raw: ArrayBuffer | string): JsonValue {
  * Deserialises a JSON string or ArrayBuffer into a plain object.
  * Throws if the payload is not a JSON object (e.g. primitives or arrays).
  */
-function tryParseJSON(raw: ArrayBuffer | string): { [key: string]: JsonValue; } {
+function tryParseJSON(raw: ArrayBuffer | string): { [key: string]: JsonValue | undefined; } {
   try {
     const parsed = parseJSON(raw);
     if (typeof parsed !== "object" || parsed === null) {

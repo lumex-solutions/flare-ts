@@ -27,7 +27,7 @@ export { schema } from "./schema.js";
 
 export type { ModelTokenBuilder } from "./model.js";
 export type { BranchShape, DescriptorValue, DiscriminantValues, OpaqueSchemaToken, SchemaToken } from "./schema.js";
-export type { FieldError, JsonObject, JsonValue, SafeParseResult, SchemaError } from "./schema.js";
+export type { FieldError, JsonValue, ReadonlyJsonValue, SafeParseResult, SchemaError } from "./schema.js";
 
 // JSON Schema / serialization
 export { compileSerializer, toJsonSchema } from "./serializer.js";

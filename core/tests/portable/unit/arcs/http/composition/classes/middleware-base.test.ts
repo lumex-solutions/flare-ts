@@ -2,7 +2,7 @@
  * Unit tests for MiddlewareBase response helpers exposed through a test subclass.
  */
 import { describe, it, expect } from "vitest";
-import type { JsonValue } from "@flare-ts/lib/schema";
+import type { ReadonlyJsonValue } from "@flare-ts/lib/schema";
 import type { FlareHttpContext } from "../../../../../../../src/lib/arcs/http/transport/flare-http-context.js";
 import type { ResponseLike } from "../../../../../../../src/lib/arcs/http/transport/types/response.js";
 import { MiddlewareBase } from "../../../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
@@ -14,22 +14,22 @@ import { Container } from "../../../../../../../src/lib/services/container.js";
  * methods so the JSON-branch behaviour of `#createResponse` is observable.
  */
 class TestMiddleware extends MiddlewareBase {
-  public callBadRequest(body: JsonValue): ResponseLike {
+  public callBadRequest(body: ReadonlyJsonValue): ResponseLike {
     return this.badRequest(body);
   }
-  public callUnauthorized(body: JsonValue): ResponseLike {
+  public callUnauthorized(body: ReadonlyJsonValue): ResponseLike {
     return this.unauthorized(body);
   }
-  public callForbidden(body: JsonValue): ResponseLike {
+  public callForbidden(body: ReadonlyJsonValue): ResponseLike {
     return this.forbidden(body);
   }
-  public callNotFound(body: JsonValue): ResponseLike {
+  public callNotFound(body: ReadonlyJsonValue): ResponseLike {
     return this.notFound(body);
   }
-  public callTooManyRequests(body: JsonValue): ResponseLike {
+  public callTooManyRequests(body: ReadonlyJsonValue): ResponseLike {
     return this.tooManyRequests(body);
   }
-  public callError(body: JsonValue): ResponseLike {
+  public callError(body: ReadonlyJsonValue): ResponseLike {
     return this.error(body);
   }
 }
@@ -63,7 +63,7 @@ describe("MiddlewareBase response helpers", () => {
       expect(res).toBeInstanceOf(FlareResponse);
       expect(res.status).toBe(expectedStatus);
       // `#createResponse` always takes the JSON branch in MiddlewareBase
-      // (signature is `JsonValue`, not `JsonValue | null` or string), so every
+      // (signature is `ReadonlyJsonValue`, not `ReadonlyJsonValue | null` or string), so every
       // helper sets Content-Type: application/json and pre-allocates Content-Length.
       expect(res.headers["Content-Type"]).toBe("application/json");
       expect(res.headers["Content-Length"]).toBe("");

@@ -2,7 +2,7 @@
  * Unit tests for {@link LoggerTransport} base class contract and subclass hooks.
  */
 import { describe, it, expect } from "vitest";
-import type { JsonObject } from "@flare-ts/lib/schema";
+import type { JsonValue } from "@flare-ts/lib/schema";
 import type { LogRecord } from "../../../../src/lib/logger/types.js";
 import type { FlareService } from "../../../../src/lib/services/composition/flare-service.js";
 import type { ServiceToken } from "../../../../src/lib/services/types/token.js";
@@ -11,7 +11,7 @@ import { Container } from "../../../../src/lib/services/container.js";
 import { FlareRegistrationMap } from "../../../../src/lib/services/registration-map.js";
 
 function makeContainer(): Container {
-  return new Container(new FlareRegistrationMap(), new Map(), {} as JsonObject);
+  return new Container(new FlareRegistrationMap(), new Map(), {} as Record<string, JsonValue>);
 }
 
 describe("transport base class contract", () => {

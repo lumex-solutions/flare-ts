@@ -1,5 +1,5 @@
 /** The test helper that checks a response is the one a given error class produces. */
-import type { JsonValue } from "@flare-ts/lib/schema";
+import type { JsonValue, ReadonlyJsonValue } from "@flare-ts/lib/schema";
 import type { FlareError } from "../errors/flare-error.js";
 import type { FlareErrorClass } from "../errors/types.js";
 import { wireNameOf } from "../errors/wire.js";
@@ -10,7 +10,7 @@ import { wireNameOf } from "../errors/wire.js";
  * `message` and `detail` arrive only with a 4xx; for a 5xx class, which sends neither, `detail` is
  * undefined whatever the class declares.
  */
-export type FlareErrorBody<E extends FlareError<JsonValue | undefined>> = {
+export type FlareErrorBody<E extends FlareError<ReadonlyJsonValue | undefined>> = {
   readonly error: string;
   readonly message?: string;
   readonly detail: E["detail"];
@@ -28,7 +28,7 @@ export type FlareErrorBody<E extends FlareError<JsonValue | undefined>> = {
  * expect(detail.email).toBe("ada@example.com");
  * ```
  */
-export async function expectError<E extends FlareError<JsonValue | undefined>>(
+export async function expectError<E extends FlareError<ReadonlyJsonValue | undefined>>(
   res: Response,
   errorClass: FlareErrorClass<E>,
 ): Promise<FlareErrorBody<E>> {

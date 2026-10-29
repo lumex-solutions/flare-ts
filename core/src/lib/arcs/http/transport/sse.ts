@@ -1,7 +1,7 @@
 /**
  * Server-sent events: frame encoding, the writer contract, and the paced stream behind ctx.sse().
  */
-import type { JsonValue } from "@flare-ts/lib/schema";
+import type { ReadonlyJsonValue } from "@flare-ts/lib/schema";
 
 /**
  * One Server-Sent Events frame.
@@ -11,7 +11,7 @@ import type { JsonValue } from "@flare-ts/lib/schema";
  * SSE fields and are omitted from the frame when not provided.
  */
 export type SseEvent = {
-  data: JsonValue;
+  data: ReadonlyJsonValue;
   event?: string;
   id?: string;
   retry?: number;

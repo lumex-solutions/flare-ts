@@ -1,7 +1,7 @@
 /**
  * The response vocabulary: handler results, middleware overrides, header shapes, and serializer slots.
  */
-import type { JsonValue } from "@flare-ts/lib/schema";
+import type { ReadonlyJsonValue } from "@flare-ts/lib/schema";
 import type { FlareResponse } from "../flare-response.js";
 
 export type ResponseLike = Response | FlareResponse;
@@ -47,7 +47,7 @@ export type ResponseInit = {
 };
 
 /** Pre-compiled stringify function that converts an object to a JSON string. */
-export type Serializer = (doc: JsonValue) => string;
+export type Serializer = (doc: ReadonlyJsonValue) => string;
 
 /**
  * Per-route compiled response serializers, indexed by methodIdx then by HTTP

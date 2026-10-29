@@ -7,7 +7,7 @@
 import type { AddressInfo } from "node:net";
 import * as http from "node:http";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { SingletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
 import type { FlareAppBase } from "../../../../../src/lib/host/flare-app-base.js";
 import type { FlareAppNode } from "../../../../../src/lib/host/runtime/node/flare-app-node.js";
@@ -73,7 +73,7 @@ function buildNodeAdapter(
   return {
     runtime: "node",
     lifecycle: "async",
-    get flareJsonFile(): JsonObject {
+    get flareJsonFile(): Record<string, JsonValue> {
       return {};
     },
     env: {},
@@ -659,7 +659,7 @@ describe("singleton stopAsync ordering during shutdown", () => {
       const host = new FlareHost<NodeAdapter>({
         runtime: "node",
         lifecycle: "async",
-        get flareJsonFile(): JsonObject {
+        get flareJsonFile(): Record<string, JsonValue> {
           return {};
         },
         env: {},

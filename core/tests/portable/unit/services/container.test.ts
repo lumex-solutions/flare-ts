@@ -2,7 +2,7 @@
  * Unit tests for {@link Container} dependency resolution, scoped disposal, and config access.
  */
 import { describe, expect, it, vi } from "vitest";
-import type { JsonObject } from "@flare-ts/lib/schema";
+import type { JsonValue } from "@flare-ts/lib/schema";
 import type { ServiceRegistration } from "../../../../src/lib/services/types/registration.js";
 import type { ServiceFactory } from "../../../../src/lib/services/types/registration.js";
 import type { ServiceToken } from "../../../../src/lib/services/types/token.js";
@@ -55,12 +55,12 @@ describe("container construction and initial state", () => {
     expect(container.resolveDep(StubSvc)).toBe(stubInstance);
   });
 
-  it("accepts a pre-populated singletons ReadonlyMap and a JsonObject config", () => {
+  it("accepts a pre-populated singletons ReadonlyMap and a JSON config object", () => {
     class SingletonSvc extends FlareService {}
     const instance = new SingletonSvc(new Container());
 
     const singletons = new Map<ServiceToken<FlareService>, FlareService>([[SingletonSvc, instance]]);
-    const config: JsonObject = { something: { key: "value" } };
+    const config: Record<string, JsonValue> = { something: { key: "value" } };
 
     const container = new Container(new FlareRegistrationMap(), singletons, config);
 
@@ -73,7 +73,7 @@ describe("container construction and initial state", () => {
 describe("config token resolution", () => {
   // Primary Behavior
   it("returns the value at config[token.key] for a known key", () => {
-    const config: JsonObject = { db: { url: "postgres://localhost/x" } };
+    const config: Record<string, JsonValue> = { db: { url: "postgres://localhost/x" } };
     const container = new Container(new FlareRegistrationMap(), new Map(), config);
     const Token = flareConfig("db", {});
 
@@ -88,8 +88,8 @@ describe("config token resolution", () => {
     expect(container.resolveCfg(Missing)).toBeUndefined();
   });
 
-  it('returns the configured value for a token whose key collides with a built-in JsonObject key (e.g. "toString")', () => {
-    const config: JsonObject = { toString: "configured-value" };
+  it('returns the configured value for a token whose key collides with a built-in object key (e.g. "toString")', () => {
+    const config: Record<string, JsonValue> = { toString: "configured-value" };
     const container = new Container(new FlareRegistrationMap(), new Map(), config);
     const Token = flareConfig("toString", {});
 

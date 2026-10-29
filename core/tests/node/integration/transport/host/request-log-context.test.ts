@@ -9,7 +9,7 @@ process.env["FLARE_MODE"] = "test";
 import type { AddressInfo } from "node:net";
 import { once } from "node:events";
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { HttpLogContext } from "../../../../../src/lib/logger/types.js";
 import { FlareHost, FlareResponse, LoggerTransport, type LogRecord } from "../../../../../src/index.js";
 import { node } from "../../../../../src/node.js";
@@ -18,7 +18,7 @@ import { registerMinimalPingRoute } from "../../../../portable/helpers/host-fixt
 
 /** Builds a live Node adapter with empty `env` so `host.build()` returns FlareAppNode for runtime ALS tests. */
 function nodeLiveAdapter(
-  flareJson: JsonObject,
+  flareJson: Record<string, JsonValue>,
 ): NodeTestAdapter {
   return {
     runtime: node.runtime,
@@ -29,7 +29,7 @@ function nodeLiveAdapter(
     createLogger: node.createLogger.bind(node),
     createTestRequest: node.createTestRequest.bind(node),
     extendHost: node.extendHost!.bind(node),
-    get flareJsonFile(): JsonObject {
+    get flareJsonFile(): Record<string, JsonValue> {
       return flareJson;
     },
   };

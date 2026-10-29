@@ -6,7 +6,7 @@
 process.env["FLARE_MODE"] = "test";
 
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { SingletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
 import type { HostRuntimeAdapter } from "../../../../../src/lib/host/types/adapter.js";
 import type { LogRecord } from "../../../../../src/lib/logger/types.js";
@@ -41,7 +41,7 @@ function buildAsyncAdapter(): HostRuntimeAdapter<FlareAppBase, LoggerTransportCl
   return {
     runtime: "node",
     lifecycle: "async",
-    get flareJsonFile(): JsonObject {
+    get flareJsonFile(): Record<string, JsonValue> {
       return {};
     },
     env: {},
@@ -172,7 +172,7 @@ describe("Primary Behavior", () => {
       const adapter: HostRuntimeAdapter<FlareAppBase, LoggerTransportClass, "async", SingletonExtension> = {
         runtime: "node",
         lifecycle: "async",
-        get flareJsonFile(): JsonObject {
+        get flareJsonFile(): Record<string, JsonValue> {
           return {};
         },
         env: {},
@@ -365,7 +365,7 @@ describe("Edge Cases", () => {
       const adapter: HostRuntimeAdapter<FlareAppBase> = {
         runtime: "node",
         lifecycle: "async",
-        get flareJsonFile(): JsonObject {
+        get flareJsonFile(): Record<string, JsonValue> {
           return {};
         },
         env: {},
@@ -496,7 +496,7 @@ describe("Failure Modes", () => {
         const adapter: HostRuntimeAdapter<FlareAppBase> = {
           runtime: "node",
           lifecycle: "async",
-          get flareJsonFile(): JsonObject {
+          get flareJsonFile(): Record<string, JsonValue> {
             return {};
           },
           env: {},
@@ -606,7 +606,7 @@ describe("Cross-Feature Interactions", () => {
         const adapter: HostRuntimeAdapter<FlareAppBase> = {
           runtime: "node",
           lifecycle: "async",
-          get flareJsonFile(): JsonObject {
+          get flareJsonFile(): Record<string, JsonValue> {
             return {};
           },
           env: {},
@@ -685,7 +685,7 @@ describe("Cross-Feature Interactions", () => {
         const adapter: HostRuntimeAdapter<FlareAppBase, LoggerTransportClass, "async", SingletonExtension> = {
           runtime: "node",
           lifecycle: "async",
-          get flareJsonFile(): JsonObject {
+          get flareJsonFile(): Record<string, JsonValue> {
             return {};
           },
           env: {},

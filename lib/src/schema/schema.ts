@@ -40,16 +40,27 @@ export type SchemaError = {
 export type SafeParseResult<T> = { success: true; data: T; } | { success: false; error: SchemaError; };
 
 /**
- * Any value that can appear in a JSON payload.
+ * A JSON value, as `JSON.parse` returns it.
+ *
+ * Arrays are mutable so `Array.isArray` narrows them. An object field may be `undefined`, which is what
+ * reading a missing key gives.
  */
-export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue; };
+export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue | undefined; };
 
 /**
- * JSON object with string keys and {@link JsonValue} values.
+ * A {@link JsonValue} whose arrays and objects may be readonly.
+ *
+ * A function that only reads or serializes JSON takes this type, so readonly arrays and `as const` values
+ * fit, and so does every `JsonValue`. Interfaces and class instances, `Date` included, do not fit: a
+ * `Date` goes in as `date.toISOString()`.
  */
-export type JsonObject = {
-  [key: string]: JsonValue;
-};
+export type ReadonlyJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly ReadonlyJsonValue[]
+  | { readonly [key: string]: ReadonlyJsonValue | undefined; };
 
 // The three token brands use Symbol.for so the identities survive duplicate copies of the
 // package; `as never` is the only way to type a `unique symbol` from Symbol.for.

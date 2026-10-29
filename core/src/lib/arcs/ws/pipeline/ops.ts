@@ -71,9 +71,7 @@ function rejectMessage(
   why: string,
   details?: readonly FieldError[],
 ): WsDecodedMessage {
-  // FieldError is a closed all-string-field shape, so it IS JSON; the cast only bridges the missing
-  // index signature structural assignability demands.
-  _log("warn", `WebSocket message rejected: ${why}`, { details: (details ?? null) as JsonValue });
+  _log("warn", `WebSocket message rejected: ${why}`, { details: details ?? null });
   ws?.close(1008, "Message failed contract validation");
   return { ok: false };
 }

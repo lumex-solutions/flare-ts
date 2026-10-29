@@ -1,7 +1,7 @@
-import type { JsonValue } from "@flare-ts/lib/schema";
 /**
  * The class-form route authoring base: response helpers over the shared registration core.
  */
+import type { ReadonlyJsonValue } from "@flare-ts/lib/schema";
 import type { ConfigToken } from "../../../../config/flare-config.js";
 import type { FlareService } from "../../../../services/composition/flare-service.js";
 import type { Container } from "../../../../services/container.js";
@@ -46,7 +46,7 @@ export abstract class ControllerBase extends FlareBase {
     super(container);
   }
 
-  #createResponse(body: JsonValue | null, status: number): ResponseLike {
+  #createResponse(body: ReadonlyJsonValue | null, status: number): ResponseLike {
     if (body === null) {
       return new FlareResponse(status);
     }
@@ -59,11 +59,11 @@ export abstract class ControllerBase extends FlareBase {
   }
 
   /** Returns HTTP 200 with a JSON or text body. */
-  protected ok(body: JsonValue): ResponseLike {
+  protected ok(body: ReadonlyJsonValue): ResponseLike {
     return this.#createResponse(body, 200);
   }
   /** Returns HTTP 201 with a JSON or text body. */
-  protected created(body: JsonValue): ResponseLike {
+  protected created(body: ReadonlyJsonValue): ResponseLike {
     return this.#createResponse(body, 201);
   }
   /** Returns HTTP 204 with no body. */
@@ -80,27 +80,27 @@ export abstract class ControllerBase extends FlareBase {
     return new FlareResponse(status, null, { headers: { Location: location } });
   }
   /** Returns HTTP 400 with a JSON or text body. */
-  protected badRequest(body: JsonValue): ResponseLike {
+  protected badRequest(body: ReadonlyJsonValue): ResponseLike {
     return this.#createResponse(body, 400);
   }
   /** Returns HTTP 401 with a JSON or text body. */
-  protected unauthorized(body: JsonValue): ResponseLike {
+  protected unauthorized(body: ReadonlyJsonValue): ResponseLike {
     return this.#createResponse(body, 401);
   }
   /** Returns HTTP 403 with a JSON or text body. */
-  protected forbidden(body: JsonValue): ResponseLike {
+  protected forbidden(body: ReadonlyJsonValue): ResponseLike {
     return this.#createResponse(body, 403);
   }
   /** Returns HTTP 404 with a JSON or text body. */
-  protected notFound(body: JsonValue): ResponseLike {
+  protected notFound(body: ReadonlyJsonValue): ResponseLike {
     return this.#createResponse(body, 404);
   }
   /** Returns HTTP 429 with a JSON or text body. */
-  protected tooManyRequests(body: JsonValue): ResponseLike {
+  protected tooManyRequests(body: ReadonlyJsonValue): ResponseLike {
     return this.#createResponse(body, 429);
   }
   /** Returns HTTP 500 with a JSON or text body. */
-  protected error(body: JsonValue): ResponseLike {
+  protected error(body: ReadonlyJsonValue): ResponseLike {
     return this.#createResponse(body, 500);
   }
 }

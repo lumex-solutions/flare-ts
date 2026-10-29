@@ -6,7 +6,7 @@
 process.env["FLARE_MODE"] = "test";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib/schema";
+import type { JsonValue } from "@flare-ts/lib/schema";
 import { schema } from "@flare-ts/lib";
 import { int, str } from "@flare-ts/lib/schema";
 import type { TestAppHandle } from "../../../../../src/testing.js";
@@ -50,7 +50,7 @@ class StructuralCloneService extends FlareService {
   }
 }
 
-const SHARED_FLARE_JSON: JsonObject = {
+const SHARED_FLARE_JSON: Record<string, JsonValue> = {
   host: { env: "test", port: 0 },
   log: { level: "fatal", format: "json" },
   db: { url: "postgres://example/db", password: "s3cret" },
@@ -183,7 +183,7 @@ describe("Edge Cases", () => {
     process.env["FLARE_MODE"] = "test";
     // Build a brand-new host so the registration counts are isolated from the
     // shared app above. Same flare.json so the build succeeds.
-    const idempotentJson: JsonObject = {
+    const idempotentJson: Record<string, JsonValue> = {
       host: { env: "test", port: 0 },
       log: { level: "fatal", format: "json" },
       db: { url: "postgres://idem/db", password: "ok" },
@@ -227,7 +227,7 @@ describe("Failure Modes", () => {
     // reports the missing field before the MissingConfigKeyValidator runs.
     // The user-facing contract is that build() throws and the message names the
     // missing field.
-    const json: JsonObject = {
+    const json: Record<string, JsonValue> = {
       host: { env: "test", port: 0 },
       log: { level: "fatal", format: "json" },
       db: { url: "postgres://example/db" },

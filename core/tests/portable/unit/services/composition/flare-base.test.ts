@@ -62,7 +62,7 @@ function makeContainer(opts: {
     abstract new(...args: never[]) => FlareService,
     FlareService
   >;
-  // Cast through `unknown` because Container's config parameter is JsonObject
+  // Cast through `unknown` because Container's config parameter is Record<string, JsonValue>
   // (deep-JSON) but the test helper accepts a looser Record<string, unknown>
   // so callers can pass arbitrary fixtures.
   return new Container(registryStub, singletons, (opts.config ?? {}) as never);

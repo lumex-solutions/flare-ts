@@ -2,7 +2,7 @@
  * The composition root: FlareHost wires adapters, services, config, arcs, and
  * extensions, and compiles them into a runtime app on build().
  */
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import { type DescriptorValue, schema } from "@flare-ts/lib";
 import type { OpaqueConfigToken } from "../config/flare-config.js";
 import type { AdapterGraphSource, GraphSource } from "../graph/types.js";
@@ -143,7 +143,7 @@ export interface FlareBuildContext {
   /** Built-in config tokens exempt from field-presence checks (HOST_CONFIG, LOG_CONFIG). */
   readonly defaultConfigTokens: ReadonlySet<OpaqueConfigToken>;
   /** The fully resolved config object. */
-  readonly resolvedConfig: Readonly<JsonObject>;
+  readonly resolvedConfig: Readonly<FlareConfig>;
 }
 
 /**
@@ -852,7 +852,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
   }
 
   #compileConfig(): void {
-    let config: JsonObject = {};
+    let config: Record<string, JsonValue> = {};
 
     try {
       config = this.#adapter.flareJsonFile ?? {};
@@ -893,12 +893,12 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
       const fieldMap = sectionFieldMaps.get(sectionLower);
 
       if (typeof config[sectionKey] !== "object" || config[sectionKey] === null) config[sectionKey] = {};
-      let node = config[sectionKey] as JsonObject;
+      let node = config[sectionKey] as Record<string, JsonValue>;
 
       for (let i = 1; i < parts.length - 1; i++) {
         const part = fieldMap?.get(parts[i]!) ?? parts[i]!;
         if (typeof node[part] !== "object" || node[part] === null) node[part] = {};
-        node = node[part] as JsonObject;
+        node = node[part] as Record<string, JsonValue>;
       }
 
       const lowerLast = parts[parts.length - 1]!;
@@ -917,8 +917,8 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
 
     try {
       // Apply env-based defaults before parsing
-      const host = config["host"] as JsonObject | undefined;
-      const log = config["log"] as JsonObject | undefined;
+      const host = config["host"] as Record<string, JsonValue> | undefined;
+      const log = config["log"] as Record<string, JsonValue> | undefined;
       if (host && host["env"] === "development") {
         if (log && log["level"] === undefined) log["level"] = "debug";
         if (log && log["format"] === undefined) log["format"] = "pretty";

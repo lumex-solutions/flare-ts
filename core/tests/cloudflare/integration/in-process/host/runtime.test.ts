@@ -4,7 +4,7 @@
  * live FlareAppCF rather than the test-mode shim.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import type { FlareAppCF } from "../../../../../src/cloudflare.js";
 import { FlareHost, FlareResponse, httpContract, stream } from "../../../../../src/index.js";
 import { makeEnv, makeExecutionContext } from "../../../helpers/cf-runtime-harness.js";
@@ -125,7 +125,7 @@ describe("Edge Cases", () => {
       // buildCf is the supported entrypoint for Workers: flare.json cannot be
       // read at runtime, so the JSON is captured by closure at bundle time. The
       // resolved host config must surface those values after host.build().
-      const bundled: JsonObject = {
+      const bundled: Record<string, JsonValue> = {
         host: {
           env: "production",
           requestIdHeader: false,

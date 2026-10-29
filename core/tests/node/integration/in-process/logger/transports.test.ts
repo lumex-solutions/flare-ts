@@ -9,7 +9,7 @@
 process.env.FLARE_MODE = "test";
 
 import { afterEach, describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import {
   FlareHost,
   FlareService,
@@ -36,7 +36,7 @@ function newTestHost(adapter: ReturnType<typeof nodeAdapter>) {
   return host;
 }
 
-function makeNodeAdapter(config: JsonObject) {
+function makeNodeAdapter(config: Record<string, JsonValue>) {
   return nodeAdapter(config, { FLARE_MODE: "test" }, { defaultLoggerTransports: [] });
 }
 

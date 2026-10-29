@@ -2,14 +2,14 @@
  * Build-time validation for Durable Object state crossing: consume seams, front-door provision, and mount overlap rules.
  */
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@flare-ts/lib";
+import type { JsonValue } from "@flare-ts/lib";
 import { flareState, MiddlewareBase } from "../../../../../src/index.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
 import { DurableState, FlareDurableObject } from "../../../../../src/lib/host/runtime/cloudflare/index.js";
 import { cfProdAdapter } from "../../../helpers/cf-test-adapter.js";
 
-function cfJson(): JsonObject {
+function cfJson(): Record<string, JsonValue> {
   return { host: { env: "test", requestIdHeader: false }, log: { level: "fatal", format: "json" } };
 }
 

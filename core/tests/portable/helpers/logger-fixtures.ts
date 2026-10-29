@@ -3,7 +3,7 @@
  * transport, and the bootstrap-buffer reset that keeps module-scope state from leaking
  * between tests.
  */
-import type { JsonObject } from "@flare-ts/lib/schema";
+import type { JsonValue } from "@flare-ts/lib/schema";
 import type { LogRecord } from "../../../src/lib/logger/types.js";
 import { Logger } from "../../../src/lib/logger/logger.js";
 import { LoggerTransport } from "../../../src/lib/logger/transport.js";
@@ -15,7 +15,7 @@ import { FlareRegistrationMap } from "../../../src/lib/services/registration-map
  * which calls `container.resolveCfg(LOG_CONFIG)`, which returns `config["log"]`.
  */
 export function makeContainer(log: Record<string, unknown> = { level: "info" }): Container {
-  return new Container(new FlareRegistrationMap(), new Map(), { log } as unknown as JsonObject);
+  return new Container(new FlareRegistrationMap(), new Map(), { log } as unknown as Record<string, JsonValue>);
 }
 
 /**

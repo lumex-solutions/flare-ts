@@ -1,4 +1,4 @@
-import type { JsonValue } from "@flare-ts/lib/schema";
+import type { ReadonlyJsonValue } from "@flare-ts/lib/schema";
 /**
  * The class-form middleware authoring base: before/after/finally hooks over the shared core.
  */
@@ -45,7 +45,7 @@ export abstract class MiddlewareBase extends FlareBase {
     super(container);
   }
 
-  #createResponse(body: JsonValue, status: number): ResponseLike {
+  #createResponse(body: ReadonlyJsonValue, status: number): ResponseLike {
     return new FlareResponse(status, body);
   }
 
@@ -64,22 +64,22 @@ export abstract class MiddlewareBase extends FlareBase {
    */
   public finally?(result: HandlerResult): MiddlewareOverride | Promise<MiddlewareOverride>;
 
-  protected badRequest(body: JsonValue): ResponseLike {
+  protected badRequest(body: ReadonlyJsonValue): ResponseLike {
     return this.#createResponse(body, 400);
   }
-  protected unauthorized(body: JsonValue): ResponseLike {
+  protected unauthorized(body: ReadonlyJsonValue): ResponseLike {
     return this.#createResponse(body, 401);
   }
-  protected forbidden(body: JsonValue): ResponseLike {
+  protected forbidden(body: ReadonlyJsonValue): ResponseLike {
     return this.#createResponse(body, 403);
   }
-  protected notFound(body: JsonValue): ResponseLike {
+  protected notFound(body: ReadonlyJsonValue): ResponseLike {
     return this.#createResponse(body, 404);
   }
-  protected tooManyRequests(body: JsonValue): ResponseLike {
+  protected tooManyRequests(body: ReadonlyJsonValue): ResponseLike {
     return this.#createResponse(body, 429);
   }
-  protected error(body: JsonValue): ResponseLike {
+  protected error(body: ReadonlyJsonValue): ResponseLike {
     return this.#createResponse(body, 500);
   }
 }
