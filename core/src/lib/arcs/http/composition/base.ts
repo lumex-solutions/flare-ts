@@ -6,12 +6,14 @@ import type { FlareError } from "../../../errors/flare-error.js";
 import type { HttpErrorContext } from "../../../logger/types.js";
 import type { InjectMap } from "../../../services/types/inject.js";
 import type { HandlerScope } from "../../../services/types/scope.js";
+import type { ControllerHandler } from "../routing/types/route.js";
 import type { FlareHttpContext } from "../transport/flare-http-context.js";
 import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../transport/types/response.js";
 import type {
   ControllerRegistration,
   ErrorHandlerRegistration,
   MiddlewareRegistration,
+  RegisteredRoute,
 } from "../types/registration.js";
 import type { ControllerClass } from "./classes/controller-base.js";
 import type { ErrorHandlerClass } from "./classes/error-handler-base.js";
@@ -34,12 +36,11 @@ import type {
 } from "./types/handlers.js";
 import { assertRegistrationPath } from "../../../routing/path.js";
 import { assertInjectKeys, attachScopeDeps } from "../../../services/scope.js";
-import { Method, registerRoute } from "../routing/decorators.js";
 import { REQUEST_INPUT } from "../transport/flare-http-context.js";
 import { ControllerBase } from "./classes/controller-base.js";
 import { ErrorHandlerBase } from "./classes/error-handler-base.js";
 import { MiddlewareBase } from "./classes/middleware-base.js";
-import { httpContract } from "./contract/http-contract.js";
+import { controllerRegistration } from "./controller-registration.js";
 
 /** @internal Keys the non-overloaded route-install seam on {@link HttpBase}. */
 export const INSTALL_ROUTE: unique symbol = Symbol("INSTALL_ROUTE");
@@ -50,7 +51,6 @@ type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTION
 // be CALLED with unchecked arguments - call sites must first narrow to the concrete signature.
 type HandlerFn = (...args: never[]) => unknown;
 type Resolved<TOptions, THandler extends HandlerFn> = { options: TOptions; handler: THandler; };
-type SyntheticEntry = { cls: ControllerClass; registration: ControllerRegistration; methods: Set<HttpMethod>; };
 
 /** RequestDescriptor fields usable as loose inline route-option keys (the alternative to `contract`). */
 const REQUEST_FIELDS = ["body", "route", "query", "response", "maxBodyBytes", "signedCookies"] as const;
@@ -78,7 +78,7 @@ export abstract class HttpBase {
   readonly conRegistrations: ControllerRegistration[] = [];
   /** @internal Raw registrations in authoring order; read by build and validation. */
   readonly errorHandlers: ErrorHandlerRegistration[] = [];
-  readonly #syntheticControllers = new Map<string, SyntheticEntry>();
+  readonly #inlineRoutes = new Map<string, ControllerRegistration>();
 
   /** @internal Arc-level CORS policy set via {@link cors}; read by build and validation. */
   corsConfig: CorsConfig | undefined = undefined;
@@ -174,13 +174,7 @@ export abstract class HttpBase {
     }
 
     this.#assertControllerStatics(controller);
-    const fullPath = this.#fullPath(path);
-    this.conRegistrations.push({
-      factory: (container, req) => new controller(container, req),
-      cls: controller,
-      path: fullPath,
-      isolated: controller.isolated ?? false,
-    });
+    this.conRegistrations.push(controllerRegistration(this.#fullPath(path), controller));
   }
 
   public get(path: string, handler: HttpRouteHandler): void;
@@ -198,7 +192,7 @@ export abstract class HttpBase {
     optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
     maybeHandler?: HttpRouteHandler,
   ): void {
-    this.#syntheticController(path, "GET", optionsOrHandler, maybeHandler);
+    this.#inlineRoute(path, "GET", optionsOrHandler, maybeHandler);
   }
 
   public post(path: string, handler: HttpRouteHandler): void;
@@ -216,7 +210,7 @@ export abstract class HttpBase {
     optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
     maybeHandler?: HttpRouteHandler,
   ): void {
-    this.#syntheticController(path, "POST", optionsOrHandler, maybeHandler);
+    this.#inlineRoute(path, "POST", optionsOrHandler, maybeHandler);
   }
 
   public put(path: string, handler: HttpRouteHandler): void;
@@ -234,7 +228,7 @@ export abstract class HttpBase {
     optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
     maybeHandler?: HttpRouteHandler,
   ): void {
-    this.#syntheticController(path, "PUT", optionsOrHandler, maybeHandler);
+    this.#inlineRoute(path, "PUT", optionsOrHandler, maybeHandler);
   }
 
   public patch(path: string, handler: HttpRouteHandler): void;
@@ -252,7 +246,7 @@ export abstract class HttpBase {
     optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
     maybeHandler?: HttpRouteHandler,
   ): void {
-    this.#syntheticController(path, "PATCH", optionsOrHandler, maybeHandler);
+    this.#inlineRoute(path, "PATCH", optionsOrHandler, maybeHandler);
   }
 
   public delete(path: string, handler: HttpRouteHandler): void;
@@ -270,7 +264,7 @@ export abstract class HttpBase {
     optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
     maybeHandler?: HttpRouteHandler,
   ): void {
-    this.#syntheticController(path, "DELETE", optionsOrHandler, maybeHandler);
+    this.#inlineRoute(path, "DELETE", optionsOrHandler, maybeHandler);
   }
 
   public head(path: string, handler: HttpRouteHandler): void;
@@ -288,7 +282,7 @@ export abstract class HttpBase {
     optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
     maybeHandler?: HttpRouteHandler,
   ): void {
-    this.#syntheticController(path, "HEAD", optionsOrHandler, maybeHandler);
+    this.#inlineRoute(path, "HEAD", optionsOrHandler, maybeHandler);
   }
 
   public options(path: string, handler: HttpRouteHandler): void;
@@ -306,7 +300,7 @@ export abstract class HttpBase {
     optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
     maybeHandler?: HttpRouteHandler,
   ): void {
-    this.#syntheticController(path, "OPTIONS", optionsOrHandler, maybeHandler);
+    this.#inlineRoute(path, "OPTIONS", optionsOrHandler, maybeHandler);
   }
 
   public error(handler: ErrorHandlerClass): void;
@@ -377,10 +371,10 @@ export abstract class HttpBase {
     options: HttpRouteOptions,
     handler: HttpRouteHandler,
   ): void {
-    this.#syntheticController(path, method, options, handler);
+    this.#inlineRoute(path, method, options, handler);
   }
 
-  #syntheticController(
+  #inlineRoute(
     path: string,
     method: HttpMethod,
     optionsOrHandler: HttpRouteOptions | HttpRouteHandler,
@@ -393,107 +387,58 @@ export abstract class HttpBase {
       "route",
     );
     const fullPath = this.#fullPath(path);
-    const existing = this.#syntheticControllers.get(fullPath);
+    const existing = this.#inlineRoutes.get(fullPath);
 
-    if (existing) {
-      if (existing.methods.has(method)) {
-        throw new Error(
-          `Duplicate route registration for ${method} ${fullPath}. Each route can only have one handler per HTTP method.`,
-        );
-      }
-
-      // Graft a new named method onto the existing prototype so the single
-      // registration covers every HTTP method registered at this path.
-      assertInjectKeys(options.inject ?? {});
-      const methodName = `handle${method}`;
-      const fn = handler;
-      const ownInject = (options.inject ?? {}) as InjectMap; // captured per method
-      Object.defineProperty(existing.cls.prototype, methodName, {
-        value: function(this: ControllerBase) {
-          // Inline handlers have no static config declaration site, so route
-          // config resolution directly through the container instead of
-          // this.config(), whose guardrail would always throw here.
-          // The cast restates the pairing the erased storage cannot: this scope's `input` was parsed
-          // from the SAME contract the handler's typed signature was checked against at registration.
-          return fn(
-            this.ctx,
-            attachScopeDeps(
-              {
-                config: <T>(token: ConfigToken<T>): T => this.container.resolveCfg(token),
-                input: this.ctx[REQUEST_INPUT](),
-              },
-              ownInject,
-              (token) => this.inject(token),
-            ) as HttpHandlerScope,
-          );
-        },
-        writable: true,
-        configurable: true,
-      });
-
-      // Apply the @Method decorator programmatically.
-      registerRoute(existing.cls, method, methodName);
-
-      for (const dep of Object.values(options.inject ?? {})) {
-        if (!existing.cls.deps.includes(dep)) existing.cls.deps.push(dep);
-      }
-      for (const st of (options.state ?? [])) {
-        if (!existing.cls.state.includes(st)) existing.cls.state.push(st);
-      }
-
-      existing.methods.add(method);
-      return;
+    if (existing?.routes.some((route) => route.method === method)) {
+      throw new Error(
+        `Duplicate route registration for ${method} ${fullPath}. Each route can only have one handler per HTTP method.`,
+      );
+    }
+    if (existing && options.name !== undefined) {
+      throw new Error(
+        `${method} ${fullPath} sets "name", but only the first route registered at ${fullPath} can: every method at one path shares one registration.`,
+      );
+    }
+    if (existing && (options.isolated ?? false) !== existing.isolated) {
+      throw new Error(
+        `${method} ${fullPath} sets isolated: ${
+          options.isolated ?? false
+        }, but the route already registered at ${fullPath} uses isolated: ${existing.isolated}. Every method at one path runs the same middleware chain, so they must match.`,
+      );
     }
 
     assertInjectKeys(options.inject ?? {});
-    // Dedup: `inject: { a: Svc, b: Svc }` declares one dep, not two.
-    const deps = [...new Set(Object.values(options.inject ?? {}))];
-    const state = [...(options.state ?? [])];
-    const descriptor = routeDescriptor(options);
-    const contract = descriptor ? httpContract({ handle: descriptor }) : undefined;
-    const name = options.name ?? `Synthetic${method} ${fullPath}`;
-    const fn = handler;
-    const ownInject = (options.inject ?? {}) as InjectMap;
-
-    const SyntheticController = class extends ControllerBase {
-      static override deps = deps;
-      static override state = state;
-      static override contract = contract;
-
-      @Method(method)
-      handle() {
-        // Inline handlers have no static config declaration site, so route
-        // config resolution directly through the container instead of
-        // this.config(), whose guardrail would always throw here.
-        // The cast restates the pairing the erased storage cannot: this scope's `input` was parsed
-        // from the SAME contract the handler's typed signature was checked against at registration.
-        return fn(
-          this.ctx,
-          attachScopeDeps(
-            {
-              config: <T>(token: ConfigToken<T>): T => this.container.resolveCfg(token),
-              input: this.ctx[REQUEST_INPUT](),
-            },
-            ownInject,
-            (token) => this.inject(token),
-          ) as HttpHandlerScope,
-        );
-      }
+    const inject = (options.inject ?? {}) as InjectMap;
+    const route: RegisteredRoute = {
+      method,
+      path: "",
+      handler: inlineRouteHandler(method, handler, inject),
+      descriptor: routeDescriptor(options),
     };
-    Object.defineProperty(SyntheticController, "name", { value: name });
+
+    if (existing) {
+      existing.routes.push(route);
+      for (const dep of Object.values(inject)) {
+        if (!existing.deps.includes(dep)) existing.deps.push(dep);
+      }
+      for (const st of options.state ?? []) {
+        if (!existing.state.includes(st)) existing.state.push(st);
+      }
+      return;
+    }
 
     const registration: ControllerRegistration = {
-      factory: (container, req) => new SyntheticController(container, req),
-      cls: SyntheticController as ControllerClass,
+      factory: (container, ctx) => new InlineRoute(container, ctx),
       path: fullPath,
       isolated: options.isolated ?? false,
+      name: options.name ?? fullPath,
+      routes: [route],
+      // Dedup: `inject: { a: Svc, b: Svc }` declares one dep, not two.
+      deps: [...new Set(Object.values(inject))],
+      state: [...(options.state ?? [])],
+      config: undefined,
     };
-
-    this.#syntheticControllers.set(fullPath, {
-      cls: SyntheticController as ControllerClass,
-      registration,
-      methods: new Set([method]),
-    });
+    this.#inlineRoutes.set(fullPath, registration);
     this.conRegistrations.push(registration);
   }
 
@@ -654,3 +599,30 @@ function routeDescriptor(options: HttpRouteOptions): RequestDescriptor | undefin
   // descriptor shape, which the checker cannot follow through dynamic keys.
   return descriptor as RequestDescriptor | undefined;
 }
+
+/** Builds the handler an inline route's pipeline invokes against the {@link InlineRoute} receiver. */
+function inlineRouteHandler(method: HttpMethod, fn: HttpRouteHandler, inject: InjectMap): ControllerHandler {
+  const handler = function(this: ControllerBase) {
+    // The receiver declares no static deps or config, so this.inject() and this.config() would refuse;
+    // the scope resolves through the container, and only the tokens this route declared.
+    // The cast restates the pairing the erased storage cannot: this scope's `input` was parsed
+    // from the SAME contract the handler's typed signature was checked against at registration.
+    return fn(
+      this.ctx,
+      attachScopeDeps(
+        {
+          config: <T>(token: ConfigToken<T>): T => this.container.resolveCfg(token),
+          input: this.ctx[REQUEST_INPUT](),
+        },
+        inject,
+        (token) => this.container.resolveDep(token),
+      ) as HttpHandlerScope,
+    );
+  };
+  // Validator messages identify a route's handler by its name.
+  Object.defineProperty(handler, "name", { value: method });
+  return handler;
+}
+
+/** Receiver every inline route's handler runs against; the route itself is data on its registration. */
+class InlineRoute extends ControllerBase {}

@@ -776,7 +776,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
         // `static config?: readonly ConfigToken<unknown>[]` declared on FlareBase.
         ...this.#scopedRegistrations.map((r) => r.cls.config),
         ...this.#singletonRegistrations.map((r) => r.cls.config),
-        ...allControllers.map((r) => r.cls.config),
+        ...allControllers.map((r) => r.config),
         ...allMiddleware.map((r) => r.cls.config),
         ...this.ws[WS_REGISTRATIONS]().flatMap((r) => (r.kind === "controller" ? [r.cls.config] : [])),
       ],

@@ -269,13 +269,12 @@ describe("Failure Modes", () => {
 
 describe("Cross-Feature Interactions", () => {
   it(
-    "decorator-driven routes contribute to the same compileHttp output as app.get synthetic controllers (with http-arc/composition)",
+    "decorator-driven routes contribute to the same compileHttp output as app.get inline routes (with http-arc/composition)",
     async () => {
       // Mixed registration: a decorator-driven controller AND a function-based
       // app.get on the same host. compileHttp consumes both kinds of
-      // ControllerRegistration (the synthetic one is built by HttpBase#get,
-      // which calls @Method() programmatically via registerRoute), so both
-      // routes show up in the same router/pipeline arrays.
+      // ControllerRegistration (the inline one is built by HttpBase#get as
+      // route data), so both routes show up in the same router/pipeline arrays.
       class WidgetsController extends ControllerBase {
         public static override deps = [];
         public static override state = [];

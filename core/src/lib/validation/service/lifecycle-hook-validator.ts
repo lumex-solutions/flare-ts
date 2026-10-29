@@ -80,6 +80,8 @@ export class LifecycleHookValidator implements IValidator<ServiceValidationConte
     }
 
     for (const reg of ctx.controllers) {
+      // Inline routes have no class of their own to declare hooks on.
+      if (!reg.cls) continue;
       // ControllerClass is a bare construct-signature type with no declared prototype;
       // the runtime value is a real class, so Function exposes it.
       const proto = (reg.cls as Function).prototype;

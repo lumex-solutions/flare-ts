@@ -4,7 +4,6 @@
 import type { IValidator, ValidationError } from "../types.js";
 import type { WsValidationContext } from "./composite.js";
 import { joinRoutePath } from "../../arcs/http/routing/path.js";
-import { _getRoutes } from "../../arcs/http/routing/route-store.js";
 import { normaliseRoutePattern } from "../../routing/path.js";
 
 /**
@@ -49,7 +48,7 @@ export class WsRouteConflictValidator implements IValidator<WsValidationContext>
     // Cross-arc: a WS structural path that equals an HTTP route's structural path.
     const httpCanonicals = new Set<string>();
     for (const controller of ctx.httpControllers) {
-      for (const route of _getRoutes(controller.cls)) {
+      for (const route of controller.routes) {
         httpCanonicals.add(normaliseRoutePattern(joinRoutePath(controller.path, route.path)));
       }
     }

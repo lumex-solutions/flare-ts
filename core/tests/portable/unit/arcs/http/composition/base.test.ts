@@ -17,7 +17,6 @@ import { ErrorHandlerBase } from "../../../../../../src/lib/arcs/http/compositio
 import { MiddlewareBase } from "../../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
 import { HttpGroup } from "../../../../../../src/lib/arcs/http/composition/group.js";
 import { REQUEST_INPUT } from "../../../../../../src/lib/arcs/http/transport/flare-http-context.js";
-import { CONTRACT_BRAND } from "../../../../../../src/lib/contract/contract.js";
 
 /**
  * HttpBase is abstract; a minimal concrete subclass lets the tests reach the
@@ -286,44 +285,40 @@ describe("synthetic route registration via HTTP method helpers", () => {
     base = new TestHttpBase();
   });
 
-  it("First call: registers a fresh synthetic controller with one method", () => {
+  it("First call: registers one route at the path as data, with no controller class", () => {
     base.get("/hello", () => ({ ok: true }));
 
     expect(base.conRegistrations).toHaveLength(1);
     const reg = base.conRegistrations[0]!;
     expect(reg.path).toBe("/hello");
-    expect(reg.cls.prototype).toBeInstanceOf(ControllerBase);
+    expect(reg.name).toBe("/hello");
+    expect(reg.cls).toBeUndefined();
+    expect(reg.routes.map((route) => route.method)).toEqual(["GET"]);
   });
 
-  it("Second call to same path with a different method: grafts onto existing prototype rather than registering a new controller", () => {
+  it("Second call to same path with a different method: appends a route to the existing registration", () => {
     base.get("/r", () => ({ method: "get" }));
     base.post("/r", () => ({ method: "post" }));
 
-    // Still a single controller registration: the second method was grafted.
     expect(base.conRegistrations).toHaveLength(1);
-    const reg = base.conRegistrations[0]!;
-    // The grafted method is installed via Object.defineProperty(prototype, "handlePOST", ...).
-    expect(typeof (reg.cls.prototype as Record<string, unknown>)["handlePOST"]).toBe("function");
+    expect(base.conRegistrations[0]!.routes.map((route) => route.method)).toEqual(["GET", "POST"]);
   });
 
-  it("Grafted route on /x: handle (GET) and handlePOST run distinct handler bodies", () => {
+  it("Each method at a shared path runs its own handler body, named for its method", () => {
     base.get("/x", () => ({ via: "GET" }));
     base.post("/x", () => ({ via: "POST" }));
 
     expect(base.conRegistrations).toHaveLength(1);
-    const reg = base.conRegistrations[0]!;
-    const proto = reg.cls.prototype as {
-      handle: (this: unknown) => unknown;
-      handlePOST: (this: unknown) => unknown;
-    };
+    const [get, post] = base.conRegistrations[0]!.routes;
     const container = { resolveCfg: () => undefined } as unknown as Container;
-    // handle() builds the handler scope's `input` from ctx[REQUEST_INPUT](); these handlers ignore
+    // The handler builds the scope's `input` from ctx[REQUEST_INPUT](); these handlers ignore
     // input, so an empty parsed context is enough. A bare {} stub lacks the method and throws.
     const ctx = { [REQUEST_INPUT]: () => ({}) } as unknown as FlareHttpContext;
-    const instance = reg.factory(container, ctx);
+    const receiver = base.conRegistrations[0]!.factory(container, ctx);
 
-    expect(proto.handle.call(instance)).toEqual({ via: "GET" });
-    expect(proto.handlePOST.call(instance)).toEqual({ via: "POST" });
+    expect(get!.handler.call(receiver)).toEqual({ via: "GET" });
+    expect(post!.handler.call(receiver)).toEqual({ via: "POST" });
+    expect([get!.handler.name, post!.handler.name]).toEqual(["GET", "POST"]);
   });
 
   it("isolated option: sets isolated on the controller registration", () => {
@@ -346,7 +341,7 @@ describe("synthetic route registration via HTTP method helpers", () => {
     );
   });
 
-  it("inject/state options: deduped onto the controller class statics", () => {
+  it("inject/state options: deduped onto the shared registration", () => {
     const depA = class A {} as unknown as ControllerClass["deps"][number];
     const depB = class B {} as unknown as ControllerClass["deps"][number];
     const stateA = { name: "SA" } as ControllerClass["state"][number];
@@ -361,20 +356,15 @@ describe("synthetic route registration via HTTP method helpers", () => {
 
     const reg = base.conRegistrations[0]!;
     // depA / stateA were already present from the GET call: not duplicated.
-    expect(reg.cls.deps).toEqual([depA, depB]);
-    expect(reg.cls.state).toEqual([stateA, stateB]);
+    expect(reg.deps).toEqual([depA, depB]);
+    expect(reg.state).toEqual([stateA, stateB]);
   });
 
-  it("loose request fields: wrapped via httpContract({ handle: descriptor })", () => {
+  it("loose request fields: become the route's request descriptor", () => {
     const responseSchema = {} as unknown as never;
     base.get("/c", { response: { 200: responseSchema } }, () => null);
 
-    const cls = base.conRegistrations[0]!.cls;
-    const contract = cls.contract as unknown as Record<string | symbol, unknown> | undefined;
-    expect(contract).toBeDefined();
-    expect(contract![CONTRACT_BRAND]).toBe("http");
-    // The supplied RequestDescriptor is wrapped under the "handle" key.
-    expect(contract!["handle"]).toEqual({ response: { 200: responseSchema } });
+    expect(base.conRegistrations[0]!.routes[0]!.descriptor).toEqual({ response: { 200: responseSchema } });
   });
 
   it("Covers every named method helper (post/put/patch/delete/head/options) by registering distinct routes", () => {

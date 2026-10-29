@@ -407,7 +407,6 @@ describe("prepareRequestBody", () => {
         route: "/r",
         requestDescriptors: descriptors as never,
         score: 0,
-        controllerRef: {} as never,
         segments: { startIdxs: new Int16Array(), endIdxs: new Int16Array() },
         paramCount: 0,
       },

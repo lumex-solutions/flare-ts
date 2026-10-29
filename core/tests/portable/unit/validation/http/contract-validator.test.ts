@@ -5,6 +5,7 @@ import { describe, it, expect } from "vitest";
 import type { RouteMetadata } from "../../../../../src/lib/arcs/http/routing/types/route.js";
 import type { ControllerRegistration } from "../../../../../src/lib/arcs/http/types/registration.js";
 import type { HttpValidationContext } from "../../../../../src/lib/validation/http/composite.js";
+import { controllerRegistration } from "../../../../../src/lib/arcs/http/composition/controller-registration.js";
 import { DECORATOR_METADATA_SYMBOL, ROUTE_STORE } from "../../../../../src/lib/arcs/http/routing/route-store.js";
 import { CONTRACT_BRAND } from "../../../../../src/lib/contract/contract.js";
 import { ContractValidator } from "../../../../../src/lib/validation/http/contract-validator.js";
@@ -24,12 +25,7 @@ function attachRoutes(cls: Function, routes: RouteMetadata[]): void {
  * Only the fields the contract validator reads are populated meaningfully.
  */
 function makeControllerRegistration(cls: Function): ControllerRegistration {
-  return {
-    factory: (() => undefined) as never,
-    cls: cls as never,
-    path: "/",
-    isolated: false,
-  };
+  return controllerRegistration("/", cls as never);
 }
 
 function makeContext(controllers: ControllerRegistration[]): HttpValidationContext {

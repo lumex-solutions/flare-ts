@@ -1,12 +1,9 @@
 /**
  * Build-time validator for route and query parameter naming in the HTTP validation pipeline.
  */
-import type { RequestDescriptor } from "../../arcs/http/composition/contract/http-contract.js";
 import type { IValidator, ValidationError } from "../types.js";
 import type { HttpValidationContext } from "./composite.js";
 import { joinRoutePath } from "../../arcs/http/routing/path.js";
-import { _getRoutes } from "../../arcs/http/routing/route-store.js";
-import { descriptorsOf } from "../../contract/read.js";
 
 /**
  * Validates route and query parameter names for every registered handler:
@@ -24,8 +21,7 @@ export class RouteParamValidator implements IValidator<HttpValidationContext> {
     const errors: ValidationError[] = [];
 
     for (const controller of ctx.controllers) {
-      const routes = _getRoutes(controller.cls);
-      const contract = controller.cls.contract;
+      const routes = controller.routes;
 
       for (const route of routes) {
         const fullPath = joinRoutePath(controller.path, route.path);
@@ -45,7 +41,7 @@ export class RouteParamValidator implements IValidator<HttpValidationContext> {
             errors.push({
               severity: "error",
               code: "DUPLICATE_ROUTE_PARAM",
-              message: `Route "${fullPath}" in ${controller.cls.name} has a duplicate parameter name ":${paramName}".`,
+              message: `Route "${fullPath}" in ${controller.name} has a duplicate parameter name ":${paramName}".`,
               hint: `Each parameter in a route path must have a unique name.`,
             });
           } else {
@@ -53,8 +49,8 @@ export class RouteParamValidator implements IValidator<HttpValidationContext> {
           }
         }
 
-        // Check route param / query param name collision via the contract.
-        const descriptor = descriptorsOf<RequestDescriptor>(contract, "http")?.[route.handler.name];
+        // Check route param / query param name collision via the route's request descriptor.
+        const descriptor = route.descriptor;
         if (descriptor?.query) {
           for (const queryKey of Object.keys(descriptor.query)) {
             if (seenNames.has(queryKey)) {
@@ -62,7 +58,7 @@ export class RouteParamValidator implements IValidator<HttpValidationContext> {
                 severity: "error",
                 code: "ROUTE_QUERY_PARAM_COLLISION",
                 message:
-                  `Handler "${route.handler.name}" in ${controller.cls.name}: query parameter "${queryKey}" collides with a route parameter of the same name.`,
+                  `Handler "${route.handler.name}" in ${controller.name}: query parameter "${queryKey}" collides with a route parameter of the same name.`,
                 hint: `Route parameters and query parameters must have distinct names to avoid ambiguous resolution.`,
               });
             }

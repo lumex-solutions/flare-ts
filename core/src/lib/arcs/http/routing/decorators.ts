@@ -1,7 +1,6 @@
 /**
  * The route decorators (@Get, @Post, ...) and the metadata writer they share.
  */
-import type { ControllerClass } from "../composition/classes/controller-base.js";
 import type { ControllerBase } from "../composition/classes/controller-base.js";
 import type { METHOD_IDX_MAP } from "./types/methods.js";
 import type { ControllerHandler, RouteMetadata } from "./types/route.js";
@@ -135,14 +134,4 @@ export function Method(method: string, path?: string): Function {
     routes.push(route);
     ROUTE_STORE.set(metadata, routes);
   };
-}
-
-export function registerRoute(cls: ControllerClass, method: string, handlerName: string): void {
-  const metaSym = Symbol.metadata ?? Symbol.for("Symbol.metadata");
-  // Symbol.metadata access: the class type does not declare the decorator metadata slot.
-  const metadata = (cls as unknown as Record<symbol, DecoratorMetadataObject>)[metaSym]!;
-  const handler = cls.prototype[handlerName] as ControllerHandler;
-  const routes = ROUTE_STORE.get(metadata) ?? [];
-  routes.push({ method, path: "", handler });
-  ROUTE_STORE.set(metadata, routes);
 }

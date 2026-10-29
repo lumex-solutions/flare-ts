@@ -8,6 +8,7 @@
 process.env["FLARE_MODE"] = "test";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { int, schema, str } from "@flare-ts/lib/schema";
 import type { HandlerResult, FlareHost } from "../../../../../src/index.js";
 import type { node } from "../../../../../src/node.js";
 import type { TestAppHandle } from "../../../../../src/testing.js";
@@ -97,7 +98,7 @@ function buildPrimaryHost(): FlareHost<typeof node> {
     });
   });
 
-  // Multiple method calls on the same path merge into one synthetic controller with two methods.
+  // Multiple method calls on the same path share one registration with two routes.
   host.http.get("/items/:id", (ctx) => {
     return new FlareResponse(200, { method: "GET", id: ctx.req.rawRouteParams["id"] ?? null });
   });
@@ -169,7 +170,7 @@ describe("Primary Behavior", () => {
     expect(await res.json()).toEqual({ id: "42", via: "fn" });
   });
 
-  it("resolves multiple app.get/app.post calls on the same path through one synthetic controller with both methods registered", async () => {
+  it("resolves multiple app.get/app.post calls on the same path through one registration with both methods registered", async () => {
     const getRes = await primaryApp.fetch("GET /items/abc");
     expect(getRes.status).toBe(200);
     expect(await getRes.json()).toEqual({ method: "GET", id: "abc" });
@@ -286,7 +287,7 @@ describe("Edge Cases", () => {
       .toThrow('Path must start with "/": missing-leading-slash');
   });
 
-  it("grafts synthetic controllers for the same path but different HTTP methods onto a single class and dedupes inject/state arrays", async () => {
+  it("shares one registration across methods at the same path and dedupes inject/state arrays", async () => {
     process.env["FLARE_MODE"] = "test";
 
     class CounterService extends FlareService {
@@ -312,7 +313,7 @@ describe("Edge Cases", () => {
     host.http.use(StateProviderMw);
 
     // Both registrations declare the same service token and the same state
-    // token: the synthetic controller must dedupe so deps and state each
+    // token: the shared registration must dedupe so deps and state each
     // contain exactly one entry.
     host.http.get(
       "/multi",
@@ -329,10 +330,10 @@ describe("Edge Cases", () => {
     // exactly one ControllerRegistration with one entry in `deps` and `state`.
     const registrationsForMulti = host.http.conRegistrations.filter((r) => r.path === "/multi");
     expect(registrationsForMulti).toHaveLength(1);
-    expect(registrationsForMulti[0]!.cls.deps).toHaveLength(1);
-    expect(registrationsForMulti[0]!.cls.deps[0]).toBe(CounterService);
-    expect(registrationsForMulti[0]!.cls.state).toHaveLength(1);
-    expect(registrationsForMulti[0]!.cls.state[0]).toBe(TokenA);
+    expect(registrationsForMulti[0]!.deps).toHaveLength(1);
+    expect(registrationsForMulti[0]!.deps[0]).toBe(CounterService);
+    expect(registrationsForMulti[0]!.state).toHaveLength(1);
+    expect(registrationsForMulti[0]!.state[0]).toBe(TokenA);
 
     // Both methods still resolve at request time.
     const app = await host.build().test();
@@ -344,6 +345,45 @@ describe("Edge Cases", () => {
       const postRes = await app.fetch("POST /multi");
       expect(postRes.status).toBe(200);
       expect(await postRes.json()).toEqual({ method: "POST", value: 1 });
+    } finally {
+      await app.stop();
+    }
+  });
+
+  it("regression: every method at a shared path validates its own request contract, not only the first one registered", async () => {
+    process.env["FLARE_MODE"] = "test";
+    const host = testHost();
+    const NewItem = schema({ name: str.min(1) });
+
+    host.http.get(
+      "/items",
+      { query: { limit: int } },
+      (_ctx, scope) => new FlareResponse(200, { limit: scope.input.query.limit }),
+    );
+    host.http.post(
+      "/items",
+      { body: NewItem },
+      (_ctx, scope) => new FlareResponse(201, { name: scope.input.body.name }),
+    );
+
+    const app = await host.build().test();
+    try {
+      expect((await app.fetch("GET /items?limit=abc")).status).toBe(400);
+      expect(await (await app.fetch("GET /items?limit=5")).json()).toEqual({ limit: 5 });
+
+      const invalid = await app.fetch("POST /items", {
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ wrong: 1 }),
+      });
+      expect(invalid.status).toBe(400);
+      expect((await invalid.json() as { error: string; }).error).toBe("Invalid request body");
+
+      const valid = await app.fetch("POST /items", {
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "lamp" }),
+      });
+      expect(valid.status).toBe(201);
+      expect(await valid.json()).toEqual({ name: "lamp" });
     } finally {
       await app.stop();
     }
@@ -558,6 +598,28 @@ describe("Failure Modes", () => {
     host.http.get("/dup", () => new FlareResponse(200, { first: true }));
     expect(() => host.http.get("/dup", () => new FlareResponse(200, { second: true })))
       .toThrow("Duplicate route registration for GET /dup. Each route can only have one handler per HTTP method.");
+  });
+
+  it("throws when a later method at a path sets isolated differently from the route already registered there", () => {
+    process.env["FLARE_MODE"] = "test";
+    const host = testHost();
+
+    host.http.get("/open", { isolated: true }, () => new FlareResponse(200));
+    expect(() => host.http.post("/open", () => new FlareResponse(200)))
+      .toThrow(
+        "POST /open sets isolated: false, but the route already registered at /open uses isolated: true. Every method at one path runs the same middleware chain, so they must match.",
+      );
+  });
+
+  it("throws when a later method at a path sets name, which only the first route at that path can", () => {
+    process.env["FLARE_MODE"] = "test";
+    const host = testHost();
+
+    host.http.get("/named", { name: "Listing" }, () => new FlareResponse(200));
+    expect(() => host.http.post("/named", { name: "Creating" }, () => new FlareResponse(200)))
+      .toThrow(
+        'POST /named sets "name", but only the first route registered at /named can: every method at one path shares one registration.',
+      );
   });
 
   it("throws when app.use(plainClass) is called with a class whose prototype is not MiddlewareBase", () => {

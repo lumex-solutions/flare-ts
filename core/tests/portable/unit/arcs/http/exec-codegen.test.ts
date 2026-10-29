@@ -79,6 +79,11 @@ function ctrlReg(
     cls,
     path: "",
     isolated: true,
+    name: cls.name,
+    routes: [],
+    deps: [],
+    state: [],
+    config: undefined,
   };
 }
 
@@ -160,7 +165,6 @@ function buildPipeline(opts: {
       route: "/test",
       requestDescriptors: descriptors,
       score: 2,
-      controllerRef: opts.registration.cls,
       segments: { startIdxs: new Int16Array([1]), endIdxs: new Int16Array([5]) },
       paramCount: 0,
     },
@@ -196,11 +200,11 @@ describe("execShapeCacheSize / clearExecShapeCache / execShapeCacheKeys", () => 
     const reg = ctrlReg(cls, handler);
     const pipeline = buildPipeline({ registration: reg, handler });
 
-    compileExecFn(pipeline, [], [reg.cls.name], []);
+    compileExecFn(pipeline, [], [reg.name], []);
     expect(execShapeCacheSize()).toBe(1);
 
     // Same shape again: cache stays at 1.
-    compileExecFn(pipeline, [], [reg.cls.name], []);
+    compileExecFn(pipeline, [], [reg.name], []);
     expect(execShapeCacheSize()).toBe(1);
   });
 
@@ -210,7 +214,7 @@ describe("execShapeCacheSize / clearExecShapeCache / execShapeCacheKeys", () => 
     });
     const reg = ctrlReg(cls, handler);
     const pipeline = buildPipeline({ registration: reg, handler });
-    compileExecFn(pipeline, [], [reg.cls.name], []);
+    compileExecFn(pipeline, [], [reg.name], []);
 
     const keys = execShapeCacheKeys();
     expect(keys).toHaveLength(execShapeCacheSize());
@@ -227,7 +231,7 @@ describe("compileExecFn", () => {
     const reg = ctrlReg(cls, handler);
     const pipeline = buildPipeline({ registration: reg, handler });
 
-    const exec = compileExecFn(pipeline, [], [reg.cls.name], []);
+    const exec = compileExecFn(pipeline, [], [reg.name], []);
 
     const result = exec(emptyCtx, emptyContainer, [], 0);
     expect(result).toBe(expected);

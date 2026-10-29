@@ -1,7 +1,7 @@
 /**
  * The compiled route vocabulary: handler shape, metadata, and segments.
  */
-import type { ControllerBase, ControllerClass } from "../../composition/classes/controller-base.js";
+import type { ControllerBase } from "../../composition/classes/controller-base.js";
 import type { RequestDescriptor } from "../../composition/contract/http-contract.js";
 import type { HandlerResult } from "../../transport/types/response.js";
 
@@ -21,13 +21,12 @@ export type RouteSegment = {
   endIdxs: Int16Array;
 };
 
-/** One compiled route: its pattern, per-method handlers and descriptors, sort score, and owner class. */
+/** One compiled route: its pattern, per-method handlers and descriptors, and sort score. */
 export type Route = {
   route: string;
   handlers: ControllerHandler[];
   requestDescriptors: Array<RequestDescriptor | undefined>;
   score: number;
-  controllerRef: ControllerClass;
 
   segments: RouteSegment;
   paramCount: number;

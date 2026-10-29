@@ -2,18 +2,32 @@
  * Unit tests for {@link SignedCookiesValidator} signed cookie configuration requirements.
  */
 import { describe, expect, it } from "vitest";
+import type { RouteMetadata } from "../../../../../src/lib/arcs/http/routing/types/route.js";
 import type { ControllerRegistration } from "../../../../../src/lib/arcs/http/types/registration.js";
 import type { HttpValidationContext } from "../../../../../src/lib/validation/http/composite.js";
+import { controllerRegistration } from "../../../../../src/lib/arcs/http/composition/controller-registration.js";
+import { DECORATOR_METADATA_SYMBOL, ROUTE_STORE } from "../../../../../src/lib/arcs/http/routing/route-store.js";
 import { CONTRACT_BRAND } from "../../../../../src/lib/contract/contract.js";
 import { SignedCookiesValidator } from "../../../../../src/lib/validation/http/signed-cookies-validator.js";
 
+/** Registers `cls` with a handler for every entry of its contract, as a real class controller has. */
 function makeControllerRegistration(cls: Function): ControllerRegistration {
-  return {
-    factory: (() => undefined) as never,
-    cls: cls as never,
-    path: "/",
-    isolated: false,
-  };
+  const contract = (cls as { contract?: object; }).contract ?? {};
+  const routes: RouteMetadata[] = Object.keys(contract).map((key) => ({
+    method: "POST",
+    path: `/${key}`,
+    handler: namedHandler(key),
+  }));
+  const metadata = {} as DecoratorMetadataObject;
+  (cls as unknown as Record<symbol, DecoratorMetadataObject>)[DECORATOR_METADATA_SYMBOL] = metadata;
+  ROUTE_STORE.set(metadata, routes);
+  return controllerRegistration("/", cls as never);
+}
+
+function namedHandler(name: string): RouteMetadata["handler"] {
+  const fn = function() {};
+  Object.defineProperty(fn, "name", { value: name });
+  return fn as never;
 }
 
 function makeContext(

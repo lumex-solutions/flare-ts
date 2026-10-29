@@ -4,7 +4,6 @@
 import type { IValidator, ValidationError } from "../types.js";
 import type { HttpValidationContext } from "./composite.js";
 import { joinRoutePath } from "../../arcs/http/routing/path.js";
-import { _getRoutes } from "../../arcs/http/routing/route-store.js";
 
 const VALID_SEGMENT_NAME = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
@@ -25,7 +24,7 @@ export class RouteSyntaxValidator implements IValidator<HttpValidationContext> {
     const errors: ValidationError[] = [];
 
     for (const controller of ctx.controllers) {
-      const routes = _getRoutes(controller.cls);
+      const routes = controller.routes;
       for (const route of routes) {
         const fullPath = joinRoutePath(controller.path, route.path);
         // "/" splits to ["", ""]; slice(1) gives [""] which would incorrectly
@@ -39,7 +38,7 @@ export class RouteSyntaxValidator implements IValidator<HttpValidationContext> {
             errors.push({
               severity: "error",
               code: "ROUTE_EMPTY_SEGMENT",
-              message: `Route "${fullPath}" in ${controller.cls.name} has an empty segment (double slash).`,
+              message: `Route "${fullPath}" in ${controller.name} has an empty segment (double slash).`,
               hint: `Remove the double slash from the path.`,
             });
             break; // one report per route is enough
@@ -51,7 +50,7 @@ export class RouteSyntaxValidator implements IValidator<HttpValidationContext> {
               errors.push({
                 severity: "error",
                 code: "ROUTE_MISSING_PARAM_NAME",
-                message: `Route "${fullPath}" in ${controller.cls.name} has a ":" segment with no parameter name.`,
+                message: `Route "${fullPath}" in ${controller.name} has a ":" segment with no parameter name.`,
                 hint: `Replace ":" with ":paramName" where paramName is a valid identifier.`,
               });
             } else if (!VALID_SEGMENT_NAME.test(paramName)) {
@@ -59,7 +58,7 @@ export class RouteSyntaxValidator implements IValidator<HttpValidationContext> {
                 severity: "error",
                 code: "ROUTE_INVALID_PARAM_NAME",
                 message:
-                  `Route "${fullPath}" in ${controller.cls.name} has a parameter with an invalid name ":${paramName}".`,
+                  `Route "${fullPath}" in ${controller.name} has a parameter with an invalid name ":${paramName}".`,
                 hint:
                   `Parameter names must start with a letter or underscore and contain only letters, digits, and underscores.`,
               });
@@ -70,7 +69,7 @@ export class RouteSyntaxValidator implements IValidator<HttpValidationContext> {
               errors.push({
                 severity: "error",
                 code: "ROUTE_MISSING_WILDCARD_NAME",
-                message: `Route "${fullPath}" in ${controller.cls.name} has a "*" segment with no name.`,
+                message: `Route "${fullPath}" in ${controller.name} has a "*" segment with no name.`,
                 hint: `Replace "*" with "*paramName".`,
               });
             }
@@ -79,7 +78,7 @@ export class RouteSyntaxValidator implements IValidator<HttpValidationContext> {
                 severity: "error",
                 code: "ROUTE_WILDCARD_NOT_LAST",
                 message:
-                  `Route "${fullPath}" in ${controller.cls.name} has a wildcard segment that is not the last segment.`,
+                  `Route "${fullPath}" in ${controller.name} has a wildcard segment that is not the last segment.`,
                 hint: `Wildcard segments (*name) must appear only at the end of a route path.`,
               });
             }

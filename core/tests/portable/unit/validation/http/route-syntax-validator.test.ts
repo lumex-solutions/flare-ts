@@ -5,6 +5,7 @@ import { describe, it, expect } from "vitest";
 import type { RouteMetadata } from "../../../../../src/lib/arcs/http/routing/types/route.js";
 import type { ControllerRegistration } from "../../../../../src/lib/arcs/http/types/registration.js";
 import type { HttpValidationContext } from "../../../../../src/lib/validation/http/composite.js";
+import { controllerRegistration } from "../../../../../src/lib/arcs/http/composition/controller-registration.js";
 import { DECORATOR_METADATA_SYMBOL, ROUTE_STORE } from "../../../../../src/lib/arcs/http/routing/route-store.js";
 import { RouteSyntaxValidator } from "../../../../../src/lib/validation/http/route-syntax-validator.js";
 
@@ -25,12 +26,7 @@ function namedHandler(name: string): RouteMetadata["handler"] {
 }
 
 function makeReg(cls: Function, path: string): ControllerRegistration {
-  return {
-    factory: (() => undefined) as never,
-    cls: cls as never,
-    path,
-    isolated: false,
-  };
+  return controllerRegistration(path, cls as never);
 }
 
 function makeContext(controllers: ControllerRegistration[]): HttpValidationContext {

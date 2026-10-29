@@ -17,13 +17,11 @@ import type {
   GroupRegistration,
   MiddlewareRegistration,
 } from "./types/registration.js";
-import { descriptorsOf } from "../../contract/read.js";
 import { buildRouter, scoreRoute, splitPath } from "../../routing/router.js";
 import { compileCorsPolicy } from "./cors.js";
 import { compileExecFn } from "./exec-codegen.js";
 import { CHAR_CODE_COLON, CHAR_CODE_SLASH, CHAR_CODE_STAR } from "./http-arc.js";
 import { joinRoutePath } from "./routing/path.js";
-import { _getRoutes } from "./routing/route-store.js";
 import { METHOD_IDX_MAP, SUPPORTED_METHODS } from "./routing/types/methods.js";
 
 /**
@@ -141,7 +139,7 @@ function compileExecStepNames(pipeline: Pipeline, globalMwRegs: MiddlewareRegist
   for (let i = 0; i < pipeline.execCount; i++) {
     const factoryIdx = pipeline.middlewareFactoryByExecIdx[i]!;
     if (factoryIdx < 0) {
-      names[i] = pipeline.registration.cls.name;
+      names[i] = pipeline.registration.name;
       continue;
     }
     const group = pipeline.registration.group;
@@ -264,7 +262,7 @@ function getMiddlewareIdxs(
     }
   }
 
-  verifyProvidedState(controller.cls.state, providedBefore, controller.cls.name);
+  verifyProvidedState(controller.state, providedBefore, controller.name);
 
   return { beforeFactoryIdxs, afterFactoryIdxs, finallyFactoryIdxs };
 }
@@ -340,14 +338,13 @@ function verifyProvidedState(
 }
 
 function compileRoutes(controller: ControllerRegistration): Route[] {
-  const routeMetadata = _getRoutes(controller.cls);
-  if (routeMetadata.length === 0) {
-    throw new Error(`Controller ${controller.cls.name} has no route handlers. Add at least one decorated method.`);
+  if (controller.routes.length === 0) {
+    throw new Error(`Controller ${controller.name} has no route handlers. Add at least one decorated method.`);
   }
 
   const routeMap: Map<string, Route> = new Map();
 
-  for (const route of routeMetadata) {
+  for (const route of controller.routes) {
     const fullPath = joinRoutePath(controller.path, route.path);
     const length = fullPath.length;
 
@@ -403,10 +400,7 @@ function compileRoutes(controller: ControllerRegistration): Route[] {
 
     handlers[methodIdx] = route.handler;
 
-    const requestDescriptor: RequestDescriptor | undefined = descriptorsOf<RequestDescriptor>(
-      controller.cls.contract,
-      "http",
-    )?.[route.handler.name];
+    const requestDescriptor = route.descriptor;
 
     Object.entries(requestDescriptor?.route || {}).forEach(([key, value]) => {
       if (value._type === "float") {
@@ -423,7 +417,6 @@ function compileRoutes(controller: ControllerRegistration): Route[] {
       handlers,
       requestDescriptors,
       score: scoreRoute(fullPath),
-      controllerRef: controller.cls,
       segments,
       paramCount,
     });

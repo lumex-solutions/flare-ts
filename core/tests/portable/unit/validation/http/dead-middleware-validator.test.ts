@@ -32,6 +32,11 @@ function makeController(opts: ControllerOpts = {}): ControllerRegistration {
     cls: function NoopCtrl() {} as never,
     path: "/",
     isolated: opts.isolated ?? false,
+    name: "NoopCtrl",
+    routes: [],
+    deps: [],
+    state: [],
+    config: undefined,
     ...(grouped
       ? {
         group: {

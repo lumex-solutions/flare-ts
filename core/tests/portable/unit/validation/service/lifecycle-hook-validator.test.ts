@@ -14,6 +14,7 @@ import type { ServiceToken } from "../../../../../src/lib/services/types/token.j
 import type { ServiceValidationContext } from "../../../../../src/lib/validation/service/composite.js";
 import { ControllerBase } from "../../../../../src/lib/arcs/http/composition/classes/controller-base.js";
 import { MiddlewareBase } from "../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
+import { controllerRegistration } from "../../../../../src/lib/arcs/http/composition/controller-registration.js";
 import { FlareService } from "../../../../../src/lib/services/composition/flare-service.js";
 import { LifecycleHookValidator } from "../../../../../src/lib/validation/service/lifecycle-hook-validator.js";
 
@@ -69,14 +70,7 @@ function makeControllerCls(
 }
 
 function makeControllerReg(cls: ControllerClass): ControllerRegistration {
-  return {
-    factory: (() => {
-      throw new Error("factory should not be called");
-    }) as never,
-    cls,
-    path: "",
-    isolated: false,
-  };
+  return controllerRegistration("", cls);
 }
 
 /** Returns a MiddlewareClass stub with optional lifecycle hooks on the prototype. */

@@ -22,6 +22,7 @@ import { ControllerBase } from "../../../../../src/lib/arcs/http/composition/cla
 import { ErrorHandlerBase } from "../../../../../src/lib/arcs/http/composition/classes/error-handler-base.js";
 import { MiddlewareBase } from "../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
 import { httpContract } from "../../../../../src/lib/arcs/http/composition/contract/http-contract.js";
+import { controllerRegistration } from "../../../../../src/lib/arcs/http/composition/controller-registration.js";
 import { clearExecShapeCache } from "../../../../../src/lib/arcs/http/exec-codegen.js";
 import { DECORATOR_METADATA_SYMBOL, ROUTE_STORE } from "../../../../../src/lib/arcs/http/routing/route-store.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
@@ -76,9 +77,8 @@ function makeControllerReg(
   } = {},
 ): ControllerRegistration {
   const reg: ControllerRegistration = {
+    ...controllerRegistration(opts.path ?? "", cls),
     factory: ((_c: unknown, _ctx: unknown) => new (cls as unknown as { new(): ControllerBase; })()) as never,
-    cls,
-    path: opts.path ?? "",
     isolated: opts.isolated ?? false,
   };
   // Build the group context the production binding sets when a controller is in a group.

@@ -5,7 +5,6 @@ import type { OverlapPattern } from "../../routing/pattern-overlap.js";
 import type { IValidator, ValidationError } from "../types.js";
 import type { HttpValidationContext } from "./composite.js";
 import { joinRoutePath } from "../../arcs/http/routing/path.js";
-import { _getRoutes } from "../../arcs/http/routing/route-store.js";
 import { normaliseRoutePattern } from "../../routing/path.js";
 import { patternsOverlap, toOverlapPattern } from "../../routing/pattern-overlap.js";
 import { scoreRoute } from "../../routing/router.js";
@@ -37,7 +36,7 @@ export class RoutePriorityAmbiguityValidator implements IValidator<HttpValidatio
     const entries: PatternEntry[] = [];
     let order = 0;
     for (const controller of ctx.controllers) {
-      for (const route of _getRoutes(controller.cls)) {
+      for (const route of controller.routes) {
         const fullPath = joinRoutePath(controller.path, route.path);
         order++;
         const key = normaliseRoutePattern(fullPath);

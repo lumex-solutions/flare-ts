@@ -1,4 +1,4 @@
-/** Unit tests for HTTP route method decorators and registerRoute. */
+/** Unit tests for HTTP route method decorators. */
 import { describe, it, expect } from "vitest";
 import {
   Get,
@@ -9,7 +9,6 @@ import {
   Head,
   Options,
   Method,
-  registerRoute,
 } from "../../../../../../src/lib/arcs/http/routing/decorators.js";
 import { ROUTE_STORE } from "../../../../../../src/lib/arcs/http/routing/route-store.js";
 
@@ -155,52 +154,5 @@ describe("Method", () => {
       ["POST", "/b", h2],
       ["PUT", "/c", h3],
     ]);
-  });
-});
-
-describe("registerRoute", () => {
-  it('pushes a `{ method, path: "", handler }` into ROUTE_STORE for the class\'s metadata symbol', () => {
-    const metaSym = Symbol.metadata ?? Symbol.for("Symbol.metadata");
-    const metadata = {} as DecoratorMetadataObject;
-
-    const handler = function() {};
-    class Ctrl {
-      static deps: never[] = [];
-      static state: never[] = [];
-    }
-    // Mimic what the TC39 decorator runtime would write onto the class.
-    (Ctrl as unknown as Record<symbol, DecoratorMetadataObject>)[metaSym] = metadata;
-    (Ctrl.prototype as unknown as Record<string, unknown>)["doThing"] = handler;
-
-    registerRoute(Ctrl as never, "GET", "doThing");
-
-    const routes = ROUTE_STORE.get(metadata)!;
-    expect(routes).toBeDefined();
-    expect(routes).toHaveLength(1);
-    expect(routes[0]).toEqual({ method: "GET", path: "", handler });
-  });
-
-  it("idempotent at the array level (caller is responsible for de-dupe)", () => {
-    // The function itself appends unconditionally; calling it twice produces two
-    // entries. This documents the contract referenced by the spec: de-dupe is a
-    // caller concern (see HttpBase.#syntheticController).
-    const metaSym = Symbol.metadata ?? Symbol.for("Symbol.metadata");
-    const metadata = {} as DecoratorMetadataObject;
-
-    const handler = function() {};
-    class Ctrl {
-      static deps: never[] = [];
-      static state: never[] = [];
-    }
-    (Ctrl as unknown as Record<symbol, DecoratorMetadataObject>)[metaSym] = metadata;
-    (Ctrl.prototype as unknown as Record<string, unknown>)["doThing"] = handler;
-
-    registerRoute(Ctrl as never, "GET", "doThing");
-    registerRoute(Ctrl as never, "GET", "doThing");
-
-    const routes = ROUTE_STORE.get(metadata)!;
-    expect(routes).toHaveLength(2);
-    expect(routes[0]).toEqual({ method: "GET", path: "", handler });
-    expect(routes[1]).toEqual({ method: "GET", path: "", handler });
   });
 });

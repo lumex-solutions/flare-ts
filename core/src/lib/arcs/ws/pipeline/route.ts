@@ -55,7 +55,7 @@ export type WsControllerFactory = (
 /**
  * The ONE per-connection behavior surface both backings drive: a controller instance's lifecycle
  * methods. The class form is the author's instance (wrapped); the function form is synthesized onto
- * this same shape at build, exactly as HTTP compiles inline handlers into synthetic controllers.
+ * this same shape at build.
  */
 export type WsController = {
   open?(): void | Promise<void>;

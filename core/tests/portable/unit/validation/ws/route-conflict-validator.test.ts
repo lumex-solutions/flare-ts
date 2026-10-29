@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { RouteMetadata } from "../../../../../src/lib/arcs/http/routing/types/route.js";
 import type { ControllerRegistration } from "../../../../../src/lib/arcs/http/types/registration.js";
 import type { WsValidationContext } from "../../../../../src/lib/validation/ws/composite.js";
+import { controllerRegistration } from "../../../../../src/lib/arcs/http/composition/controller-registration.js";
 import { DECORATOR_METADATA_SYMBOL, ROUTE_STORE } from "../../../../../src/lib/arcs/http/routing/route-store.js";
 import { WsRouteConflictValidator } from "../../../../../src/lib/validation/ws/route-conflict-validator.js";
 
@@ -22,7 +23,7 @@ function namedHandler(name: string): RouteMetadata["handler"] {
 }
 
 function makeReg(cls: Function, path: string): ControllerRegistration {
-  return { factory: (() => undefined) as never, cls: cls as never, path, isolated: false };
+  return controllerRegistration(path, cls as never);
 }
 
 function ctx(wsPatterns: string[], httpControllers: ControllerRegistration[] = []): WsValidationContext {

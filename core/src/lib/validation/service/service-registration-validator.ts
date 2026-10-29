@@ -27,12 +27,12 @@ export class ServiceRegistrationValidator implements IValidator<ServiceValidatio
     ]);
 
     for (const controller of ctx.controllers) {
-      for (const dep of controller.cls.deps) {
+      for (const dep of controller.deps) {
         if (!registeredTokens.has(dep)) {
           errors.push({
             severity: "error",
             code: "CONTROLLER_UNREGISTERED_DEP",
-            message: `Controller ${controller.cls.name} depends on unregistered service ${dep.name}.`,
+            message: `Controller ${controller.name} depends on unregistered service ${dep.name}.`,
             hint: `Register ${dep.name} with host.scoped() or host.singleton() before calling host.build().`,
           });
         }

@@ -6,9 +6,23 @@
 
 - Route group builders no longer return a registration, and `HttpGroup.register()` is removed. `host.http.group(prefix, (g) => { ... })` registers the group when the builder returns: delete the trailing `return g.register();`. The builder type is now `(group: HttpGroup) => undefined`, so an `async` builder or an expression-bodied one (`(g) => g.get(...)`) is a type error; write a synchronous block body.
 
+- Inline routes registered at a path that already has one must agree with it: a later method that sets `name`, or an `isolated` value different from the first route's, now throws at registration. Both were silently ignored before; every method at one path shares one middleware chain and one registration.
+
 ### Added
 
 - `FlareApp` without a type argument types an app from any runtime: the `test()` entrypoint every compiled app shares, so a helper can accept `host.build()`'s result without naming a runtime. `FlareApp<typeof node>` is unchanged and still resolves to that runtime's app.
+
+### Changed
+
+- Error contexts name an inline route's handler stage by its path, or its `name` option, instead of a generated `SyntheticGET /path` class name.
+
+### Fixed
+
+- A later inline route at a shared path now validates its own request contract. With `host.http.get("/users", ...)` registered first, `host.http.post("/users", { body: NewUser }, ...)` never applied its descriptor, so the body, query, and route parameters of every method after the first went unvalidated.
+
+### Internal
+
+- Registrations are route-shaped: each one carries its routes as data (method, path, handler, request descriptor) alongside its deps, state, and config. Class controllers are converted once by `controllerRegistration()`; inline routes build the record directly instead of generating a controller class per path. Build, the validators, and the Cloudflare graph read the record rather than the class. The request pipeline and its generated code are unchanged.
 
 ## 0.3.1
 

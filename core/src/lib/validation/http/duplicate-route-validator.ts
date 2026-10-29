@@ -5,7 +5,6 @@ import type { ControllerRegistration } from "../../arcs/http/types/registration.
 import type { IValidator, ValidationError } from "../types.js";
 import type { HttpValidationContext } from "./composite.js";
 import { joinRoutePath } from "../../arcs/http/routing/path.js";
-import { _getRoutes } from "../../arcs/http/routing/route-store.js";
 import { normaliseRoutePattern } from "../../routing/path.js";
 
 type RouteEntry = {
@@ -21,8 +20,8 @@ type RouteEntry = {
  *
  * Flare matches a request path to one pipeline first, then dispatches the HTTP
  * method inside that pipeline. Because of that, every method for a route path
- * must belong to the same controller registration. Function routes are
- * normalized into a single synthetic controller at registration time; separate
+ * must belong to the same controller registration. Function routes at one path
+ * share one registration, built as each method registers; separate
  * class/controller registrations are rejected here.
  *
  * Routes also cannot reuse the same structural pattern with different parameter
@@ -43,7 +42,7 @@ export class DuplicateRouteValidator implements IValidator<HttpValidationContext
     const byPattern = new Map<string, RouteEntry[]>();
 
     for (const controller of ctx.controllers) {
-      const routes = _getRoutes(controller.cls);
+      const routes = controller.routes;
       for (const route of routes) {
         const fullPath = joinRoutePath(controller.path, route.path);
         const key = normaliseRoutePattern(fullPath);
@@ -53,7 +52,7 @@ export class DuplicateRouteValidator implements IValidator<HttpValidationContext
           fullPath,
           method: route.method.toUpperCase(),
           controller,
-          controllerName: controller.cls.name,
+          controllerName: controller.name,
           handlerName: route.handler.name,
         };
 

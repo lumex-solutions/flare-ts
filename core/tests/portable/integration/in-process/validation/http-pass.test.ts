@@ -276,7 +276,7 @@ describe("Edge Cases", () => {
   );
 
   it(
-    "function routes registered through one HttpBase instance are treated as one synthetic controller and do not trigger DUPLICATE_ROUTE_PIPELINE against each other",
+    "function routes registered through one HttpBase instance share one registration and do not trigger DUPLICATE_ROUTE_PIPELINE against each other",
     () => {
       // GET /op and POST /op on the same HttpBase reuse one synthetic
       // controller per fullPath. Without that reuse the duplicate-route

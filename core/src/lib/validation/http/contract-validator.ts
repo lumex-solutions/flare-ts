@@ -3,7 +3,6 @@
  */
 import type { IValidator, ValidationError } from "../types.js";
 import type { HttpValidationContext } from "./composite.js";
-import { _getRoutes } from "../../arcs/http/routing/route-store.js";
 import { contractKind } from "../../contract/read.js";
 
 /**
@@ -29,7 +28,7 @@ export class ContractValidator implements IValidator<HttpValidationContext> {
     const errors: ValidationError[] = [];
 
     for (const controller of ctx.controllers) {
-      const contract = controller.cls.contract;
+      const contract = controller.cls?.contract;
       if (!contract) continue;
       const kind = contractKind(contract);
       if (kind === undefined) continue;
@@ -37,13 +36,13 @@ export class ContractValidator implements IValidator<HttpValidationContext> {
         errors.push({
           severity: "error",
           code: "CONTRACT_KIND_MISMATCH",
-          message: `Controller ${controller.cls.name} has a "${kind}" contract where an "http" contract is required.`,
+          message: `Controller ${controller.name} has a "${kind}" contract where an "http" contract is required.`,
           hint: `Attach a httpContract to HTTP controllers; a "${kind}" contract belongs to its own arc.`,
         });
         continue;
       }
 
-      const routes = _getRoutes(controller.cls);
+      const routes = controller.routes;
       const handlerNames = new Set(routes.map(r => r.handler.name));
 
       for (const key of Object.keys(contract)) {
@@ -52,7 +51,7 @@ export class ContractValidator implements IValidator<HttpValidationContext> {
             severity: "warning",
             code: "ORPHANED_CONTRACT_ENTRY",
             message:
-              `Controller ${controller.cls.name} has a contract entry "${key}" with no corresponding handler method.`,
+              `Controller ${controller.name} has a contract entry "${key}" with no corresponding handler method.`,
             hint: `Either add a @GET/${key} (or other method) handler, or remove "${key}" from the contract.`,
           });
         }

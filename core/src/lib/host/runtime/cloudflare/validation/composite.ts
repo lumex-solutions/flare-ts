@@ -48,7 +48,7 @@ export function consumedTokensByClass(
     const consumed = new Set<StateToken>();
     const controllers = [...arc.conRegistrations, ...arc.groups.flatMap((g) => g.controllers)];
     for (const ctrl of controllers) {
-      for (const token of (ctrl.cls as { state?: readonly StateToken[]; }).state ?? []) {
+      for (const token of ctrl.state) {
         consumed.add(token);
       }
     }

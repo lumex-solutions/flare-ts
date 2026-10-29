@@ -6,6 +6,7 @@ import type { HttpRouteHandler } from "../../../arcs/http/composition/types/hand
 import type { HttpArc } from "../../../arcs/http/http-arc.js";
 import type { FlareHttpContext } from "../../../arcs/http/transport/flare-http-context.js";
 import type { ResponseLike } from "../../../arcs/http/transport/types/response.js";
+import type { ControllerRegistration } from "../../../arcs/http/types/registration.js";
 import type { FlareService } from "../../../services/composition/flare-service.js";
 import type { InjectMap } from "../../../services/types/inject.js";
 import type { ServiceToken } from "../../../services/types/token.js";
@@ -13,7 +14,6 @@ import type { StateToken } from "../../../state/flare-state.js";
 import type { FlareDurableObjectClass } from "./do/durable-object.js";
 import { INSTALL_ROUTE } from "../../../arcs/http/composition/base.js";
 import { joinRoutePath } from "../../../arcs/http/routing/path.js";
-import { _getRoutes } from "../../../arcs/http/routing/route-store.js";
 import { SUPPORTED_METHODS } from "../../../arcs/http/routing/types/methods.js";
 import { FlareResponse } from "../../../arcs/http/transport/flare-response.js";
 import { Bindings } from "./bindings.js";
@@ -116,8 +116,8 @@ export function snapshotFrontDoorPatterns(
   frontDoor: HttpArc<"sync">,
 ): { patterns: string[]; groupPrefixes: string[]; } {
   const patterns: string[] = [];
-  const expand = (reg: { cls: Function; path: string; }): void => {
-    const routes = _getRoutes(reg.cls);
+  const expand = (reg: ControllerRegistration): void => {
+    const routes = reg.routes;
     if (routes.length === 0) {
       patterns.push(reg.path);
       return;

@@ -220,7 +220,7 @@ function configClassDeclarations(graph: CfValidationGraph): ReadonlyArray<readon
   return [
     ...graph.scoped.map((r) => r.cls.config),
     ...graph.singletons.map((r) => r.cls.config),
-    ...controllers.map((r) => r.cls.config),
+    ...controllers.map((r) => r.config),
     ...middleware.map((r) => r.cls.config),
     ...wsControllers.map((cls) => cls.config),
   ];
@@ -381,7 +381,7 @@ const DO_ONLY_TOKENS = [
 function reachabilityErrors(graph: CfValidationGraph): ValidationError[] {
   const byToken = serviceIndex(graph);
   const frontDoorRoots = [
-    ...arcControllers(graph.frontDoor).flatMap((c) => c.cls.deps),
+    ...arcControllers(graph.frontDoor).flatMap((c) => c.deps),
     ...arcMiddleware(graph.frontDoor).flatMap((m) => m.cls.deps),
     // Front-door WS handlers run in the same Worker context: their deps are entries too, as are the
     // deps of a route's `upgrade` hook (it runs in the Worker at upgrade time).

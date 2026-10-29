@@ -41,8 +41,8 @@ describe("Primary Behavior", () => {
     );
 
     // Typed param via ctx.extract: requires a contract with route descriptors.
-    // The synthetic-route options.contract path wires this into the framework
-    // for us (see HttpBase.#syntheticController). When the contract is
+    // The inline route's contract option wires this into the framework
+    // for us (see HttpBase.#inlineRoute). When the contract is
     // present, the framework parses the segment through the primitive and
     // ctx.extract({...}) yields the typed value.
     const ItemContract = httpContract({ item: { route: { id: int } } });
