@@ -949,6 +949,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
     return {
       ...this.http[HTTP_PIPELINES](),
       groups: this.http.groups,
+      webSockets: this.ws[WS_REGISTRATIONS](),
       scoped: this.#scopedRegistrations,
       singletons: this.#singletonRegistrations,
       prebuilt: [...this.#singletons.keys()].filter((token) => !registered.has(token)),

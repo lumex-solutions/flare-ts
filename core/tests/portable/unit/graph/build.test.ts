@@ -1,9 +1,11 @@
 /**
  * Unit tests for buildGraph: service nodes from registrations and prebuilt services, route nodes from
- * compiled pipelines, and segmentsOf.
+ * compiled pipelines and WebSocket registrations, and segmentsOf.
  */
 import { assert, describe, expect, it } from "vitest";
 import { bool, int, optional, schema, str } from "@flare-ts/lib/schema";
+import type { GraphModel } from "../../../../src/lib/graph/build.js";
+import type { HttpRouteNode } from "../../../../src/lib/graph/http-route-node.js";
 import type { GraphSource } from "../../../../src/lib/graph/types.js";
 import type { ServiceRegistration } from "../../../../src/lib/services/types/registration.js";
 import { compileHttp } from "../../../../src/lib/arcs/http/build.js";
@@ -14,9 +16,12 @@ import { stream } from "../../../../src/lib/arcs/http/composition/contract/http-
 import { controllerRegistration } from "../../../../src/lib/arcs/http/composition/controller-registration.js";
 import { COMPILE_HTTP_ARC, HTTP_PIPELINES } from "../../../../src/lib/arcs/http/http-arc.js";
 import { Get, Post } from "../../../../src/lib/arcs/http/routing/decorators.js";
+import { WebSocketControllerBase } from "../../../../src/lib/arcs/ws/composition/classes/controller-base.js";
+import { WS_REGISTRATIONS } from "../../../../src/lib/arcs/ws/ws-arc.js";
 import { flareConfig } from "../../../../src/lib/config/flare-config.js";
 import { buildGraph, segmentsOf } from "../../../../src/lib/graph/build.js";
 import { FlareService } from "../../../../src/lib/services/composition/flare-service.js";
+import { flareState } from "../../../../src/lib/state/flare-state.js";
 import { testHost } from "../../helpers/test-host.js";
 
 const MailerConfig = flareConfig("mailer", {});
@@ -35,7 +40,22 @@ function registration(cls: typeof Mailer | typeof Signups): ServiceRegistration<
 }
 
 function source(overrides: Partial<GraphSource> = {}): GraphSource {
-  return { pipelines: [], middleware: [], groups: [], scoped: [], singletons: [], prebuilt: [], ...overrides };
+  return {
+    pipelines: [],
+    middleware: [],
+    groups: [],
+    webSockets: [],
+    scoped: [],
+    singletons: [],
+    prebuilt: [],
+    ...overrides,
+  };
+}
+
+function httpRoute(graph: GraphModel, id: string): HttpRouteNode {
+  const route = graph.routeById.get(id);
+  assert(route?.kind === "http", `${id} is not an HTTP route`);
+  return route;
 }
 
 describe("buildGraph services", () => {
@@ -122,7 +142,7 @@ describe("buildGraph routes", () => {
       ["GET /items", "ItemsController.list"],
       ["POST /items", "ItemsController.create"],
     ]);
-    expect(graph.routes[1]!.pipeline).toEqual([{ kind: "handler", name: "ItemsController.create" }]);
+    expect(httpRoute(graph, "POST /items").pipeline).toEqual([{ kind: "handler", name: "ItemsController.create" }]);
   });
 
   it("lists a route's services breadth-first and records which routes use each one", () => {
@@ -173,7 +193,7 @@ describe("buildGraph routes", () => {
     const graph = compiledGraph((http) => {
       http.get("/users/:id", { route: { id: int } }, () => null);
     });
-    const routeSchema = graph.routes[0]!.input.route!;
+    const routeSchema = httpRoute(graph, "GET /users/:id").input.route!;
     assert("properties" in routeSchema);
 
     expect(Object.isFrozen(routeSchema)).toBe(true);
@@ -203,14 +223,81 @@ describe("buildGraph routes", () => {
       http.get("/items", () => null);
     });
 
-    expect(graph.routeById.get("GET /items")!.pipeline).toEqual([
+    expect(httpRoute(graph, "GET /items").pipeline).toEqual([
       { kind: "handler", name: "GET /items" },
       { kind: "after", name: "Audit", from: "global" },
     ]);
-    expect(graph.routeById.get("GET /internal/jobs")!.pipeline).toEqual([
+    expect(httpRoute(graph, "GET /internal/jobs").pipeline).toEqual([
       { kind: "handler", name: "GET /internal/jobs" },
       { kind: "finally", name: "Cleanup", from: "group" },
     ]);
+  });
+});
+
+describe("buildGraph WebSocket routes", () => {
+  const Session = flareState<{ userId: string; }>("Session");
+  const ChatMessage = schema({ text: str });
+
+  class FeedController extends WebSocketControllerBase {
+    static override deps = [Mailer];
+    static override state = [];
+  }
+
+  // Registers through a real host's WebSocket arc, so the registrations are what the arc records.
+  function webSocketGraph(register: (ws: ReturnType<typeof testHost>["ws"]) => void) {
+    const host = testHost();
+    register(host.ws);
+    return buildGraph(source({
+      webSockets: host.ws[WS_REGISTRATIONS](),
+      scoped: [registration(Signups), registration(Mailer)],
+    }));
+  }
+
+  it("builds one node per WebSocket route, with its id, handler, and declared input", () => {
+    const graph = webSocketGraph((ws) => {
+      ws.route("/chat/:room", { params: { room: str }, query: { since: optional(int) }, incoming: ChatMessage })
+        .message(() => {});
+      ws.controller("/feed", FeedController);
+    });
+
+    expect(graph.routes.map((route) => [route.kind, route.id, route.handler])).toEqual([
+      ["ws", "WS /chat/:room", "WS /chat/:room"],
+      ["ws", "WS /feed", "FeedController"],
+    ]);
+    expect(graph.routeById.get("WS /chat/:room")!.input).toEqual({
+      params: { type: "object", properties: { room: { type: "string" } }, required: ["room"] },
+      query: { type: "object", properties: { since: { type: "integer" } } },
+      incoming: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
+    });
+    expect(graph.routeById.get("WS /feed")!.input).toEqual({});
+  });
+
+  it("counts the services the route and its upgrade hook inject, and the state the hook writes", () => {
+    const graph = webSocketGraph((ws) => {
+      ws.route("/chat", { inject: { mailer: Mailer }, state: [Session] })
+        .upgrade({ inject: { signups: Signups }, provides: [Session] }, (_upgrade, scope) => {
+          scope.state.set(Session, { userId: "u1" });
+        })
+        .message(() => {});
+      ws.controller("/feed", FeedController);
+    });
+
+    expect(graph.routeById.get("WS /chat")).toMatchObject({
+      services: ["Mailer", "Signups"],
+      state: { reads: ["Session"], writes: ["Session"] },
+    });
+    expect(graph.routeById.get("WS /feed")!.services).toEqual(["Mailer"]);
+    expect(graph.serviceByToken.get(Mailer)!.usedBy).toEqual(["WS /chat", "WS /feed"]);
+  });
+
+  it("lists WebSocket routes after the HTTP routes", () => {
+    const host = testHost();
+    host.ws.route("/chat").message(() => {});
+    host.http.get("/health", () => null);
+    host.http[COMPILE_HTTP_ARC]();
+    const graph = buildGraph(source({ ...host.http[HTTP_PIPELINES](), webSockets: host.ws[WS_REGISTRATIONS]() }));
+
+    expect(graph.routes.map((route) => route.id)).toEqual(["GET /health", "WS /chat"]);
   });
 });
 

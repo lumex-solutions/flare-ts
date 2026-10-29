@@ -1,10 +1,10 @@
 /**
- * Unit tests for RouteNode: middleware matching by class identity, and a frozen, JSON-safe shape.
+ * Unit tests for HttpRouteNode: middleware matching by class identity, and a frozen, JSON-safe shape.
  */
 import { describe, expect, it } from "vitest";
 import type { MiddlewareClass } from "../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
 import { MiddlewareBase } from "../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
-import { RouteNode } from "../../../../src/lib/graph/route-node.js";
+import { HttpRouteNode } from "../../../../src/lib/graph/http-route-node.js";
 
 function middlewareNamed(name: string): MiddlewareClass {
   class M extends MiddlewareBase {
@@ -17,8 +17,8 @@ function middlewareNamed(name: string): MiddlewareClass {
 
 const Auth = middlewareNamed("Auth");
 
-function node(): RouteNode {
-  return new RouteNode({
+function node(): HttpRouteNode {
+  return new HttpRouteNode({
     id: "GET /me",
     method: "GET",
     path: "/me",
@@ -47,6 +47,7 @@ describe("node shape", () => {
 
   it("converts to JSON as its fields only", () => {
     expect(JSON.parse(JSON.stringify(node()))).toEqual({
+      kind: "http",
       id: "GET /me",
       method: "GET",
       path: "/me",

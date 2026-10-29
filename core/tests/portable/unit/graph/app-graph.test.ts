@@ -1,6 +1,6 @@
 /**
  * Unit tests for AppGraph: building on first query and reusing the result until reset, and the path
- * patterns and lookups its queries accept.
+ * patterns and lookups its queries accept across HTTP and WebSocket routes.
  */
 import { describe, expect, it } from "vitest";
 import type { GraphSource } from "../../../../src/lib/graph/types.js";
@@ -8,9 +8,11 @@ import { compileHttp } from "../../../../src/lib/arcs/http/build.js";
 import { ControllerBase } from "../../../../src/lib/arcs/http/composition/classes/controller-base.js";
 import { controllerRegistration } from "../../../../src/lib/arcs/http/composition/controller-registration.js";
 import { Get } from "../../../../src/lib/arcs/http/routing/decorators.js";
+import { WS_REGISTRATIONS } from "../../../../src/lib/arcs/ws/ws-arc.js";
 import { AppGraph, RESET_GRAPH } from "../../../../src/lib/graph/app-graph.js";
 import { FlareService } from "../../../../src/lib/services/composition/flare-service.js";
 import { mockContainer } from "../../../../src/lib/testing/mock.js";
+import { testHost } from "../../helpers/test-host.js";
 
 class AdminController extends ControllerBase {
   static override deps = [];
@@ -46,10 +48,13 @@ function source(): GraphSource {
     controllerRegistration("/admin", AdminController),
     controllerRegistration("/public", PublicController),
   ], []);
+  const ws = testHost().ws;
+  ws.route("/admin/live").message(() => {});
   return {
     pipelines,
     middleware: [],
     groups: [],
+    webSockets: ws[WS_REGISTRATIONS](),
     scoped: [{ token: Mailer, cls: Mailer, factory: () => new Mailer(mockContainer(new Map())) }],
     singletons: [],
     prebuilt: [],
@@ -80,10 +85,11 @@ describe("graph construction", () => {
 });
 
 describe("routes() path filter", () => {
-  it("matches ** against any number of segments, zero included", () => {
-    expect(graphOf(source).routes({ path: "/admin/**" }).map((route) => route.path).sort()).toEqual([
-      "/admin",
-      "/admin/users/:id",
+  it("matches ** against any number of segments, zero included, on HTTP and WebSocket routes alike", () => {
+    expect(graphOf(source).routes({ path: "/admin/**" }).map((route) => route.id).sort()).toEqual([
+      "GET /admin",
+      "GET /admin/users/:id",
+      "WS /admin/live",
     ]);
   });
 
@@ -92,6 +98,16 @@ describe("routes() path filter", () => {
       "/admin",
       "/public",
     ]);
+  });
+});
+
+describe("route()", () => {
+  it("finds an HTTP route by method and path, and a WebSocket route by WS and path", () => {
+    const graph = graphOf(source);
+
+    expect(graph.route("GET", "/admin/users/:id")?.handler).toBe("AdminController.user");
+    expect(graph.route("WS", "/admin/live")?.kind).toBe("ws");
+    expect(graph.route("POST", "/admin")).toBeUndefined();
   });
 });
 

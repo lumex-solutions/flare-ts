@@ -1,15 +1,16 @@
-/** One route of the built app, as the app graph reports it. */
+/** One HTTP route of the built app, as the app graph reports it. */
 import type { JsonSchema } from "@flare-ts/lib/schema";
 import type { MiddlewareClass } from "../arcs/http/composition/classes/middleware-base.js";
 import type { HttpMethod } from "../arcs/http/routing/types/methods.js";
 import type { PipelineStep } from "./types.js";
 
 /**
- * One route of the built app: its pipeline in run order, and the state and services it touches.
+ * One HTTP route of the built app: its pipeline in run order, and the state and services it touches.
  *
  * Every field is JSON-safe, and ids reference other nodes of the same graph.
  */
-export class RouteNode {
+export class HttpRouteNode {
+  readonly kind: "http";
   /** `METHOD path`, e.g. `GET /api/users/:id`. */
   readonly id: string;
   readonly method: HttpMethod;
@@ -32,7 +33,8 @@ export class RouteNode {
   readonly #middleware: ReadonlySet<MiddlewareClass>;
 
   /** @internal Built by the graph; apps receive nodes, never construct them. */
-  constructor(fields: Omit<RouteNode, "runs">, middleware: ReadonlySet<MiddlewareClass>) {
+  constructor(fields: Omit<HttpRouteNode, "kind" | "runs">, middleware: ReadonlySet<MiddlewareClass>) {
+    this.kind = "http";
     this.id = fields.id;
     this.method = fields.method;
     this.path = fields.path;

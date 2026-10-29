@@ -4,8 +4,9 @@ import type { HttpMethod } from "../arcs/http/routing/types/methods.js";
 import type { Container } from "../services/container.js";
 import type { ServiceToken } from "../services/types/token.js";
 import type { GraphModel } from "./build.js";
-import type { RouteNode } from "./route-node.js";
-import type { GraphSource, ServiceNode } from "./types.js";
+import type { HttpRouteNode } from "./http-route-node.js";
+import type { GraphSource, RouteNode, ServiceNode } from "./types.js";
+import type { WebSocketRouteNode } from "./web-socket-route-node.js";
 import { FlareService } from "../services/composition/flare-service.js";
 import { buildGraph, segmentsOf } from "./build.js";
 
@@ -43,7 +44,10 @@ export class AppGraph extends FlareService {
     this.#source = source;
   }
 
-  /** Returns every route in the order the router tries them, or the ones matching `filter`. */
+  /**
+   * Returns every route, or the ones matching `filter`: HTTP routes in the order the router tries them,
+   * then WebSocket routes in registration order.
+   */
   routes(filter?: RouteFilter): readonly RouteNode[] {
     const model = this.#built();
     if (!filter) return model.routes;
@@ -55,8 +59,11 @@ export class AppGraph extends FlareService {
     );
   }
 
-  /** Returns the route registered for `method` at `path`, the pattern as registered (`/users/:id`). */
-  route(method: HttpMethod, path: string): RouteNode | undefined {
+  /** Returns the HTTP route registered for `method` at `path`, the pattern as registered (`/users/:id`). */
+  route(method: HttpMethod, path: string): HttpRouteNode | undefined;
+  /** Returns the WebSocket route registered at `path`, the pattern as registered (`/chat/:room`). */
+  route(method: "WS", path: string): WebSocketRouteNode | undefined;
+  route(method: HttpMethod | "WS", path: string): RouteNode | undefined {
     return this.#built().routeById.get(`${method} ${path}`);
   }
 

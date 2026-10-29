@@ -1,7 +1,8 @@
 /**
  * Integration tests for AppGraph: the routes and services a built app reports, read through the public
- * surface (`handle.graph` and injection). Pins route ids, pipeline order and where each middleware was
- * registered, filtering, the service graph, JSON safety, and the rebuild after a test replacement swaps a service.
+ * surface (`handle.graph` and injection). Pins HTTP and WebSocket route ids, pipeline order and where
+ * each middleware was registered, filtering, the service graph, JSON safety, and the rebuild after a
+ * test replacement swaps a service.
  */
 process.env["FLARE_MODE"] = "test";
 
@@ -87,6 +88,7 @@ beforeAll(async () => {
   });
   host.http.get("/health/live", { isolated: true }, () => new FlareResponse(200));
   host.http.get("/health/ready", { isolated: true }, () => new FlareResponse(200));
+  host.ws.route("/chat").message((socket, scope) => socket.send(scope.input.message.raw));
   // An API index: the routes the app serves, read from the graph at request time.
   host.http.get(
     "/",
@@ -101,14 +103,16 @@ afterAll(async () => {
 });
 
 describe("Primary Behavior", () => {
-  it("lists every route by id, class controller methods and inline routes alike", () => {
+  it("lists every route by id, class controller methods, inline routes, and WebSocket routes alike", () => {
     expect(app.graph.routes().map((route) => route.id).sort()).toEqual([
       "GET /",
       "GET /api/users",
       "GET /api/users/:id",
       "GET /health/live",
       "GET /health/ready",
+      "WS /chat",
     ]);
+    expect(app.graph.route("WS", "/chat")).toMatchObject({ kind: "ws", path: "/chat", handler: "WS /chat" });
   });
 
   it("reports a route's pipeline in run order, each middleware with its stage and where it was registered", () => {
@@ -194,13 +198,19 @@ describe("Edge Cases", () => {
   it("lists exactly the routes a middleware does not run on, which an allowlist can pin", () => {
     const open = app.graph.routes().filter((route) => !route.runs(AuthMiddleware));
 
-    expect(open.map((route) => route.id).sort()).toEqual(["GET /", "GET /health/live", "GET /health/ready"]);
+    expect(open.map((route) => route.id).sort()).toEqual([
+      "GET /",
+      "GET /health/live",
+      "GET /health/ready",
+      "WS /chat",
+    ]);
   });
 
   it("converts every node to JSON as plain data, without methods", () => {
     const json = JSON.parse(JSON.stringify(app.graph.route("GET", "/api/users")!)) as Record<string, unknown>;
 
     expect(Object.keys(json)).toEqual([
+      "kind",
       "id",
       "method",
       "path",

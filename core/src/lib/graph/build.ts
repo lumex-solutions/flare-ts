@@ -1,6 +1,6 @@
 /**
  * Builds the app graph's nodes from what the host compiled: route nodes from the front door's HTTP
- * pipelines, service nodes from the registrations. Runs on the graph's first query.
+ * pipelines and WebSocket routes, service nodes from the registrations. Runs on the graph's first query.
  */
 import type { JsonSchema, OpaqueSchemaToken } from "@flare-ts/lib/schema";
 import { schema, toJsonSchema } from "@flare-ts/lib/schema";
@@ -8,11 +8,12 @@ import type { MiddlewareClass } from "../arcs/http/composition/classes/middlewar
 import type { OpaqueConfigToken } from "../config/flare-config.js";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceToken } from "../services/types/token.js";
-import type { GraphSource, PipelineStep, ServiceNode } from "./types.js";
+import type { GraphSource, PipelineStep, RouteNode, ServiceNode } from "./types.js";
 import { resolveStepMiddleware } from "../arcs/http/build.js";
 import { stream } from "../arcs/http/composition/contract/http-contract.js";
 import { SUPPORTED_METHODS } from "../arcs/http/routing/types/methods.js";
-import { RouteNode } from "./route-node.js";
+import { HttpRouteNode } from "./http-route-node.js";
+import { WebSocketRouteNode } from "./web-socket-route-node.js";
 
 type ServiceEntry = {
   readonly id: string;
@@ -65,6 +66,29 @@ export function buildGraph(source: GraphSource): GraphModel {
   const routeById = new Map<string, RouteNode>();
   const routeSegments = new Map<RouteNode, readonly string[]>();
   const usedBy = new Map<ServiceToken<FlareService>, string[]>();
+  // Breadth-first, so a route's direct deps are listed before the ones they pull in.
+  const servicesOf = (direct: readonly ServiceToken<FlareService>[]): ServiceToken<FlareService>[] => {
+    const queue = [...direct];
+    const resolved = new Set<ServiceToken<FlareService>>();
+    for (let i = 0; i < queue.length; i++) {
+      const token = queue[i]!;
+      if (resolved.has(token)) continue;
+      resolved.add(token);
+      queue.push(...(entries.get(token)?.deps ?? []));
+    }
+    return [...resolved];
+  };
+  const addRoute = (route: RouteNode, tokens: readonly ServiceToken<FlareService>[]): void => {
+    routes.push(route);
+    routeById.set(route.id, route);
+    routeSegments.set(route, Object.freeze(segmentsOf(route.path)));
+    for (const token of tokens) {
+      const ids = usedBy.get(token);
+      if (ids) ids.push(route.id);
+      else usedBy.set(token, [route.id]);
+    }
+  };
+
   for (const pipeline of source.pipelines) {
     const registration = pipeline.registration;
 
@@ -85,28 +109,18 @@ export function buildGraph(source: GraphSource): GraphModel {
       steps.push(Object.freeze({ kind: resolved.kind, name: cls.name, from: resolved.from }));
     }
 
-    // Breadth-first, so a route's direct deps are listed before the ones they pull in.
-    const queue = [
+    const tokens = servicesOf([
       ...registration.deps,
       ...[...middleware].flatMap((cls) => cls.deps),
       ...pipeline.errorHandlers.flatMap((handler) => handler.deps),
-    ];
-    const resolvedTokens = new Set<ServiceToken<FlareService>>();
-    for (let i = 0; i < queue.length; i++) {
-      const token = queue[i]!;
-      if (resolvedTokens.has(token)) continue;
-      resolvedTokens.add(token);
-      queue.push(...(entries.get(token)?.deps ?? []));
-    }
-
+    ]);
     const path = pipeline.flareRoute.route;
-    const segments = Object.freeze(segmentsOf(path));
     const group = source.groups.find((g) => g.controllers.includes(registration))?.prefix;
     const state = Object.freeze({
       reads: Object.freeze(registration.state.map((token) => token.name)),
       writes: Object.freeze([...writes]),
     });
-    const services = Object.freeze([...resolvedTokens].map((token) => idOf(token, entries)));
+    const services = Object.freeze(tokens.map((token) => idOf(token, entries)));
     pipeline.handlers.forEach((handler, methodIdx) => {
       if (!handler) return;
       const method = SUPPORTED_METHODS[methodIdx]!;
@@ -123,26 +137,49 @@ export function buildGraph(source: GraphSource): GraphModel {
         // The stream sentinel was excluded above, which the type system cannot connect to this union.
         input.body = frozenCopy(toJsonSchema(descriptor.body as OpaqueSchemaToken));
       }
-      const route = new RouteNode({
-        id,
-        method,
-        path,
-        group,
-        handler: handlerName,
-        pipeline: Object.freeze(steps.map((step) => step ?? handlerStep)),
-        input: Object.freeze(input),
-        state,
-        services,
-      }, middleware);
-      routes.push(route);
-      routeById.set(id, route);
-      routeSegments.set(route, segments);
-      for (const token of resolvedTokens) {
-        const ids = usedBy.get(token);
-        if (ids) ids.push(id);
-        else usedBy.set(token, [id]);
-      }
+      addRoute(
+        new HttpRouteNode({
+          id,
+          method,
+          path,
+          group,
+          handler: handlerName,
+          pipeline: Object.freeze(steps.map((step) => step ?? handlerStep)),
+          input: Object.freeze(input),
+          state,
+          services,
+        }, middleware),
+        tokens,
+      );
     });
+  }
+
+  for (const registration of source.webSockets) {
+    const id = `WS ${registration.pattern}`;
+    const tokens = servicesOf([
+      ...Object.values(registration.inject),
+      ...(registration.kind === "controller" ? registration.cls.deps : []),
+      ...Object.values(registration.upgrade?.inject ?? {}),
+    ]);
+    const descriptor = registration.descriptor;
+    const input: { params?: JsonSchema; query?: JsonSchema; incoming?: JsonSchema; } = {};
+    if (descriptor?.params) input.params = frozenCopy(toJsonSchema(schema(descriptor.params)));
+    if (descriptor?.query) input.query = frozenCopy(toJsonSchema(schema(descriptor.query)));
+    if (descriptor?.incoming) input.incoming = frozenCopy(toJsonSchema(descriptor.incoming));
+    addRoute(
+      new WebSocketRouteNode({
+        id,
+        path: registration.pattern,
+        handler: registration.kind === "controller" ? registration.cls.name : id,
+        input: Object.freeze(input),
+        state: Object.freeze({
+          reads: Object.freeze(registration.state.map((token) => token.name)),
+          writes: Object.freeze((registration.upgrade?.provides ?? []).map((token) => token.name)),
+        }),
+        services: Object.freeze(tokens.map((token) => idOf(token, entries))),
+      }),
+      tokens,
+    );
   }
 
   const services: ServiceNode[] = [];

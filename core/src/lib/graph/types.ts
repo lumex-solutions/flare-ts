@@ -1,9 +1,15 @@
 /** The app graph vocabulary: the built app's routes and services as data apps and tools can query. */
 import type { Pipeline } from "../arcs/http/types/pipeline.js";
 import type { GroupRegistration, MiddlewareRegistration } from "../arcs/http/types/registration.js";
+import type { WsRegistration } from "../arcs/ws/composition/types/registration.js";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceRegistration } from "../services/types/registration.js";
 import type { ServiceToken } from "../services/types/token.js";
+import type { HttpRouteNode } from "./http-route-node.js";
+import type { WebSocketRouteNode } from "./web-socket-route-node.js";
+
+/** One route of the built app, told apart by `kind`: `"http"` or `"ws"`. */
+export type RouteNode = HttpRouteNode | WebSocketRouteNode;
 
 /** One step of a route's pipeline: the route's handler, or a middleware and where it was registered. */
 export type PipelineStep =
@@ -40,12 +46,13 @@ export type ServiceNode = {
   readonly usedBy: readonly string[];
 };
 
-/** @internal Host-side input the graph is built from: the front door's compiled HTTP arc and the services. */
+/** @internal Host-side input the graph is built from: the front door's arcs and the services. */
 export type GraphSource = {
   readonly pipelines: readonly Pipeline[];
   /** The front door's global middleware, which pipeline exec slots index into. */
   readonly middleware: readonly MiddlewareRegistration[];
   readonly groups: readonly GroupRegistration[];
+  readonly webSockets: readonly WsRegistration[];
   readonly scoped: readonly ServiceRegistration<FlareService>[];
   readonly singletons: readonly ServiceRegistration<FlareService>[];
   /** Services the host creates itself rather than from a registration (the Logger, the graph). */
