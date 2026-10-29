@@ -53,3 +53,6 @@ export const COMPILE_INSTANCE_CONTAINER: unique symbol = Symbol("COMPILE_INSTANC
  * keeping runtime-specific behavior on the adapter rather than as runtime branches in the host.
  */
 export const REGISTER_BUILD_HOOK: unique symbol = Symbol("REGISTER_BUILD_HOOK");
+
+/** @internal Keys the seam that returns the last build's validation warnings, for the prebuilt test suite. */
+export const BUILD_WARNINGS: unique symbol = Symbol("BUILD_WARNINGS");

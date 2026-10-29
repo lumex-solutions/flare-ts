@@ -24,11 +24,10 @@ export function installHealthRoutes(
   options: HealthOptions,
   checks: readonly HealthCheck[],
 ): void {
-  const live = options.live ?? "/health/live";
-  const ready = options.ready ?? "/health/ready";
+  const { live, ready } = healthPaths(options);
   const timeout = options.checkTimeout ?? DEFAULT_CHECK_TIMEOUT_MS;
-  if (live !== false) http.get(live, () => new FlareResponse(200, { status: "ok" }));
-  if (ready === false) return;
+  if (live !== undefined) http.get(live, () => new FlareResponse(200, { status: "ok" }));
+  if (ready === undefined) return;
 
   // The route injects every service any check does, each once under its own key, and hands each check a
   // scope holding only its own services under the names it chose.
@@ -60,6 +59,16 @@ export function installHealthRoutes(
     const ok = await inFlight;
     return new FlareResponse(ok ? 200 : 503, { status: ok ? "ok" : "down" });
   });
+}
+
+/** Returns the liveness and readiness paths `options` asks for, `undefined` for a route turned off. */
+export function healthPaths(
+  options: HealthOptions,
+): { readonly live: string | undefined; readonly ready: string | undefined; } {
+  return {
+    live: options.live === false ? undefined : options.live ?? "/health/live",
+    ready: options.ready === false ? undefined : options.ready ?? "/health/ready",
+  };
 }
 
 // Runs one check against its timeout; a failure is logged with the check's name and never reaches the

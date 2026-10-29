@@ -81,5 +81,13 @@
   },
   "dependencies": {
     "@flare-ts/lib": "workspace:*"
+  },
+  "peerDependencies": {
+    "vitest": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
   }
 }

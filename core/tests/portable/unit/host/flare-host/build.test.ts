@@ -5,8 +5,9 @@ import { describe, it, expect } from "vitest";
 import type { FlareService } from "../../../../../src/lib/services/composition/flare-service.js";
 import type { ServiceClass } from "../../../../../src/lib/services/types/service-class.js";
 import type { ServiceToken } from "../../../../../src/lib/services/types/token.js";
+import { ConflictError } from "../../../../../src/lib/errors/conflict-error.js";
 import { FlareHost } from "../../../../../src/lib/host/flare-host.js";
-import { COMPILE_FOR_TEST } from "../../../../../src/lib/host/types/const.js";
+import { BUILD_WARNINGS, COMPILE_FOR_TEST } from "../../../../../src/lib/host/types/const.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";
 import { FlareValidationError } from "../../../../../src/lib/validation/flare-validation-error.js";
 import { makeAdapter, makeServiceClass, registerMinimalPingRoute } from "./_fixtures.js";
@@ -70,5 +71,18 @@ describe("building the host", () => {
     host[COMPILE_FOR_TEST]();
     // After COMPILE_FOR_TEST: singletons are now instantiated.
     expect(host.singletonServices.has(Svc as unknown as ServiceToken<FlareService>)).toBe(true);
+  });
+});
+
+describe("[BUILD_WARNINGS]", () => {
+  it("is empty before a build, and holds the last build's validation warnings after one", () => {
+    class EmailTaken extends ConflictError {}
+    const host = new FlareHost(makeAdapter());
+    registerMinimalPingRoute(host);
+    host.http.error(EmailTaken, () => undefined);
+
+    expect(host[BUILD_WARNINGS]()).toEqual([]);
+    host.build();
+    expect(host[BUILD_WARNINGS]().map((warning) => warning.code)).toEqual(["ERROR_HANDLER_UNDECLARED_KEY"]);
   });
 });

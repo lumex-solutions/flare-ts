@@ -11,6 +11,7 @@ import { HttpGroup } from "../../../../../src/lib/arcs/http/composition/group.js
 import { clearExecShapeCache } from "../../../../../src/lib/arcs/http/exec-codegen.js";
 import {
   COMPILE_HTTP_ARC,
+  HEALTH_ROUTES,
   HTTP_PIPELINES,
   HttpArc,
   INSPECT_HTTP_ARC,
@@ -465,5 +466,16 @@ describe("health()", () => {
     expect(() => http.health()).toThrow("host.http.health() is already registered.");
     expect(() => testHost().http.health({ checkTimeout: 0 })).toThrow("checkTimeout must be a positive number");
     expect(() => testHost().http.health({ live: "up" })).toThrow('Health route path must start with "/"');
+  });
+});
+
+describe("[HEALTH_ROUTES]", () => {
+  it("is undefined before health(), then the paths health() registers", () => {
+    const { http } = testHost();
+    expect(http[HEALTH_ROUTES]()).toBeUndefined();
+
+    http.health({ live: "/up" });
+
+    expect(http[HEALTH_ROUTES]()).toEqual({ live: "/up", ready: "/health/ready" });
   });
 });

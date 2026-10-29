@@ -54,6 +54,10 @@
   - `health().check("search-index", { inject: { search: SearchIndex } }, ({ search }, signal) => search.isWarm())` adds an opt-in readiness check with the usual inject map. Returning normally or `true` passes; returning `false`, throwing, or running past `checkTimeout` (default 2000 ms, when `signal` also aborts) fails.
   - Checks run in parallel, and concurrent probes share one run.
 
+- **`flareSuite(host, options)`** on `@flare-ts/core/testing`: one call in a test file registers Flare's own checks of an app as ordinary vitest tests, each failure naming the offending route or service. It builds the host in test mode and checks that the build reports no validation errors (`failOnWarnings` counts warnings too), that the health routes answer 200 when `host.http.health()` is registered, that every `policies` rule holds (`{ path: "/admin/**", runs: AuthMiddleware }`: every matching route runs the middleware), and that every service starts and stops cleanly. `skip` leaves a check out by name. vitest is an optional peer dependency, needed to import `@flare-ts/core/testing`.
+
+- `expectError(res, EmailTaken)` on `@flare-ts/core/testing` checks a response is the one an error class produces (status and wire name) and returns its body with `detail` typed by the class, or throws naming what came back.
+
 - Log records follow an error's `cause` chain (up to five deep) into `error.cause`, and the pretty console format prints each cause under the stack.
 
 - **`AppGraph`**: the built app's routes and services, as Flare compiled them. Inject it like any service (`inject: { graph: AppGraph }` or `static deps = [AppGraph]`), or read it in tests as `handle.graph`.

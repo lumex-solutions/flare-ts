@@ -54,6 +54,7 @@ import { createWsValidator } from "../validation/ws/composite.js";
 import { WsConfigValidator } from "../validation/ws/config-validator.js";
 import { Logging } from "./logging.js";
 import {
+  BUILD_WARNINGS,
   COMPILE_FOR_TEST,
   COMPILE_INSTANCE_CONTAINER,
   INSPECT_HOST,
@@ -229,6 +230,8 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
   #testMode: boolean;
   #app: IFlareApp | undefined;
   #buildHooks: Array<(ctx: FlareBuildContext) => void> = [];
+  /** Validation warnings from the last build, kept for the prebuilt test suite. */
+  #buildWarnings: readonly ValidationError[] = [];
   /** Set when a build hook calls `ctx.ownValidation`; the host runs it instead of its generic suite. */
   #adapterValidator: (() => ValidationError[]) | undefined;
   /** Set when a build hook calls `ctx.addAppGraphSource`; the app graph reads it beside the host's own arcs. */
@@ -639,6 +642,11 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
    * participate in `build()` through the mutable {@link FlareBuildContext}, so runtime-specific
    * build behavior lives in the extension rather than as `runtime === X` branches in the host.
    */
+  /** @internal Returns the last build's validation warnings; empty before a build. */
+  [BUILD_WARNINGS](): readonly ValidationError[] {
+    return this.#buildWarnings;
+  }
+
   [REGISTER_BUILD_HOOK](hook: (ctx: FlareBuildContext) => void): void {
     this.#buildHooks.push(hook);
   }
@@ -713,6 +721,7 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
     const results = this.#adapterValidator ? this.#adapterValidator() : this.#collectHostValidation();
     const validationErrors = results.filter((r) => r.severity === "error");
     const warnings = results.filter((r) => r.severity === "warning");
+    this.#buildWarnings = warnings;
     if (validationErrors.length > 0) {
       this.logger.error(
         `Host build failed with ${validationErrors.length} validation error(s) and ${warnings.length} warning(s).`,

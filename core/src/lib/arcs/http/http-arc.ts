@@ -30,7 +30,7 @@ import { stream } from "./composition/contract/http-contract.js";
 import { FINALIZE_GROUP, HttpGroup } from "./composition/group.js";
 import { applyActualCorsHeaders, buildCorsPreflightResponse, checkOriginAllowed } from "./cors.js";
 import { HealthHandle } from "./health/health-handle.js";
-import { installHealthRoutes } from "./health/install.js";
+import { healthPaths, installHealthRoutes } from "./health/install.js";
 import { deriveAllowedMethods } from "./routing/allow-methods.js";
 import { INVALID_REQUEST_PATH_MESSAGE } from "./routing/path.js";
 import { METHOD_IDX_MAP } from "./routing/types/methods.js";
@@ -49,6 +49,8 @@ export const REEVALUATE_CONTAINER_STRATEGY: unique symbol = Symbol("REEVALUATE_C
 export const INSPECT_HTTP_ARC: unique symbol = Symbol("INSPECT_HTTP_ARC");
 /** @internal */
 export const HTTP_PIPELINES: unique symbol = Symbol("HTTP_PIPELINES");
+/** @internal */
+export const HEALTH_ROUTES: unique symbol = Symbol("HEALTH_ROUTES");
 export const START_HTTP_ARC: unique symbol = Symbol("START_HTTP_ARC");
 export const START_HTTP_ARC_ASYNC: unique symbol = Symbol("START_HTTP_ARC_ASYNC");
 export const STOP_HTTP_ARC: unique symbol = Symbol("STOP_HTTP_ARC");
@@ -65,7 +67,7 @@ const _EMPTY_MW_CACHE: MiddlewareBase[] = [];
  */
 export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends HttpBase {
   #pipelines: Pipeline[] = [];
-  #health: HealthHandle | undefined;
+  #health: { readonly handle: HealthHandle; readonly options: HealthOptions; } | undefined;
   #execFns: ExecFn[] = [];
   #router?: Router;
   /** Pre-built once at compile time; reused every request when there are no scoped services. */
@@ -183,6 +185,11 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
     return { pipelines: this.#pipelines, middleware: this.mwRegistrations };
   }
 
+  /** @internal Returns the health route paths, or undefined when `health()` was never called. */
+  [HEALTH_ROUTES](): { readonly live: string | undefined; readonly ready: string | undefined; } | undefined {
+    return this.#health === undefined ? undefined : healthPaths(this.#health.options);
+  }
+
   /** @internal Snapshot for tests via {@link inspectBuild}. */
   [INSPECT_HTTP_ARC](): HttpArcInspectSnapshot {
     const router = this.#router;
@@ -273,7 +280,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
       throw new Error(`host.http.health() checkTimeout must be a positive number of milliseconds, got ${timeout}.`);
     }
     const health = new HealthHandle();
-    this.#health = health;
+    this.#health = { handle: health, options };
     // Installed at build, once every check is added, so the readiness route injects what all of them need.
     this.host[REGISTER_BUILD_HOOK](() => installHealthRoutes(this, options, health.checks));
     return health;

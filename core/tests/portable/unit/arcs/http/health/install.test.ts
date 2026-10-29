@@ -4,7 +4,7 @@
  * through its test app.
  */
 import { describe, expect, it } from "vitest";
-import { installHealthRoutes } from "../../../../../../src/lib/arcs/http/health/install.js";
+import { healthPaths, installHealthRoutes } from "../../../../../../src/lib/arcs/http/health/install.js";
 import { SET_HOST_STATE } from "../../../../../../src/lib/host/types/const.js";
 import { FlareService } from "../../../../../../src/lib/services/composition/flare-service.js";
 import { testHost } from "../../../../helpers/test-host.js";
@@ -63,5 +63,12 @@ describe("installHealthRoutes", () => {
     } finally {
       await app.stop();
     }
+  });
+});
+
+describe("healthPaths", () => {
+  it("fills in the default paths and leaves a route turned off undefined", () => {
+    expect(healthPaths({})).toEqual({ live: "/health/live", ready: "/health/ready" });
+    expect(healthPaths({ live: "/up", ready: false })).toEqual({ live: "/up", ready: undefined });
   });
 });
