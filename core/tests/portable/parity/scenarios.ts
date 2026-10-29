@@ -233,6 +233,37 @@ export const parityScenarios: readonly ParityScenario[] = [
     },
   },
   {
+    name: "closes 4000 + status with the wire name when the open handler throws a 4xx FlareError",
+    run: async (connect) => {
+      const c = await connect("/open-forbidden");
+      expect(await c.closed).toEqual({ code: 4403, reason: "ParityForbidden" });
+    },
+  },
+  {
+    name: "closes 4000 + status with the wire name when the message handler throws a 4xx FlareError",
+    run: async (connect) => {
+      const c = await connect("/msg-conflict");
+      c.send("x");
+      expect(await c.closed).toEqual({ code: 4409, reason: "ParityRoomFull" });
+    },
+  },
+  {
+    name: "closes with the error class's static closeCode when it sets one",
+    run: async (connect) => {
+      const c = await connect("/msg-kicked");
+      c.send("x");
+      expect(await c.closed).toEqual({ code: 4100, reason: "ParityKicked" });
+    },
+  },
+  {
+    name: "closes 1011 when the message handler throws a 5xx FlareError",
+    run: async (connect) => {
+      const c = await connect("/msg-unavailable");
+      c.send("x");
+      expect((await c.closed).code).toBe(1011);
+    },
+  },
+  {
     name: "closes 1011 when the controller constructor throws",
     run: async (connect) => {
       const c = await connect("/ctor-throw");

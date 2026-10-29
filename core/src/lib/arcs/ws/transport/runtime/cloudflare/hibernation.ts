@@ -16,6 +16,7 @@ import { toErrorField } from "../../../../../logger/fields.js";
 import { Container } from "../../../../../services/container.js";
 import { buildInput, decodeMessage } from "../../../pipeline/ops.js";
 import { WS_DRIVER_ACCESS } from "../../../ws-arc.js";
+import { closeForError } from "../../error-close.js";
 import { FlareWebSocketContext, WS_CHANNELS, WS_LEAVE_ALL } from "../../flare-web-socket-context.js";
 import { readAttachment, writeAttachment } from "./attachment.js";
 import { HibernationChannelBackend } from "./hibernation-channel-backend.js";
@@ -164,7 +165,8 @@ export async function openHibernatable(input: WsHibernationInput & { id: string;
   } catch (error) {
     _log("error", "WebSocket open handler failed", { error: toErrorField(error) });
     ws[WS_LEAVE_ALL](); // no attachment was written, so the close event cannot clean the index; do it here
-    socket.close(1011, "Connection setup failed");
+    const { code, reason } = closeForError(error, "Connection setup failed");
+    socket.close(code, reason);
   } finally {
     await container.dispose();
   }
@@ -255,7 +257,8 @@ export function deliverHibernated(
   const handlerFailed = (e: unknown): void | Promise<void> => {
     _log("error", "WebSocket message handler failed", { error: toErrorField(e) });
     controller.error?.(asError(e));
-    ws.close(1011, "Message handler failed");
+    const { code, reason } = closeForError(e, "Message handler failed");
+    ws.close(code, reason);
     return dispose();
   };
 

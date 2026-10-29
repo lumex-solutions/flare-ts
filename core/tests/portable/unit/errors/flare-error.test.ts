@@ -28,6 +28,16 @@ describe("status and wire name", () => {
     expect(new PlanLimitReached().name).toBe("PLAN_LIMIT_REACHED");
   });
 
+  it("takes its WebSocket close code from the class, none when the class sets none", () => {
+    class Kicked extends FlareError {
+      static override status = 403;
+      static override closeCode = 4100;
+    }
+
+    expect(new Kicked().closeCode).toBe(4100);
+    expect(new EmailTaken("ada@example.com").closeCode).toBeUndefined();
+  });
+
   it("lets a subclass inherit its parent's status and give its own name", () => {
     class AdminEmailTaken extends EmailTaken {}
 

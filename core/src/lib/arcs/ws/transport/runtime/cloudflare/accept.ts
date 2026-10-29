@@ -14,6 +14,7 @@
  */
 import type { WsConnection } from "../../../connection.js";
 import type { IFlareWebSocket, WsLimitOptions } from "../../socket.js";
+import { closeForError } from "../../error-close.js";
 import { CfWebSocket } from "./web-socket.js";
 
 /**
@@ -45,9 +46,10 @@ export function acceptCfWebSocket(
   // gives ordering + error isolation but not pause-based backpressure; a slow handler queues messages
   // rather than pausing the socket.
   let live = true; // cleared when open fails or after a handler aborts the connection
-  let tail: Promise<void> = Promise.resolve(connection.open(cfSocket)).catch(() => {
+  let tail: Promise<void> = Promise.resolve(connection.open(cfSocket)).catch((err) => {
     live = false;
-    cfSocket.close(1011, "Connection setup failed");
+    const { code, reason } = closeForError(err, "Connection setup failed");
+    cfSocket.close(code, reason);
   });
 
   socket.addEventListener("message", (event) => {
@@ -66,10 +68,12 @@ export function acceptCfWebSocket(
     tail = tail
       .then(() => (live ? connection.message(data) : undefined))
       .catch((err) => {
-        // Mirror Node: surface to connection.error and close 1011. Swallowed so the chain still delivers close.
+        // Mirror Node: surface to connection.error and close as the error maps (1011 for most). Swallowed so
+        // the chain still delivers close.
         live = false;
         connection.error(err instanceof Error ? err : new Error(String(err)));
-        cfSocket.close(1011, "Message handler failed");
+        const { code, reason } = closeForError(err, "Message handler failed");
+        cfSocket.close(code, reason);
       })
       .finally(() => {
         queuedBytes -= size;

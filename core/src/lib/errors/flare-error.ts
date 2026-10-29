@@ -46,11 +46,19 @@ export class FlareError<TDetail extends JsonValue | undefined = undefined> exten
   static status = 500;
   /** The wire name sent as `error`, when it should not be the class name, e.g. under a minifying bundler. */
   static code: string | undefined;
+  /**
+   * The WebSocket close code this class closes a socket with, from 4000 to 4999.
+   *
+   * When unset, a 4xx closes with 4000 + status and a 5xx with 1011.
+   */
+  static closeCode: number | undefined;
 
   /** The wire name: the class's `static code`, or its name. */
   override readonly name: string;
   /** The HTTP status, from the class. */
   readonly status: number;
+  /** The WebSocket close code, from the class. */
+  readonly closeCode: number | undefined;
   readonly detail: TDetail;
   readonly headers: Readonly<Record<string, string>> | undefined;
 
@@ -58,6 +66,7 @@ export class FlareError<TDetail extends JsonValue | undefined = undefined> exten
     super(message, options?.cause === undefined ? undefined : { cause: options.cause });
     this.name = wireNameOf(new.target);
     this.status = new.target.status;
+    this.closeCode = new.target.closeCode;
     // The conditional tuple erases inside the body: options.detail is the detail when TDetail declares
     // one and undefined otherwise, which is exactly this field's type.
     this.detail = options?.detail as TDetail;

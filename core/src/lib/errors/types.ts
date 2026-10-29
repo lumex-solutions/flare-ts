@@ -7,4 +7,5 @@ export type FlareErrorClass<E extends FlareError<JsonValue | undefined> = FlareE
   new(...args: never[]): E;
   readonly status: number;
   readonly code: string | undefined;
+  readonly closeCode: number | undefined;
 };

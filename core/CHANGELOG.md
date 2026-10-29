@@ -47,6 +47,8 @@
 
 - Routes can declare the errors they throw: `errors: [EmailTaken, UserNotFound]` in inline route options or an `httpContract` entry (so class controllers get it through their contract). Declaring is optional and changes nothing at request time. The app graph lists each HTTP route's declared errors by wire name (`route.errors`), and `host.build()` fails when two declared or handler-keyed error classes send the same wire name (`ERROR_NAME_COLLISION`) or a class's `static status` is not an integer from 400 to 599 (`ERROR_STATUS_INVALID`). A handler keyed to a class that no route declares, directly or through a subclass, and that is not a starter error, is a build warning (`ERROR_HANDLER_UNDECLARED`).
 
+- A WebSocket handler that throws a 4xx `FlareError` from `open` or `message` closes the socket with 4000 + status (a `ConflictError` closes 4409) and the error's wire name as the reason, on every backing. A class can choose its own code with `static closeCode` (4000-4999; anything else fails the build for a declared or handler-keyed class). A 5xx `FlareError` or any other error still closes 1011. The message and detail never go on the wire.
+
 - Log records follow an error's `cause` chain (up to five deep) into `error.cause`, and the pretty console format prints each cause under the stack.
 
 - **`AppGraph`**: the built app's routes and services, as Flare compiled them. Inject it like any service (`inject: { graph: AppGraph }` or `static deps = [AppGraph]`), or read it in tests as `handle.graph`.

@@ -74,6 +74,20 @@ describe("statuses", () => {
   });
 });
 
+describe("close codes", () => {
+  it("fails for a named class whose static closeCode is outside 4000-4999", () => {
+    class Kicked extends ConflictError {
+      static override closeCode = 1000;
+    }
+
+    const results = validate((http) => {
+      http.post("/rooms/:id/join", { errors: [Kicked] }, () => null);
+    });
+
+    expect(results).toEqual([expect.objectContaining({ severity: "error", code: "ERROR_CLOSE_CODE_INVALID" })]);
+  });
+});
+
 describe("keyed handlers", () => {
   it("warns when no route declares the handler's class or a subclass of it", () => {
     const results = validate((http) => {

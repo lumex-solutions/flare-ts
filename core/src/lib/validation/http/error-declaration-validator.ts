@@ -13,7 +13,7 @@ import { NotFoundError } from "../../errors/not-found-error.js";
 import { RateLimitedError } from "../../errors/rate-limited-error.js";
 import { ServiceUnavailableError } from "../../errors/service-unavailable-error.js";
 import { UnauthorizedError } from "../../errors/unauthorized-error.js";
-import { isErrorStatus, wireNameOf } from "../../errors/wire.js";
+import { isAppCloseCode, isErrorStatus, wireNameOf } from "../../errors/wire.js";
 
 // Anyone may throw a starter error without declaring it (the framework throws ContentTooLargeError), so a
 // handler keyed to one, or to a class one extends, can always run.
@@ -31,8 +31,8 @@ const STARTER_ERRORS: readonly FlareErrorClass[] = [
 /**
  * Checks the error classes an HTTP arc names, declared on routes or keyed by error handlers.
  *
- * Two classes sending the same wire name, or a class whose `static status` is not an integer from 400 to
- * 599, fail the build. A handler keyed to a class that no route declares, itself or through a subclass,
+ * Two classes sending the same wire name, a class whose `static status` is not an integer from 400 to
+ * 599, or one whose `static closeCode` is not from 4000 to 4999, fail the build. A handler keyed to a class that no route declares, itself or through a subclass,
  * and that no starter error is, is a warning: declaring is optional, so the handler may still run.
  */
 export class ErrorDeclarationValidator implements IValidator<HttpValidationContext> {
@@ -61,6 +61,14 @@ export class ErrorDeclarationValidator implements IValidator<HttpValidationConte
           code: "ERROR_NAME_COLLISION",
           message: `Two different error classes send the wire name "${name}".`,
           hint: `Rename one of them, or give one a distinct static code.`,
+        });
+      }
+      if (cls.closeCode !== undefined && !isAppCloseCode(cls.closeCode)) {
+        results.push({
+          severity: "error",
+          code: "ERROR_CLOSE_CODE_INVALID",
+          message: `Error class ${name} has static closeCode ${cls.closeCode}, which applications may not send.`,
+          hint: `Set static closeCode to an integer from 4000 to 4999, or leave it unset.`,
         });
       }
       if (!isErrorStatus(cls.status)) {

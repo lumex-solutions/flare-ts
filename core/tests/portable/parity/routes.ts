@@ -11,6 +11,7 @@
 import { int, schema, str } from "@flare-ts/lib/schema";
 import type { FlareWebSocketMessage } from "../../../src/lib/arcs/ws/transport/flare-web-socket-message.js";
 import type { WebSocketArc } from "../../../src/lib/arcs/ws/ws-arc.js";
+import { ConflictError, ForbiddenError, ServiceUnavailableError } from "../../../src/errors.js";
 import { FlareResponse, flareState, WebSocketRefusal } from "../../../src/index.js";
 import { WebSocketControllerBase } from "../../../src/lib/arcs/ws/composition/classes/controller-base.js";
 
@@ -19,6 +20,17 @@ const Hits = flareState<{ n: number; }>("ParityHits");
 
 /** Identity the `/gated` route's upgrade hook derives from the ticket and provides to the connection. */
 const GateUser = flareState<{ id: string; }>("ParityGateUser");
+
+/** Thrown by open on `/open-forbidden`: a 4xx closes 4403. */
+class ParityForbidden extends ForbiddenError {}
+
+/** Thrown by message on `/msg-conflict`: a 4xx closes 4409. */
+class ParityRoomFull extends ConflictError {}
+
+/** Thrown by message on `/msg-kicked`: its static closeCode wins over 4000 + status. */
+class ParityKicked extends ForbiddenError {
+  static override closeCode = 4100;
+}
 
 /** Incoming-message schema for the typed route; anything else closes 1008. */
 const Msg = schema({ v: str });
@@ -81,6 +93,21 @@ export function registerParityRoutes(
   // Failure containment: a throwing open handler must close 1011 (after the handshake), never crash.
   ws.route(`${prefix}/open-throw`, { ...base }).open(() => {
     throw new Error("open boom");
+  });
+
+  // A 4xx FlareError closes with 4000 + status and its wire name; a class's static closeCode wins; a 5xx
+  // still closes 1011.
+  ws.route(`${prefix}/open-forbidden`, { ...base }).open(() => {
+    throw new ParityForbidden("not a member of this room");
+  });
+  ws.route(`${prefix}/msg-conflict`, { ...base }).message(() => {
+    throw new ParityRoomFull("room is full");
+  });
+  ws.route(`${prefix}/msg-kicked`, { ...base }).message(() => {
+    throw new ParityKicked("removed by a moderator");
+  });
+  ws.route(`${prefix}/msg-unavailable`, { ...base }).message(() => {
+    throw new ServiceUnavailableError("ledger down");
   });
 
   // Failure policy: a throwing message handler runs the route error handler, then closes 1011.
