@@ -20,7 +20,7 @@ import type { Container } from "../../../../../src/lib/services/container.js";
 import type { TestRequestInput } from "../../../../../src/lib/testing/types/flare-test-req.js";
 import { FlareHost, FlareResponse, FlareService, FlareValidationError } from "../../../../../src/index.js";
 import { singletonExtension } from "../../../../../src/lib/host/extensions/singleton.js";
-import { FlareAppNode } from "../../../../../src/lib/host/runtime/node/node.js";
+import { FlareAppNode } from "../../../../../src/lib/host/runtime/node/flare-app-node.js";
 import { node } from "../../../../../src/node.js";
 
 type CustomAdapterInit = {
