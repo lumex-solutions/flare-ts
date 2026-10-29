@@ -203,6 +203,8 @@ export interface IFlareTestHost {
   [RESET_FOR_TEST](): void;
   /** @internal Snapshot for {@link inspectBuild} in test infrastructure. */
   [INSPECT_HOST](): HostInspectSnapshot;
+  /** @internal The last build's validation warnings, for the prebuilt test suite. */
+  [BUILD_WARNINGS](): readonly ValidationError[];
 }
 
 class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTransportClass, HostRuntimeLifecycle>>
@@ -637,16 +639,16 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
     return container;
   }
 
-  /**
-   * @internal Registers a build hook. Host extensions call this (with `this` bound to the host) to
-   * participate in `build()` through the mutable {@link FlareBuildContext}, so runtime-specific
-   * build behavior lives in the extension rather than as `runtime === X` branches in the host.
-   */
   /** @internal Returns the last build's validation warnings; empty before a build. */
   [BUILD_WARNINGS](): readonly ValidationError[] {
     return this.#buildWarnings;
   }
 
+  /**
+   * @internal Registers a build hook. Host extensions call this (with `this` bound to the host) to
+   * participate in `build()` through the mutable {@link FlareBuildContext}, so runtime-specific
+   * build behavior lives in the extension rather than as `runtime === X` branches in the host.
+   */
   [REGISTER_BUILD_HOOK](hook: (ctx: FlareBuildContext) => void): void {
     this.#buildHooks.push(hook);
   }

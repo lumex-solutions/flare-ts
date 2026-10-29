@@ -1,12 +1,17 @@
-/** The prebuilt test suite's vocabulary: its options, the checks it runs, and the host it takes. */
+/** The prebuilt test suite's vocabulary: its options and the checks it runs. */
 import type { MiddlewareClass } from "../../arcs/http/composition/classes/middleware-base.js";
-import type { HttpArc } from "../../arcs/http/http-arc.js";
-import type { FlareApp } from "../../host/types/app.js";
-import type { BUILD_WARNINGS } from "../../host/types/const.js";
-import type { HostRuntimeLifecycle } from "../../host/types/lifecycle.js";
-import type { ValidationError } from "../../validation/types.js";
 
-/** A check `flareSuite` runs, by the name `skip` takes. */
+/**
+ * Check `flareSuite` runs, by the name `skip` takes and each test title starts with.
+ *
+ * - `"build"` - The build reports no validation errors (or warnings, with `failOnWarnings`).
+ * - `"bad-input"` - Bad input generated for each front-door HTTP route never gets a 5xx.
+ * - `"declared-errors"` - During the bad-input run, a route that declares errors throws only those.
+ * - `"error-names"` - During the bad-input run, no two thrown error classes send one wire name.
+ * - `"services"` - Every service starts and stops cleanly.
+ * - `"health"` - The health routes answer 200, when `host.http.health()` is registered.
+ * - `"policies"` - Every configured route policy holds.
+ */
 export type SuiteCheck =
   | "build"
   | "bad-input"
@@ -16,7 +21,7 @@ export type SuiteCheck =
   | "health"
   | "policies";
 
-/** A rule over the app graph: every route whose registered path matches `path` runs `runs`. */
+/** Rule over the app graph: every route whose registered path matches `path` runs `runs`. */
 export type RoutePolicy = {
   /** Glob over registered paths, as `graph.routes({ path })` takes it, e.g. `/admin/**`. */
   readonly path: string;
@@ -31,11 +36,4 @@ export type FlareSuiteOptions = {
   readonly skip?: readonly SuiteCheck[];
   /** Fails the build check on validation warnings as well as errors. Defaults to false. */
   readonly failOnWarnings?: boolean;
-};
-
-/** The host `flareSuite` checks, before it is built: the suite builds it in test mode itself. */
-export type SuiteHost<L extends HostRuntimeLifecycle = HostRuntimeLifecycle> = {
-  build(): FlareApp;
-  readonly http: HttpArc<L>;
-  [BUILD_WARNINGS](): readonly ValidationError[];
 };

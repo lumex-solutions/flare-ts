@@ -1,12 +1,12 @@
 /**
- * Unit tests for badRequestsFor: the bad requests it derives from a route's input schemas. Routes come
+ * Unit tests for badInputFor: the bad-input requests it derives from a route's input schemas. Routes come
  * from a real host's app graph.
  */
 import { describe, expect, it } from "vitest";
 import { int, optional, schema, str } from "@flare-ts/lib/schema";
 import type { HttpRouteNode } from "../../../../../src/lib/graph/http-route-node.js";
 import { stream } from "../../../../../src/lib/arcs/http/composition/contract/http-contract.js";
-import { badRequestsFor } from "../../../../../src/lib/testing/suite/bad-input.js";
+import { badInputFor } from "../../../../../src/lib/testing/suite/bad-input.js";
 import { testHost } from "../../../helpers/test-host.js";
 
 async function routeOf(
@@ -21,7 +21,7 @@ async function routeOf(
   return app.graph.route(method, path) as HttpRouteNode;
 }
 
-describe("badRequestsFor", () => {
+describe("badInputFor", () => {
   it("sends text for a numeric path param and query parameter, and no query when one is required", async () => {
     const route = await routeOf(
       (http) =>
@@ -34,7 +34,7 @@ describe("badRequestsFor", () => {
       "/teams/:teamId/users",
     );
 
-    expect(badRequestsFor(route).map(({ description, target }) => [description, target])).toEqual([
+    expect(badInputFor(route).map(({ description, target }) => [description, target])).toEqual([
       ["an invalid :teamId", "GET /teams/x/users"],
       ["no query parameters", "GET /teams/1/users"],
       ["an invalid page query parameter", "GET /teams/1/users?page=x"],
@@ -45,7 +45,7 @@ describe("badRequestsFor", () => {
     const NewUser = schema({ email: str, name: optional(str) });
     const route = await routeOf((http) => http.post("/users", { body: NewUser }, () => null), "POST", "/users");
 
-    expect(badRequestsFor(route)).toEqual([
+    expect(badInputFor(route)).toEqual([
       {
         description: "a body that is not JSON",
         target: "POST /users",
@@ -72,7 +72,7 @@ describe("badRequestsFor", () => {
     );
     const health = await routeOf((http) => http.get("/teams/:slug", () => null), "GET", "/teams/:slug");
 
-    expect(badRequestsFor(upload)).toEqual([{ description: "a request with no input", target: "PUT /files/x" }]);
-    expect(badRequestsFor(health)).toEqual([{ description: "a request with no input", target: "GET /teams/x" }]);
+    expect(badInputFor(upload)).toEqual([{ description: "a request with no input", target: "PUT /files/x" }]);
+    expect(badInputFor(health)).toEqual([{ description: "a request with no input", target: "GET /teams/x" }]);
   });
 });

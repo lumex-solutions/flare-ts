@@ -1,10 +1,10 @@
-/** The requests the prebuilt suite sends each route: input its contract should refuse, or none at all. */
+/** The bad input the prebuilt suite sends each route: requests its contract should refuse, or a bare one. */
 import type { JsonSchema } from "@flare-ts/lib/schema";
 import type { HttpRouteNode } from "../../graph/http-route-node.js";
 import type { TestRequestInit } from "../types/flare-test-req.js";
 
-/** One request the suite sends a route, and what is wrong with it. */
-export type BadRequest = {
+/** One bad-input request the suite sends a route, and what is wrong with it. */
+export type BadInput = {
   /** What is wrong with the request, as a finding names it, e.g. "a body that is not JSON". */
   readonly description: string;
   /** `METHOD /path?query`, as `app.fetch` takes it. */
@@ -15,14 +15,15 @@ export type BadRequest = {
 const JSON_HEADERS = { "content-type": "application/json" };
 
 /**
- * Returns the bad requests to send `route`, read from its input schemas: text where a numeric or
- * boolean path param or query parameter belongs, no query when some is required, and a body that is not
- * JSON, is the wrong JSON type, or lacks its required fields. A route that declares no input gets one
- * bare request.
+ * Returns the bad input to send `route`, read from its input schemas.
+ *
+ * That is text where a numeric or boolean path param or query parameter belongs, no query when some is
+ * required, and a body that is not JSON, is the wrong JSON type, or lacks its required fields. A route
+ * none of that applies to, including one with a streamed body, gets one bare request.
  */
-export function badRequestsFor(route: HttpRouteNode): BadRequest[] {
+export function badInputFor(route: HttpRouteNode): BadInput[] {
   const { route: params, query, body } = route.input;
-  const requests: BadRequest[] = [];
+  const requests: BadInput[] = [];
   const target = (badParam?: string, search = ""): string =>
     `${route.method} ${fillPath(route.path, params, badParam)}${search}`;
 

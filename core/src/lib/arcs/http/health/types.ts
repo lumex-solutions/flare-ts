@@ -18,7 +18,7 @@ export type HealthCheckOptions<D extends InjectMap = InjectMap> = {
 };
 
 /**
- * A readiness check.
+ * Readiness check function.
  *
  * It passes when it returns normally or `true`, and fails when it returns `false`, throws, or runs past
  * the check timeout. `signal` aborts at the timeout, so a check can pass it on to the call it waits on.
@@ -28,8 +28,11 @@ export type HealthCheckFn<D extends InjectMap = InjectMap> = (
   signal: AbortSignal,
 ) => boolean | void | Promise<boolean | void>;
 
+/** The liveness and readiness paths `host.http.health()` registers; `undefined` for a route turned off. */
+export type HealthPaths = { readonly live: string | undefined; readonly ready: string | undefined; };
+
 /** @internal One registered readiness check. */
-export type HealthCheck = {
+export type HealthCheckRegistration = {
   readonly name: string;
   readonly inject: InjectMap;
   // Method syntax: checked bivariantly, so a check typed for its own inject map stores without a cast.

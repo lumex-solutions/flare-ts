@@ -12,7 +12,7 @@ import type { StateToken } from "../../state/flare-state.js";
 import type { HttpArcInspectSnapshot, RouterInspectSnapshot } from "../../testing/types/inspect-build.js";
 import type { MiddlewareBase } from "./composition/classes/middleware-base.js";
 import type { HttpGroupFn } from "./composition/group.js";
-import type { HealthOptions } from "./health/types.js";
+import type { HealthCheckRegistration, HealthOptions, HealthPaths } from "./health/types.js";
 import type { RouteSegment } from "./routing/types/route.js";
 import type { CookieSigner } from "./transport/cookie-signer.js";
 import type { FlareHttpContext } from "./transport/flare-http-context.js";
@@ -32,7 +32,7 @@ import { ErrorHandlerBase } from "./composition/classes/error-handler-base.js";
 import { stream } from "./composition/contract/http-contract.js";
 import { FINALIZE_GROUP, HttpGroup } from "./composition/group.js";
 import { applyActualCorsHeaders, buildCorsPreflightResponse, checkOriginAllowed } from "./cors.js";
-import { HealthHandle } from "./health/health-handle.js";
+import { HealthHandle } from "./health/handle.js";
 import { healthPaths, installHealthRoutes } from "./health/install.js";
 import { deriveAllowedMethods } from "./routing/allow-methods.js";
 import { INVALID_REQUEST_PATH_MESSAGE } from "./routing/path.js";
@@ -53,7 +53,7 @@ export const INSPECT_HTTP_ARC: unique symbol = Symbol("INSPECT_HTTP_ARC");
 /** @internal */
 export const HTTP_PIPELINES: unique symbol = Symbol("HTTP_PIPELINES");
 /** @internal */
-export const HEALTH_ROUTES: unique symbol = Symbol("HEALTH_ROUTES");
+export const HEALTH_PATHS: unique symbol = Symbol("HEALTH_PATHS");
 /** @internal */
 export const OBSERVE_ERRORS: unique symbol = Symbol("OBSERVE_ERRORS");
 export const START_HTTP_ARC: unique symbol = Symbol("START_HTTP_ARC");
@@ -72,7 +72,7 @@ const _EMPTY_MW_CACHE: MiddlewareBase[] = [];
  */
 export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends HttpBase {
   #pipelines: Pipeline[] = [];
-  #health: { readonly handle: HealthHandle; readonly options: HealthOptions; } | undefined;
+  #health: { readonly options: HealthOptions; readonly checks: HealthCheckRegistration[]; } | undefined;
   readonly #errorObservers: ErrorHandlerRegistration[] = [];
   #execFns: ExecFn[] = [];
   #router?: Router;
@@ -193,8 +193,9 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
   }
 
   /**
-   * @internal Registers a function that sees every error a route's pipeline dispatches, before any error
-   * handler, and never answers it; for the prebuilt test suite. Takes effect at the next compile.
+   * @internal Registers a function that sees every dispatched error before any error handler, for the suite.
+   *
+   * It never answers the error, and takes effect at the next compile.
    */
   [OBSERVE_ERRORS](observe: (err: FlareError | Error, context: HttpErrorContext) => void): void {
     const Observer = class extends ErrorHandlerBase {
@@ -208,7 +209,7 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
   }
 
   /** @internal Returns the health route paths, or undefined when `health()` was never called. */
-  [HEALTH_ROUTES](): { readonly live: string | undefined; readonly ready: string | undefined; } | undefined {
+  [HEALTH_PATHS](): HealthPaths | undefined {
     return this.#health === undefined ? undefined : healthPaths(this.#health.options);
   }
 
@@ -301,11 +302,11 @@ export class HttpArc<TLifecycle extends HostRuntimeLifecycle = "async"> extends 
     if (timeout !== undefined && !(Number.isFinite(timeout) && timeout > 0)) {
       throw new Error(`host.http.health() checkTimeout must be a positive number of milliseconds, got ${timeout}.`);
     }
-    const health = new HealthHandle();
-    this.#health = { handle: health, options };
+    const checks: HealthCheckRegistration[] = [];
+    this.#health = { options, checks };
     // Installed at build, once every check is added, so the readiness route injects what all of them need.
-    this.host[REGISTER_BUILD_HOOK](() => installHealthRoutes(this, options, health.checks));
-    return health;
+    this.host[REGISTER_BUILD_HOOK](() => installHealthRoutes(this, options, checks));
+    return new HealthHandle(checks);
   }
 
   /**

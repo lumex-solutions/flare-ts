@@ -12,13 +12,14 @@ import type { RoutePolicy } from "./types.js";
 import { FlareError } from "../../errors/flare-error.js";
 import { wireNameOf } from "../../errors/wire.js";
 import { FlareValidationError } from "../../validation/flare-validation-error.js";
-import { badRequestsFor } from "./bad-input.js";
+import { badInputFor } from "./bad-input.js";
 
 /** One error the suite saw a pipeline dispatch, and the route it had sent the request to. */
 export type ObservedError = { readonly route: HttpRouteNode | undefined; readonly error: Error; };
 
-/** Reports a build that threw, each validation error it threw with, and the warnings when they count. */
+/** Reports a build that threw, each validation error it threw with, and its warnings when `failOnWarnings` is set. */
 export function buildFindings(
+  // `unknown`: whatever `host.build()` threw, if anything.
   failure: unknown,
   warnings: readonly ValidationError[],
   failOnWarnings: boolean,
@@ -62,8 +63,9 @@ export function policyFindings(graph: AppGraph, policy: RoutePolicy): string[] {
 }
 
 /**
- * Sends each front-door HTTP route its bad requests and reports each answer of 500 or more. `sending` is
- * told which route each request goes to, and `undefined` once it is answered.
+ * Sends each front-door HTTP route its bad input and reports each answer of 500 or more.
+ *
+ * @param sending - Told which route each request goes to, and `undefined` once it is answered.
  */
 export async function badInputFindings(
   app: TestAppHandle,
@@ -72,7 +74,7 @@ export async function badInputFindings(
   const findings: string[] = [];
   for (const route of app.graph.routes()) {
     if (route.kind !== "http" || route.durableObject !== undefined) continue;
-    for (const request of badRequestsFor(route)) {
+    for (const request of badInputFor(route)) {
       sending(route);
       const res = await app.fetch(request.target, request.init);
       sending(undefined);
@@ -82,7 +84,7 @@ export async function badInputFindings(
   return findings;
 }
 
-/** Reports each error a route that declares errors threw without declaring it or a class it extends. */
+/** Reports each error thrown by a route that declares errors when neither its class nor any class it extends is declared. */
 export function undeclaredErrorFindings(observed: readonly ObservedError[]): string[] {
   const findings = new Set<string>();
   for (const { route, error } of observed) {
@@ -108,7 +110,8 @@ export function errorNameFindings(observed: readonly ObservedError[]): string[] 
 
 // A route declares an error when it names the error's class or any class that class extends.
 function declares(route: HttpRouteNode, error: FlareError<JsonValue | undefined>): boolean {
-  // Erasure: a FlareError's constructor, and each class up its chain to FlareError, is a FlareError class.
+  // TypeScript types `constructor` as Function and `Object.getPrototypeOf` as any; on a FlareError, the
+  // constructor and each class up its chain to FlareError are FlareError classes.
   for (let cls = error.constructor as FlareErrorClass; cls !== FlareError; cls = Object.getPrototypeOf(cls)) {
     if (route.errors.includes(wireNameOf(cls))) return true;
   }

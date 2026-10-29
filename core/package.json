@@ -57,6 +57,10 @@
       "types": "./dist/testing.d.ts",
       "import": "./dist/testing.js"
     },
+    "./testing/suite": {
+      "types": "./dist/testing-suite.d.ts",
+      "import": "./dist/testing-suite.js"
+    },
     "./flare.schema.json": "./flare.schema.json"
   },
   "scripts": {

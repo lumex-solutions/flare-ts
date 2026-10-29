@@ -1,6 +1,7 @@
 /**
- * Unit tests for the prebuilt suite's checks: the findings each reports for a real app's build, health
- * routes, and route policies. Apps are built through a real test host.
+ * Unit tests for the prebuilt suite's checks: the findings each reports for a build, health routes,
+ * route policies, bad input, and the errors observed during it. Apps come from a real test host; the
+ * build and error findings take hand-built inputs (a thrown build error, observed errors).
  */
 import { describe, expect, it } from "vitest";
 import { int } from "@flare-ts/lib/schema";

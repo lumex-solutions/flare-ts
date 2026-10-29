@@ -11,7 +11,7 @@ import { HttpGroup } from "../../../../../src/lib/arcs/http/composition/group.js
 import { clearExecShapeCache } from "../../../../../src/lib/arcs/http/exec-codegen.js";
 import {
   COMPILE_HTTP_ARC,
-  HEALTH_ROUTES,
+  HEALTH_PATHS,
   HTTP_PIPELINES,
   HttpArc,
   INSPECT_HTTP_ARC,
@@ -471,14 +471,14 @@ describe("health()", () => {
   });
 });
 
-describe("[HEALTH_ROUTES]", () => {
+describe("[HEALTH_PATHS]", () => {
   it("is undefined before health(), then the paths health() registers", () => {
     const { http } = testHost();
-    expect(http[HEALTH_ROUTES]()).toBeUndefined();
+    expect(http[HEALTH_PATHS]()).toBeUndefined();
 
     http.health({ live: "/up" });
 
-    expect(http[HEALTH_ROUTES]()).toEqual({ live: "/up", ready: "/health/ready" });
+    expect(http[HEALTH_PATHS]()).toEqual({ live: "/up", ready: "/health/ready" });
   });
 });
 

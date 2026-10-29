@@ -7,7 +7,7 @@ import type { FlareService } from "../../../services/composition/flare-service.j
 import type { HandlerScope } from "../../../services/types/scope.js";
 import type { ServiceToken } from "../../../services/types/token.js";
 import type { HttpArc } from "../http-arc.js";
-import type { HealthCheck, HealthOptions } from "./types.js";
+import type { HealthCheckRegistration, HealthOptions, HealthPaths } from "./types.js";
 import { toErrorField } from "../../../logger/fields.js";
 import { Logger } from "../../../logger/logger.js";
 import { attachScopeDeps } from "../../../services/scope.js";
@@ -22,7 +22,7 @@ const TIMED_OUT: unique symbol = Symbol("TIMED_OUT");
 export function installHealthRoutes(
   http: HttpArc<HostRuntimeLifecycle>,
   options: HealthOptions,
-  checks: readonly HealthCheck[],
+  checks: readonly HealthCheckRegistration[],
 ): void {
   const { live, ready } = healthPaths(options);
   const timeout = options.checkTimeout ?? DEFAULT_CHECK_TIMEOUT_MS;
@@ -47,7 +47,8 @@ export function installHealthRoutes(
   http.get(ready, { inject: { logger: Logger, ...checkInject } }, async (_ctx, scope) => {
     if (http.host.state !== "ready") return new FlareResponse(503, { status: "down" });
     inFlight ??= Promise.all(checks.map((check) => {
-      // Erasure: the route scope holds each check's services under generated keys its type cannot name.
+      // Erasure: the route scope holds each check's services under generated keys its type cannot name;
+      // every token a check injects was keyed in the loop above.
       const shared = scope as unknown as Record<string, unknown>;
       const checkScope = attachScopeDeps({ config: scope.config }, check.inject, (token) => shared[keyOf.get(token)!]);
       return runCheck(check, checkScope, timeout, scope.logger);
@@ -62,9 +63,7 @@ export function installHealthRoutes(
 }
 
 /** Returns the liveness and readiness paths `options` asks for, `undefined` for a route turned off. */
-export function healthPaths(
-  options: HealthOptions,
-): { readonly live: string | undefined; readonly ready: string | undefined; } {
+export function healthPaths(options: HealthOptions): HealthPaths {
   return {
     live: options.live === false ? undefined : options.live ?? "/health/live",
     ready: options.ready === false ? undefined : options.ready ?? "/health/ready",
@@ -74,7 +73,7 @@ export function healthPaths(
 // Runs one check against its timeout; a failure is logged with the check's name and never reaches the
 // response, which would list the app's internal dependencies on a public URL.
 async function runCheck(
-  check: HealthCheck,
+  check: HealthCheckRegistration,
   scope: HandlerScope,
   timeout: number,
   logger: Pick<Logger, "warn">,
