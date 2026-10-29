@@ -19,13 +19,13 @@ import {
   prepareRequestBody,
 } from "../../../../../src/lib/arcs/http/exec-helpers.js";
 import { SET_PARSED_BODY } from "../../../../../src/lib/arcs/http/transport/flare-http-context.js";
-import { ContentTooLarge } from "../../../../../src/lib/arcs/http/transport/flare-request.js";
 import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-response.js";
 import { LOG_CONFIG } from "../../../../../src/lib/config/flare-config.js";
-import { flareErrorCodes } from "../../../../../src/lib/errors/codes.js";
+import { ConflictError } from "../../../../../src/lib/errors/conflict-error.js";
+import { ContentTooLargeError } from "../../../../../src/lib/errors/content-too-large-error.js";
 import { FlareError } from "../../../../../src/lib/errors/flare-error.js";
-import { errorSchema } from "../../../../../src/lib/errors/schema.js";
-import { ErrorCategories } from "../../../../../src/lib/errors/types.js";
+import { RateLimitedError } from "../../../../../src/lib/errors/rate-limited-error.js";
+import { ServiceUnavailableError } from "../../../../../src/lib/errors/service-unavailable-error.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";
 
 interface Recorded {
@@ -94,41 +94,48 @@ describe("handleControllerError", () => {
     return { response, records };
   }
 
-  it("uses the ErrorCategories status, includes error, code (when defined), and detail (when expose=true)", () => {
-    const codes = flareErrorCodes({
-      not_found: {
-        ITEM_GONE: {
-          expose: true,
-          code: 4040,
-          detail: errorSchema<{ id: string; }>(),
-        },
-      },
-    });
-    const err = new FlareError(codes.not_found.ITEM_GONE, { id: "abc" });
+  it("answers a 4xx FlareError with its status, wire name, message, and detail", () => {
+    class EmailTaken extends ConflictError<{ email: string; }> {}
+    const err = new EmailTaken("ada@example.com is already registered", { detail: { email: "ada@example.com" } });
 
     const { response } = callWith(err);
 
     expect(response).toBeInstanceOf(FlareResponse);
     const resp = response as FlareResponse;
-    expect(resp.status).toBe(ErrorCategories["not_found"]); // 404
-    expect(resp.jsonBody).toEqual({ error: "ITEM_GONE", code: 4040, detail: { id: "abc" } });
+    expect(resp.status).toBe(409);
+    expect(resp.jsonBody).toEqual({
+      error: "EmailTaken",
+      message: "ada@example.com is already registered",
+      detail: { email: "ada@example.com" },
+    });
   });
 
-  it("omits code/detail when they are absent (no code, expose=false hides detail)", () => {
-    const codes = flareErrorCodes({
-      fault: {
-        DB_DOWN: {
-          expose: false,
-          detail: errorSchema<{ host: string; }>(),
-        },
-      },
-    });
-    const err = new FlareError(codes.fault.DB_DOWN, { host: "internal" });
+  it("answers a 5xx FlareError with its status and wire name only, keeping the message and detail on the server", () => {
+    class LedgerOffline extends ServiceUnavailableError<{ host: string; }> {}
+    const err = new LedgerOffline("ledger at 10.0.0.4 refused the connection", { detail: { host: "10.0.0.4" } });
 
-    const { response } = callWith(err);
-    const resp = response as FlareResponse;
-    expect(resp.status).toBe(500); // fault -> 500
-    expect(resp.jsonBody).toEqual({ error: "DB_DOWN" });
+    const resp = callWith(err).response as FlareResponse;
+
+    expect(resp.status).toBe(503);
+    expect(resp.jsonBody).toEqual({ error: "LedgerOffline" });
+  });
+
+  it("sends the headers a FlareError carries, such as RateLimitedError's Retry-After", () => {
+    const resp = callWith(new RateLimitedError(30)).response as FlareResponse;
+
+    expect(resp.status).toBe(429);
+    expect(resp.headers).toMatchObject({ "Retry-After": "30" });
+  });
+
+  it("falls back to 500 for a FlareError class whose status is outside 400-599", () => {
+    class Misconfigured extends FlareError {
+      static override status = 302;
+    }
+
+    const resp = callWith(new Misconfigured("moved")).response as FlareResponse;
+
+    expect(resp.status).toBe(500);
+    expect(resp.jsonBody).toEqual({ error: "Misconfigured" });
   });
 
   it("returns a 500 with `{ error: 'Internal Server Error' }` for a plain Error", () => {
@@ -149,8 +156,7 @@ describe("handleControllerError", () => {
     expect(plain.records[0]!.args[0]).toBe(err);
     expect(plain.records[0]!.args[2]).toMatchObject({ stage: "handler", target: "TestController" });
 
-    const codes = flareErrorCodes({ not_found: { ITEM_GONE: { expose: true } } });
-    const flare = callWith(new FlareError(codes.not_found.ITEM_GONE));
+    const flare = callWith(new ConflictError("already registered"));
     expect(flare.records).toHaveLength(1);
   });
 
@@ -538,20 +544,21 @@ describe("prepareRequestBody", () => {
     expect(records.some((r) => r.level === "warn" && r.args[0] === "Request body parsing failed")).toBe(true);
   });
 
-  it("returns 413 when buffer() rejects with ContentTooLarge", async () => {
+  it("returns 413 when buffer() rejects with ContentTooLargeError", async () => {
     const { logger } = makeFakeLogger();
     const container = makeFakeContainer(logger);
     const { ctx } = makePrepareCtx("POST", async () => {
-      throw new FlareError(ContentTooLarge, { maxBytes: 1024 });
+      throw new ContentTooLargeError("Request body is larger than 1024 bytes.", { detail: { maxBytes: 1024 } });
     });
 
     const result = await prepareRequestBody(ctx, container, postBodyPipeline(model({ name: str.min(1) })));
 
     expect(result).toBeInstanceOf(FlareResponse);
     const resp = result as FlareResponse;
-    expect(resp.status).toBe(ErrorCategories.too_large);
-    expect(resp.jsonBody).toMatchObject({
-      error: "ContentTooLarge",
+    expect(resp.status).toBe(413);
+    expect(resp.jsonBody).toEqual({
+      error: "ContentTooLargeError",
+      message: "Request body is larger than 1024 bytes.",
       detail: { maxBytes: 1024 },
     });
   });

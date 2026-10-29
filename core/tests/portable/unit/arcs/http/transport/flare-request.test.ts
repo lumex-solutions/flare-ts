@@ -2,13 +2,12 @@
 import { describe, it, expect } from "vitest";
 import type { RequestAdapter } from "../../../../../../src/lib/arcs/http/transport/types/adapter.js";
 import {
-  ContentTooLarge,
   FlareRequest,
   SET_MAX_BODY_BYTES,
   SET_RAW_BODY,
   SET_ROUTE_PARAMS,
 } from "../../../../../../src/lib/arcs/http/transport/flare-request.js";
-import { FlareError } from "../../../../../../src/lib/errors/flare-error.js";
+import { ContentTooLargeError } from "../../../../../../src/lib/errors/content-too-large-error.js";
 
 /** Builds a minimal RequestAdapter with overridable rawHeaders and signal. */
 function makeAdapter(overrides: Partial<RequestAdapter> = {}): RequestAdapter {
@@ -173,24 +172,16 @@ describe("buffer", () => {
     await expect(req.buffer()).rejects.toThrow("mid-stream abort");
   });
 
-  it("Exceeds maxBytes: throws FlareError(ContentTooLarge, { maxBytes })", async () => {
+  it("Exceeds maxBytes: throws ContentTooLargeError with the limit as its detail", async () => {
     const chunks = [new Uint8Array(8), new Uint8Array(8)]; // 16 bytes total
     const req = new FlareRequest(makeAdapter(), "POST", "/", "r", asyncIterableOf(chunks));
 
-    await expect(req.buffer(10)).rejects.toThrow(FlareError);
-    // Re-issue with a fresh request to inspect the detail (the first call cached
-    // its rejection in #bodyPromise so re-calling would return the same promise).
-    const req2 = new FlareRequest(makeAdapter(), "POST", "/", "r", asyncIterableOf(chunks));
-    try {
-      await req2.buffer(10);
-      throw new Error("should have thrown");
-    } catch (err) {
-      expect(err).toBeInstanceOf(FlareError);
-      const fe = err as FlareError;
-      expect(fe.name).toBe(ContentTooLarge.name);
-      // rawDetail is always available regardless of `expose`.
-      expect((fe.rawDetail as unknown as { maxBytes: number; }).maxBytes).toBe(10);
-    }
+    await expect(req.buffer(10)).rejects.toMatchObject({
+      name: "ContentTooLargeError",
+      status: 413,
+      message: "Request body is larger than 10 bytes.",
+      detail: { maxBytes: 10 },
+    });
   });
 
   it("maxBytes argument overrides default", async () => {
@@ -202,7 +193,7 @@ describe("buffer", () => {
       "r",
       asyncIterableOf([new Uint8Array([1, 2])]),
     );
-    await expect(req.buffer(1)).rejects.toThrow(FlareError);
+    await expect(req.buffer(1)).rejects.toThrow(ContentTooLargeError);
   });
 });
 
@@ -264,7 +255,7 @@ describe("text / json / stream", () => {
         // drain
       }
     };
-    await expect(readAll()).rejects.toBeInstanceOf(FlareError);
+    await expect(readAll()).rejects.toBeInstanceOf(ContentTooLargeError);
   });
 
   it("stream: throws after buffer(), text(), json(), or SET_RAW_BODY", async () => {
@@ -328,6 +319,6 @@ describe("[SET_RAW_BODY] / [SET_MAX_BODY_BYTES] / [SET_ROUTE_PARAMS]", () => {
       asyncIterableOf([new Uint8Array([1, 2, 3])]),
     );
     tinyReq[SET_MAX_BODY_BYTES](1);
-    await expect(tinyReq.buffer()).rejects.toThrow(FlareError);
+    await expect(tinyReq.buffer()).rejects.toThrow(ContentTooLargeError);
   });
 });

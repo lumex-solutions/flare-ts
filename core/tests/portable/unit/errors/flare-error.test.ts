@@ -1,193 +1,69 @@
-/** Unit tests for FlareError construction and instance shape. */
-import { describe, it, expect } from "vitest";
-import type { ErrorCodeDescriptor } from "../../../../src/lib/errors/types.js";
+/** Unit tests for FlareError: status and wire name from the class, and what each instance carries. */
+import { describe, expect, it } from "vitest";
 import { FlareError } from "../../../../src/lib/errors/flare-error.js";
-import { ERROR_SCHEMA_BRAND, type ErrorSchema } from "../../../../src/lib/errors/schema.js";
 
-describe("FlareError (constructor + instance shape)", () => {
-  it("populates name, code, category, expose, and message from an ErrorCodeDescriptor", () => {
-    const descriptor: ErrorCodeDescriptor = {
-      name: "USER_NOT_FOUND",
-      code: 4040,
-      category: "not_found",
-      expose: true,
-    };
+class EmailTaken extends FlareError<{ email: string; }> {
+  static override status = 409;
 
-    const error = new FlareError(descriptor);
+  constructor(email: string) {
+    super(`${email} is already registered`, { detail: { email } });
+  }
+}
 
-    expect(error.name).toBe("USER_NOT_FOUND");
-    expect(error.code).toBe(4040);
-    expect(error.category).toBe("not_found");
-    expect(error.expose).toBe(true);
-    expect(error.message).toBe("USER_NOT_FOUND");
+describe("status and wire name", () => {
+  it("takes its status from the class, 500 when the class sets none", () => {
+    class LedgerFailed extends FlareError {}
+
+    expect(new EmailTaken("ada@example.com").status).toBe(409);
+    expect(new LedgerFailed().status).toBe(500);
   });
 
-  it("leaves code undefined when the descriptor omits code", () => {
-    const descriptor: ErrorCodeDescriptor = {
-      name: "GENERIC_INVALID",
-      category: "invalid",
-      expose: true,
-    };
+  it("names itself after its class, or after the class's static code", () => {
+    class PlanLimitReached extends FlareError {
+      static override status = 402;
+      static override code = "PLAN_LIMIT_REACHED";
+    }
 
-    const error = new FlareError(descriptor);
-
-    expect(error.code).toBeUndefined();
+    expect(new EmailTaken("ada@example.com").name).toBe("EmailTaken");
+    expect(new PlanLimitReached().name).toBe("PLAN_LIMIT_REACHED");
   });
 
-  it("stores the detail privately when expose is false (verifiable via rawDetail)", () => {
-    const detailSchema = Object.freeze({ [ERROR_SCHEMA_BRAND]: true }) as ErrorSchema<{
-      readonly field: string;
-    }>;
+  it("lets a subclass inherit its parent's status and give its own name", () => {
+    class AdminEmailTaken extends EmailTaken {}
 
-    const descriptor: ErrorCodeDescriptor<typeof detailSchema> = {
-      name: "VALIDATION_FAILED",
-      category: "invalid",
-      expose: false,
-      detail: detailSchema,
-    };
+    const err = new AdminEmailTaken("root@example.com");
 
-    const error = new FlareError(descriptor, { field: "email" });
-
-    expect(error.detail).toBeUndefined();
-    expect(error.rawDetail).toEqual({ field: "email" });
-  });
-
-  it("accepts no detail argument when TDetail extends undefined, and detail/rawDetail both return undefined", () => {
-    const descriptor: ErrorCodeDescriptor = {
-      name: "NO_PAYLOAD",
-      category: "rejected",
-      expose: true,
-    };
-
-    const error = new FlareError(descriptor);
-
-    expect(error.detail).toBeUndefined();
-    expect(error.rawDetail).toBeUndefined();
-  });
-
-  it('produces an error whose message and name are empty strings when descriptor has name ""', () => {
-    const descriptor: ErrorCodeDescriptor = {
-      name: "",
-      category: "fault",
-      expose: false,
-    };
-
-    const error = new FlareError(descriptor);
-
-    expect(error.message).toBe("");
-    expect(error.name).toBe("");
-  });
-
-  it("carries the category value verbatim across multiple categories", () => {
-    const invalidDescriptor: ErrorCodeDescriptor = {
-      name: "BAD_REQUEST",
-      category: "invalid",
-      expose: true,
-    };
-    const faultDescriptor: ErrorCodeDescriptor = {
-      name: "INTERNAL",
-      category: "fault",
-      expose: false,
-    };
-    const notFoundDescriptor: ErrorCodeDescriptor = {
-      name: "MISSING",
-      category: "not_found",
-      expose: true,
-    };
-
-    expect(new FlareError(invalidDescriptor).category).toBe("invalid");
-    expect(new FlareError(faultDescriptor).category).toBe("fault");
-    expect(new FlareError(notFoundDescriptor).category).toBe("not_found");
+    expect(err.status).toBe(409);
+    expect(err.name).toBe("AdminEmailTaken");
   });
 });
 
-describe("detail exposure on the wire", () => {
-  it("returns the stored detail when expose is true", () => {
-    const detailSchema = Object.freeze({ [ERROR_SCHEMA_BRAND]: true }) as ErrorSchema<{
-      readonly reason: string;
-    }>;
+describe("instance", () => {
+  it("carries its message, typed detail, and headers", () => {
+    class TooManyExports extends FlareError {
+      static override status = 429;
+    }
+    const err = new TooManyExports("Export limit reached", { headers: { "Retry-After": "60" } });
 
-    const descriptor: ErrorCodeDescriptor<typeof detailSchema> = {
-      name: "EXPOSED_DETAIL",
-      category: "invalid",
-      expose: true,
-      detail: detailSchema,
-    };
-
-    const error = new FlareError(descriptor, { reason: "too short" });
-
-    expect(error.detail).toEqual({ reason: "too short" });
+    expect(err.message).toBe("Export limit reached");
+    expect(err.headers).toEqual({ "Retry-After": "60" });
+    expect(new EmailTaken("ada@example.com").detail).toEqual({ email: "ada@example.com" });
   });
 
-  it("returns undefined when expose is false even if a detail was stored", () => {
-    const detailSchema = Object.freeze({ [ERROR_SCHEMA_BRAND]: true }) as ErrorSchema<{
-      readonly reason: string;
-    }>;
+  it("keeps the error it was raised from as its cause, and sets none when not given one", () => {
+    const refused = new Error("connect ECONNREFUSED");
+    class LedgerOffline extends FlareError {
+      static override status = 503;
+    }
 
-    const descriptor: ErrorCodeDescriptor<typeof detailSchema> = {
-      name: "HIDDEN_DETAIL",
-      category: "fault",
-      expose: false,
-      detail: detailSchema,
-    };
-
-    const error = new FlareError(descriptor, { reason: "secret" });
-
-    expect(error.detail).toBeUndefined();
+    expect(new LedgerOffline("Ledger unreachable", { cause: refused }).cause).toBe(refused);
+    expect("cause" in new LedgerOffline("Ledger unreachable")).toBe(false);
   });
 
-  it("returns undefined when no detail was supplied regardless of expose", () => {
-    const exposedDescriptor: ErrorCodeDescriptor = {
-      name: "NO_DETAIL_EXPOSED",
-      category: "invalid",
-      expose: true,
-    };
-    const hiddenDescriptor: ErrorCodeDescriptor = {
-      name: "NO_DETAIL_HIDDEN",
-      category: "fault",
-      expose: false,
-    };
+  it("is an Error with a stack, so it can be thrown and caught like one", () => {
+    const err = new EmailTaken("ada@example.com");
 
-    expect(new FlareError(exposedDescriptor).detail).toBeUndefined();
-    expect(new FlareError(hiddenDescriptor).detail).toBeUndefined();
-  });
-});
-
-describe("stored detail regardless of expose", () => {
-  it("returns the stored detail when one was supplied, regardless of expose", () => {
-    const detailSchema = Object.freeze({ [ERROR_SCHEMA_BRAND]: true }) as ErrorSchema<{
-      readonly value: number;
-    }>;
-
-    const exposedDescriptor: ErrorCodeDescriptor<typeof detailSchema> = {
-      name: "EXPOSE_TRUE",
-      category: "invalid",
-      expose: true,
-      detail: detailSchema,
-    };
-    const hiddenDescriptor: ErrorCodeDescriptor<typeof detailSchema> = {
-      name: "EXPOSE_FALSE",
-      category: "fault",
-      expose: false,
-      detail: detailSchema,
-    };
-
-    const exposedError = new FlareError(exposedDescriptor, { value: 1 });
-    const hiddenError = new FlareError(hiddenDescriptor, { value: 2 });
-
-    expect(exposedError.rawDetail).toEqual({ value: 1 });
-    expect(hiddenError.rawDetail).toEqual({ value: 2 });
-  });
-
-  it("returns undefined when no detail was supplied", () => {
-    const descriptor: ErrorCodeDescriptor = {
-      name: "NO_DETAIL",
-      category: "invalid",
-      expose: true,
-    };
-
-    const error = new FlareError(descriptor);
-
-    expect(error.rawDetail).toBeUndefined();
+    expect(err).toBeInstanceOf(Error);
+    expect(err.stack).toContain("EmailTaken");
   });
 });

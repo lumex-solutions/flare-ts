@@ -1,6 +1,6 @@
 /**
  * Integration tests for HTTP body size enforcement: per-route and global
- * `maxBodyBytes` caps and 413 ContentTooLarge responses. Runs in-process via
+ * `maxBodyBytes` caps and 413 ContentTooLargeError responses. Runs in-process via
  * `app.test()` without binding a real port. FLARE_MODE must be set before
  * importing FlareHost so the node adapter's `env: process.env` live binding
  * sees it during host construction.
@@ -10,7 +10,7 @@ process.env["FLARE_MODE"] = "test";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { model, str } from "@flare-ts/lib/schema";
 import type { TestAppHandle } from "../../../../../src/testing.js";
-import { ErrorCategories } from "../../../../../src/errors.js";
+import { ContentTooLargeError } from "../../../../../src/errors.js";
 import { httpContract, FlareResponse } from "../../../../../src/index.js";
 import { stream } from "../../../../../src/index.js";
 import { testHost } from "../../../helpers/test-host.js";
@@ -35,7 +35,7 @@ describe("Primary Behavior", () => {
     const host = testHost();
 
     // Per-route cap of 1 KiB. Bodies up to that size are parsed, larger ones
-    // must return 413 with the ContentTooLarge payload shape.
+    // must return 413 with the ContentTooLargeError payload shape.
     host.http.post(
       "/upload",
       { contract: UploadContract.upload },
@@ -71,7 +71,7 @@ describe("Primary Behavior", () => {
   );
 
   it(
-    'A POST with a body that exceeds the route\'s `maxBodyBytes` returns 413 with `error: "ContentTooLarge"`, the `code`, and `detail: { maxBytes }`',
+    'A POST with a body that exceeds the route\'s `maxBodyBytes` returns 413 with `error: "ContentTooLargeError"`, a message, and `detail: { maxBytes }`',
     async () => {
       // 2 KiB payload string against a 1 KiB cap: bufferBody throws on the
       // first chunk because the test adapter packs the whole body into one
@@ -80,8 +80,8 @@ describe("Primary Behavior", () => {
       const res = await app.fetch("POST /upload", { body: { payload: huge } });
       expect(res.status).toBe(413);
       expect(await res.json()).toEqual({
-        error: "ContentTooLarge",
-        code: 413,
+        error: "ContentTooLargeError",
+        message: "Request body is larger than 1024 bytes.",
         detail: { maxBytes: 1024 },
       });
     },
@@ -114,8 +114,8 @@ describe("Primary Behavior", () => {
         });
         expect(res.status).toBe(413);
         expect(await res.json()).toEqual({
-          error: "ContentTooLarge",
-          code: 413,
+          error: "ContentTooLargeError",
+          message: "Request body is larger than 512 bytes.",
           detail: { maxBytes: 512 },
         });
       } finally {
@@ -207,8 +207,8 @@ describe("Edge Cases", () => {
       const res = await app.fetch("POST /manual-buffer", { body: huge });
       expect(res.status).toBe(413);
       expect(await res.json()).toEqual({
-        error: "ContentTooLarge",
-        code: 413,
+        error: "ContentTooLargeError",
+        message: "Request body is larger than 256 bytes.",
         detail: { maxBytes: 256 },
       });
       // Handler was entered (buffer() is called there), confirming the throw
@@ -240,8 +240,8 @@ describe("Edge Cases", () => {
       const res = await app.fetch("POST /stream-upload", { body: huge });
       expect(res.status).toBe(413);
       expect(await res.json()).toEqual({
-        error: "ContentTooLarge",
-        code: 413,
+        error: "ContentTooLargeError",
+        message: "Request body is larger than 256 bytes.",
         detail: { maxBytes: 256 },
       });
     },
@@ -267,7 +267,7 @@ describe("Failure Modes", () => {
     const host = testHost();
 
     // Body contract present so prepareRequestBody runs and is the layer that
-    // catches the ContentTooLarge throw - the handler must never execute.
+    // catches the ContentTooLargeError throw - the handler must never execute.
     host.http.post(
       "/strict",
       {
@@ -293,15 +293,15 @@ describe("Failure Modes", () => {
       flags.handlerRan = false;
       // 1 KiB payload against a 128-byte cap. bufferBody iterates the body
       // chunks, exceeds maxBytes on the first chunk (the test adapter packs
-      // everything into one Readable chunk), throws FlareError(ContentTooLarge),
+      // everything into one Readable chunk), throws ContentTooLargeError,
       // which prepareRequestBody catches and converts to the 413 short-circuit.
       const huge = "x".repeat(1024);
       const res = await app.fetch("POST /strict", { body: { payload: huge } });
       expect(res.status).toBe(413);
       const body = await res.json();
       expect(body).toEqual({
-        error: "ContentTooLarge",
-        code: 413,
+        error: "ContentTooLargeError",
+        message: "Request body is larger than 128 bytes.",
         detail: { maxBytes: 128 },
       });
       // The handler factory never ran, proving the short-circuit happened
@@ -352,16 +352,14 @@ describe("Cross-Feature Interactions", () => {
   });
 
   it(
-    "(with http-arc/error-dispatch) The 413 response status is sourced from `ErrorCategories[ContentTooLarge.category]`",
+    "(with http-arc/error-dispatch) The 413 response status is ContentTooLargeError's own `static status`",
     async () => {
       const huge = "x".repeat(512);
       const res = await app.fetch("POST /dispatch", { body: { payload: huge } });
-      // The category for ContentTooLarge is `too_large`, which the registry
-      // maps to 413. Asserting via ErrorCategories (not the literal 413)
-      // proves the response status is sourced from the registry rather than
-      // hard-coded in the body-limits dispatch path.
-      expect(res.status).toBe(ErrorCategories.too_large);
-      expect(ErrorCategories.too_large).toBe(413);
+      // Asserting via the class (not the literal 413) proves the response status comes from the
+      // error class rather than being hard-coded in the body-limits dispatch path.
+      expect(res.status).toBe(ContentTooLargeError.status);
+      expect(ContentTooLargeError.status).toBe(413);
     },
   );
 

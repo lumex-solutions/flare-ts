@@ -443,7 +443,7 @@ describe("Failure Modes", () => {
 
 describe("Cross-Feature Interactions", () => {
   it(
-    "(with http-arc/body-limits) maxBodyBytes in the descriptor overrides the global cap and produces a 413 with ContentTooLarge on overflow",
+    "(with http-arc/body-limits) maxBodyBytes in the descriptor overrides the global cap and produces a 413 with ContentTooLargeError on overflow",
     async () => {
       process.env["FLARE_MODE"] = "test";
       const host = testHost();
@@ -470,17 +470,17 @@ describe("Cross-Feature Interactions", () => {
       const local = await host.build().test();
       try {
         // JSON-stringified body is well over 8 bytes; the buffered read
-        // throws ContentTooLarge mid-stream.
+        // throws ContentTooLargeError mid-stream.
         const res = await local.fetch("POST /tiny", {
           body: { name: "this-is-a-name-far-longer-than-eight-bytes" },
         });
         expect(res.status).toBe(413);
-        // prepareRequestBody's catch arm maps the FlareError back to a
-        // {error: "ContentTooLarge", code: 413, detail: { maxBytes }} body.
-        const payload = (await res.json()) as { error: string; code: number; detail: { maxBytes: number; }; };
-        expect(payload.error).toBe("ContentTooLarge");
-        expect(payload.code).toBe(413);
-        expect(payload.detail).toEqual({ maxBytes: 8 });
+        // prepareRequestBody's catch arm maps the error back to its 4xx body.
+        expect(await res.json()).toEqual({
+          error: "ContentTooLargeError",
+          message: "Request body is larger than 8 bytes.",
+          detail: { maxBytes: 8 },
+        });
       } finally {
         await local.stop();
       }

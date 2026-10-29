@@ -8,7 +8,40 @@
 
 - Inline routes registered at a path that already has one must agree with it: a later method that sets `name`, or an `isolated` value different from the first route's, now throws at registration. Both were silently ignored before; every method at one path shares one middleware chain and one registration.
 
+- **BREAKING: Errors are plain classes.** A `FlareError` subclass sets its HTTP status on the class and throws like any `Error`; the code registry is gone. Removed: `flareErrorCodes`, `ErrorCodesToken`, `errorSchema`, `ErrorSchema`, `ErrorCategories`, `ErrorCategory`, `ErrorCodeDescriptor`, and `FlareError`'s `code`, `category`, `expose`, and `rawDetail`.
+
+  ```ts
+  // Before
+  const Errors = flareErrorCodes({
+    conflict: {
+      EmailTaken: {
+        expose: true,
+        code: 4091,
+        detail: errorSchema<{ email: string; }>(),
+      },
+    },
+  });
+  throw new FlareError(Errors.conflict.EmailTaken, { email });
+
+  // After
+  class EmailTaken extends FlareError<{ email: string; }> {
+    static override status = 409;
+    constructor(email: string) {
+      super(`${email} is already registered`, { detail: { email } });
+    }
+  }
+  throw new EmailTaken(email);
+  ```
+
+  The response body is `{ error, message, detail }` for a 4xx status and `{ error }` for a 5xx, where `error` is the class name (or `static code`, for bundles that minify class names). Detail is sent only with a 4xx, which replaces `expose`; fields a subclass adds never leave the server. There is no numeric `code` in the body.
+
+- The request body limit answers with `ContentTooLargeError`: the 413 body is `{ "error": "ContentTooLargeError", "message": "Request body is larger than N bytes.", "detail": { "maxBytes": N } }` instead of `{ "error": "ContentTooLarge", "code": 413, "detail": ... }`.
+
 ### Added
+
+- Starter errors on `@flare-ts/core/errors` to throw directly or extend, so a domain error inherits the status: `BadRequestError` (400), `UnauthorizedError` (401), `ForbiddenError` (403), `NotFoundError` (404), `ConflictError` (409), `ContentTooLargeError` (413), `RateLimitedError` (429, takes `retryAfter` and sends `Retry-After`), and `ServiceUnavailableError` (503).
+
+- A `FlareError` takes `{ detail, cause, headers }` options: `cause` is the standard ES2022 cause, and `headers` go on its response.
 
 - Log records follow an error's `cause` chain (up to five deep) into `error.cause`, and the pretty console format prints each cause under the stack.
 

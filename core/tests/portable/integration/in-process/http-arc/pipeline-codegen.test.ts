@@ -408,7 +408,7 @@ describe("Cross-Feature Interactions", () => {
       // Per-route maxBodyBytes is stored on pipeline.maxBodyBytes[methodIdx]
       // and copied to the request before any handler or contract runs.
       // Sending a body larger than the cap must produce a 413 from
-      // prepareRequestBody's ContentTooLarge branch.
+      // prepareRequestBody's ContentTooLargeError branch.
       class TinyBody extends model({ payload: str }) {}
 
       const host = testHost();
@@ -423,13 +423,9 @@ describe("Cross-Feature Interactions", () => {
         const oversized = { payload: "a".repeat(200) };
         const res = await app.fetch("POST /tiny", { body: oversized });
         expect(res.status).toBe(413);
-        // ContentTooLarge body shape from prepareRequestBody's catch arm.
-        const body = await res.json() as {
-          error: string;
-          code: string;
-          detail: { maxBytes: number; };
-        };
-        expect(body.error).toBe("ContentTooLarge");
+        // ContentTooLargeError body shape from prepareRequestBody's catch arm.
+        const body = await res.json() as { error: string; detail: { maxBytes: number; }; };
+        expect(body.error).toBe("ContentTooLargeError");
         expect(body.detail).toEqual({ maxBytes: 16 });
       } finally {
         await app.stop();

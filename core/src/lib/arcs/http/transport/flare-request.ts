@@ -3,27 +3,13 @@
  */
 import type { JsonValue } from "@flare-ts/lib/schema";
 import type { RequestAdapter } from "./types/adapter.js";
-import { flareErrorCodes } from "../../../errors/codes.js";
-import { FlareError } from "../../../errors/flare-error.js";
-import { errorSchema } from "../../../errors/schema.js";
+import { ContentTooLargeError } from "../../../errors/content-too-large-error.js";
 
 export const SET_RAW_BODY: unique symbol = Symbol("SET_RAW_BODY");
 export const SET_ROUTE_PARAMS: unique symbol = Symbol("SET_ROUTE_PARAMS");
 export const SET_MAX_BODY_BYTES: unique symbol = Symbol("SET_MAX_BODY_BYTES");
 
 const decoder = new TextDecoder();
-
-const RequestErrors = flareErrorCodes({
-  too_large: {
-    ContentTooLarge: {
-      expose: true,
-      code: 413,
-      detail: errorSchema<{ maxBytes: number; }>(),
-    },
-  },
-});
-
-export const { ContentTooLarge } = RequestErrors.too_large;
 
 /**
  * Pure inbound representation of an HTTP request.
@@ -170,7 +156,7 @@ export class FlareRequest {
       for await (const chunk of iterable as AsyncIterable<Uint8Array>) {
         if (signal?.aborted) throw signal.reason ?? new Error("Request aborted.");
         total += chunk.byteLength;
-        if (total > maxBytes) throw new FlareError(ContentTooLarge, { maxBytes });
+        if (total > maxBytes) throw bodyTooLarge(maxBytes);
         yield chunk;
       }
     })();
@@ -207,7 +193,7 @@ export class FlareRequest {
       if (signal?.aborted) throw signal.reason ?? new Error("Request aborted.");
       total += chunk.byteLength;
       if (total > maxBytes) {
-        throw new FlareError(ContentTooLarge, { maxBytes });
+        throw bodyTooLarge(maxBytes);
       }
       chunks.push(chunk);
     }
@@ -220,4 +206,8 @@ export class FlareRequest {
     }
     return out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength);
   }
+}
+
+function bodyTooLarge(maxBytes: number): ContentTooLargeError<{ maxBytes: number; }> {
+  return new ContentTooLargeError(`Request body is larger than ${maxBytes} bytes.`, { detail: { maxBytes } });
 }

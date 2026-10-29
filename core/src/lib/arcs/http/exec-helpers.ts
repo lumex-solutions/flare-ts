@@ -13,14 +13,13 @@ import type { ResponseLike } from "./transport/types/response.js";
 import type { Pipeline } from "./types/pipeline.js";
 import type { ErrorHandlerRegistration } from "./types/registration.js";
 import { LOG_CONFIG } from "../../config/flare-config.js";
+import { ContentTooLargeError } from "../../errors/content-too-large-error.js";
 import { FlareError } from "../../errors/flare-error.js";
-import { ErrorCategories } from "../../errors/types.js";
 import { toErrorField } from "../../logger/fields.js";
 import { Logger } from "../../logger/logger.js";
 import { stream } from "./composition/contract/http-contract.js";
 import { METHOD_IDX_MAP } from "./routing/types/methods.js";
 import { SET_PARSED_BODY } from "./transport/flare-http-context.js";
-import { ContentTooLarge } from "./transport/flare-request.js";
 import { FlareResponse } from "./transport/flare-response.js";
 
 /**
@@ -72,13 +71,7 @@ export function prepareRequestBody(
     .catch((err: unknown): ResponseLike => {
       logger.warn("Request body parsing failed", { error: toErrorField(err) });
 
-      if (err instanceof FlareError && err.name === ContentTooLarge.name) {
-        return new FlareResponse(ErrorCategories[ContentTooLarge.category], {
-          error: ContentTooLarge.name,
-          code: ContentTooLarge.code,
-          detail: err.detail as JsonValue,
-        });
-      }
+      if (err instanceof ContentTooLargeError) return flareErrorResponse(err);
 
       return new FlareResponse(400, { error: "Invalid request body" });
     });
@@ -154,15 +147,21 @@ export function handleControllerError(
     logger.error(err, "Unhandled error", _errorContextMeta(context));
   }
 
-  if (err instanceof FlareError) {
-    const detail = err.detail;
-    const body: Record<string, JsonValue> = { error: err.name };
-    if (err.code !== undefined) body.code = err.code;
-    if (detail !== undefined) body.detail = detail;
-    return new FlareResponse(ErrorCategories[err.category], body);
-  }
+  if (err instanceof FlareError) return flareErrorResponse(err);
 
   return new FlareResponse(500, { error: "Internal Server Error" });
+}
+
+// A 4xx response carries the message and detail; a 5xx carries only the wire name. A status outside
+// 400-599 is a bug in the error class, so the response falls back to 500 rather than send it.
+function flareErrorResponse(err: FlareError<JsonValue | undefined>): FlareResponse {
+  const status = Number.isInteger(err.status) && err.status >= 400 && err.status <= 599 ? err.status : 500;
+  const body: Record<string, JsonValue> = { error: err.name };
+  if (status < 500) {
+    if (err.message !== "") body.message = err.message;
+    if (err.detail !== undefined) body.detail = err.detail;
+  }
+  return new FlareResponse(status, body, err.headers === undefined ? undefined : { headers: err.headers });
 }
 
 function _isPromise<T>(value: T | Promise<T>): value is Promise<T> {

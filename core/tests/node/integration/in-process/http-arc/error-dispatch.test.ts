@@ -10,10 +10,10 @@ process.env["FLARE_MODE"] = "test";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { JsonObject } from "@flare-ts/lib";
-import type { ErrorCodeDescriptor } from "../../../../../src/errors.js";
 import type { HttpErrorContext, LogRecord } from "../../../../../src/index.js";
 import type { Container } from "../../../../../src/lib/services/container.js";
 import type { TestAppHandle } from "../../../../../src/testing.js";
+import { ForbiddenError, NotFoundError } from "../../../../../src/errors.js";
 import {
   ErrorHandlerBase,
   FlareError,
@@ -47,20 +47,11 @@ function makeAdapter() {
   );
 }
 
-/** Synthetic forbidden FlareError descriptor for 403 status mapping without a framework code constant. */
-const ForbiddenCode: ErrorCodeDescriptor = {
-  name: "Forbidden",
-  category: "forbidden",
-  expose: true,
-  code: 4030,
-};
+/** A domain 403: the account may not reach this route. */
+class AccountForbidden extends ForbiddenError {}
 
-const NotFoundCode: ErrorCodeDescriptor = {
-  name: "NotFound",
-  category: "not_found",
-  expose: true,
-  code: 4040,
-};
+/** A domain 404: the invoice the route names does not exist. */
+class InvoiceNotFound extends NotFoundError {}
 
 describe("Primary Behavior", () => {
   describe("default dispatch with no registered handlers", () => {
@@ -71,7 +62,7 @@ describe("Primary Behavior", () => {
       const host = new FlareHost(makeAdapter());
       host.logging.transport(RecordingTransport);
       host.http.get("/throws-forbidden", () => {
-        throw new FlareError(ForbiddenCode);
+        throw new AccountForbidden();
       });
       app = await host.build().test();
     });
@@ -80,14 +71,11 @@ describe("Primary Behavior", () => {
       await app.stop();
     });
 
-    it("falls back to the default FlareError response with the category status and body fields when no error handlers are registered", async () => {
+    it("falls back to the default FlareError response, with the class's status and wire name, when no error handlers are registered", async () => {
       const res = await app.fetch("GET /throws-forbidden");
       expect(res.status).toBe(403);
-      const body = (await res.json()) as Record<string, unknown>;
-      expect(body.error).toBe("Forbidden");
-      expect(body.code).toBe(4030);
-      // No detail was supplied at construction; the body must not carry one.
-      expect(body).not.toHaveProperty("detail");
+      // No message or detail was supplied at construction; the body carries neither.
+      expect(await res.json()).toEqual({ error: "AccountForbidden" });
     });
   });
 
@@ -99,7 +87,7 @@ describe("Primary Behavior", () => {
       const host = new FlareHost(makeAdapter());
       host.logging.transport(RecordingTransport);
       host.http.get("/throws-forbidden", () => {
-        throw new FlareError(ForbiddenCode);
+        throw new AccountForbidden();
       });
       // App-level handler that returns a 403 with an explicit body for FlareError
       // and passes through (returns undefined) for everything else. The first
@@ -122,11 +110,10 @@ describe("Primary Behavior", () => {
       const res = await app.fetch("GET /throws-forbidden");
       expect(res.status).toBe(403);
       const body = (await res.json()) as Record<string, unknown>;
-      expect(body).toEqual({ handled: "by-app-level", name: "Forbidden" });
-      // The default envelope keys would have been `error` + `code`. Their
-      // absence proves the dispatcher short-circuited at our handler.
+      expect(body).toEqual({ handled: "by-app-level", name: "AccountForbidden" });
+      // The default envelope key would have been `error`. Its absence proves the dispatcher
+      // short-circuited at our handler.
       expect(body).not.toHaveProperty("error");
-      expect(body).not.toHaveProperty("code");
     });
   });
 
@@ -159,14 +146,14 @@ describe("Primary Behavior", () => {
       });
 
       host.http.get("/outside/throws", () => {
-        throw new FlareError(ForbiddenCode);
+        throw new AccountForbidden();
       });
 
       host.http.group("/g", (group) => {
         // Group-level handler: must NOT see errors from /outside/throws.
         group.error(() => new FlareResponse(418, { handled: "group" }));
         group.get("/throws", () => {
-          throw new FlareError(ForbiddenCode);
+          throw new AccountForbidden();
         });
       });
 
@@ -448,7 +435,7 @@ describe("Failure Modes", () => {
       host.http.error(() => undefined);
 
       host.http.get("/all-pass-through", () => {
-        throw new FlareError(NotFoundCode);
+        throw new InvoiceNotFound();
       });
       host.http.get("/all-pass-through/plain", () => {
         throw new Error("plain boom");
@@ -461,14 +448,11 @@ describe("Failure Modes", () => {
       await app.stop();
     });
 
-    it("falls back to handleControllerError when every handler passes through or fails: FlareError uses category status envelope, plain Error yields 500 internal server error", async () => {
-      // FlareError path: status from ErrorCategories[err.category], body
-      // carries `error` and `code`.
+    it("falls back to handleControllerError when every handler passes through or fails: FlareError uses its class's status, plain Error yields 500 internal server error", async () => {
+      // FlareError path: status and wire name from the error's class.
       const flareRes = await app.fetch("GET /all-pass-through");
       expect(flareRes.status).toBe(404);
-      const flareBody = (await flareRes.json()) as Record<string, unknown>;
-      expect(flareBody.error).toBe("NotFound");
-      expect(flareBody.code).toBe(4040);
+      expect(await flareRes.json()).toEqual({ error: "InvoiceNotFound" });
 
       // Plain Error path: 500 with the framework's default envelope.
       const plainRes = await app.fetch("GET /all-pass-through/plain");
