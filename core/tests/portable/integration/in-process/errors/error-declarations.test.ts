@@ -40,8 +40,8 @@ describe("Primary Behavior", () => {
     host.http.get("/users/:id", { contract: UsersContract.get }, () => null);
     const app = await host.build().test();
     try {
-      expect(app.graph.route("POST", "/signup")?.errors).toEqual(["EmailTaken"]);
-      expect(app.graph.route("GET", "/users/:id")?.errors).toEqual(["UserNotFound"]);
+      expect(app.graph.route("POST", "/signup")?.errors).toEqual([{ name: "EmailTaken", status: 409 }]);
+      expect(app.graph.route("GET", "/users/:id")?.errors).toEqual([{ name: "UserNotFound", status: 404 }]);
       // Declaring changes nothing at request time: the error answers as it would undeclared.
       const res = await app.fetch("POST /signup");
       expect(res.status).toBe(409);

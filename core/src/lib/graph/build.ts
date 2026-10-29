@@ -160,7 +160,9 @@ export function buildGraph(source: GraphSource): GraphModel {
             input: Object.freeze(input),
             state,
             services,
-            errors: Object.freeze((descriptor?.errors ?? []).map(wireNameOf)),
+            errors: Object.freeze(
+              (descriptor?.errors ?? []).map((cls) => Object.freeze({ name: wireNameOf(cls), status: cls.status })),
+            ),
           }, middleware),
           tokens,
         );

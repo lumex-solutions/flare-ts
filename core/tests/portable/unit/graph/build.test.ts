@@ -189,7 +189,7 @@ describe("buildGraph routes", () => {
     expect(graph.routeById.get("GET /health")!.input).toEqual({});
   });
 
-  it("lists the wire names of the errors a route declares", () => {
+  it("lists the errors a route declares by wire name and status", () => {
     class EmailTaken extends FlareError {
       static override status = 409;
     }
@@ -202,7 +202,10 @@ describe("buildGraph routes", () => {
       http.get("/health", () => null);
     });
 
-    expect(httpRoute(graph, "POST /signup").errors).toEqual(["EmailTaken", "PLAN_LIMIT_REACHED"]);
+    expect(httpRoute(graph, "POST /signup").errors).toEqual([
+      { name: "EmailTaken", status: 409 },
+      { name: "PLAN_LIMIT_REACHED", status: 402 },
+    ]);
     expect(httpRoute(graph, "GET /health").errors).toEqual([]);
   });
 

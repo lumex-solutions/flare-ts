@@ -37,8 +37,8 @@ export class HttpRouteNode {
   readonly state: { readonly reads: readonly string[]; readonly writes: readonly string[]; };
   /** Ids of every service the route resolves, directly or through other services. */
   readonly services: readonly string[];
-  /** Wire names of the error classes the route declares it throws. */
-  readonly errors: readonly string[];
+  /** The error classes the route declares it throws: the wire name and status of each. */
+  readonly errors: readonly { readonly name: string; readonly status: number; }[];
   readonly #middleware: ReadonlySet<MiddlewareClass>;
 
   /** @internal Built by the graph; apps receive nodes, never construct them. */

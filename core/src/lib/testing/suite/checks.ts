@@ -113,7 +113,8 @@ function declares(route: HttpRouteNode, error: FlareError<JsonValue | undefined>
   // TypeScript types `constructor` as Function and `Object.getPrototypeOf` as any; on a FlareError, the
   // constructor and each class up its chain to FlareError are FlareError classes.
   for (let cls = error.constructor as FlareErrorClass; cls !== FlareError; cls = Object.getPrototypeOf(cls)) {
-    if (route.errors.includes(wireNameOf(cls))) return true;
+    const name = wireNameOf(cls);
+    if (route.errors.some((declared) => declared.name === name)) return true;
   }
   return false;
 }
