@@ -1,7 +1,7 @@
 /**
  * The response vocabulary: handler results, middleware overrides, header shapes, and serializer slots.
  */
-import type { ReadonlyJsonValue } from "@flare-ts/lib/schema";
+import type { ModelInstance, ReadonlyJsonValue } from "@flare-ts/lib/schema";
 import type { FlareResponse } from "../flare-response.js";
 
 export type ResponseLike = Response | FlareResponse;
@@ -15,8 +15,10 @@ export type ResponseLike = Response | FlareResponse;
  *
  * 1. `FlareResponse` / `Response`: passed through unchanged.
  * 2. `AsyncIterable<unknown>`: wrapped in a chunked streaming `FlareResponse`.
- * 3. `object`: either a model instance (serialised via its compiled serializer)
- *    or a plain object/array (serialised with `JSON.stringify`).
+ * 3. A JSON object or array, or a model instance: sent with status 200, serialized
+ *    with the route's 200 schema when it declares one, the model's compiled
+ *    serializer, or `JSON.stringify`. Its values are checked as a `FlareResponse`
+ *    body's are, so a `Map` or another class's instance does not compile.
  * 4. `null` / `undefined`: throws an internal error.
  *
  * Any other value (primitive, function, symbol, etc.) throws an unsupported-type
@@ -26,7 +28,9 @@ export type HandlerResult =
   | FlareResponse
   | Response
   | AsyncIterable<unknown>
-  | object
+  | readonly ReadonlyJsonValue[]
+  | { readonly [key: string]: ReadonlyJsonValue | undefined; }
+  | ModelInstance
   | null
   | undefined;
 

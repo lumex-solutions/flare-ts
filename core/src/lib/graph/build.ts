@@ -157,6 +157,10 @@ export function buildGraph(source: GraphSource): GraphModel {
         } else if (body !== undefined) {
           input.body = frozenCopy(toJsonSchema(body));
         }
+        const responses: Record<number, JsonSchema> = {};
+        for (const [status, token] of Object.entries(descriptor?.response ?? {})) {
+          if (token !== undefined) responses[Number(status)] = frozenCopy(toJsonSchema(token));
+        }
         const route: HttpRouteNode = Object.freeze({
           kind: "http",
           id,
@@ -167,6 +171,7 @@ export function buildGraph(source: GraphSource): GraphModel {
           handler: handlerName,
           pipeline: Object.freeze(steps.map((step) => step ?? handlerStep)),
           input: Object.freeze(input),
+          responses: Object.freeze(responses),
           state,
           services,
           errors: Object.freeze(

@@ -14,6 +14,7 @@ declare const AuthMiddleware: MiddlewareClass;
 const _everything = () => new FlareResponse(200, { routes: graph.routes(), services: graph.services() });
 const _errors = () => new FlareResponse(200, graph.route("POST", "/orders")?.errors ?? []);
 const _schemas = () => new FlareResponse(200, graph.route("WS", "/orders/:id/chat")?.input ?? {});
+const _responses = () => new FlareResponse(200, graph.route("GET", "/orders/:id")?.responses ?? {});
 
 const _http = () => graph.runs(graph.route("GET", "/orders/:id")!, AuthMiddleware);
 // @ts-expect-error - HTTP middleware never runs on a WebSocket route, so runs() does not take one

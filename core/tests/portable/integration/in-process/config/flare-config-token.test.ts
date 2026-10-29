@@ -37,7 +37,7 @@ class StructuralCloneService extends FlareService {
   static override deps = [];
   static override config = [DbConfig] as const;
 
-  callWithClone(): unknown {
+  callWithClone(): { url: string; password: string; } {
     // DbConfig.descriptor's static type widens to `... | undefined`, which
     // exactOptionalPropertyTypes forbids assigning to ConfigToken's optional
     // `descriptor?` field. Build the object as `Record<string, unknown>` and

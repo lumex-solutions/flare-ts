@@ -106,7 +106,7 @@ class SharedController extends ControllerBase {
   @Get("/model-return")
   public modelReturn() {
     const instance = Object.assign(Object.create(UserOutput.prototype), { id: 42, name: "alice" });
-    return instance as unknown as InstanceType<typeof UserOutput>;
+    return instance as UserOutput;
   }
 
   @Post("/stream")

@@ -43,6 +43,8 @@ export type HttpRouteNode = {
    * A part it leaves undeclared is absent, and a streamed body is a binary string.
    */
   readonly input: { readonly route?: JsonSchema; readonly query?: JsonSchema; readonly body?: JsonSchema; };
+  /** JSON Schemas for the responses the route declares, by status; empty when it declares none. */
+  readonly responses: { readonly [status: number]: JsonSchema; };
   /** Names of the state tokens the handler reads, and of those the route's middleware write. */
   readonly state: { readonly reads: readonly string[]; readonly writes: readonly string[]; };
   /** Ids of every service the route resolves, directly or through other services. */

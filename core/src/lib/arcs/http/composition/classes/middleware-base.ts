@@ -1,14 +1,14 @@
-import type { ReadonlyJsonValue } from "@flare-ts/lib/schema";
 /**
  * The class-form middleware authoring base: before/after/finally hooks over the shared core.
  */
+import type { ReadonlyJsonValue } from "@flare-ts/lib/schema";
 import type { ConfigToken } from "../../../../config/flare-config.js";
 import type { FlareService } from "../../../../services/composition/flare-service.js";
 import type { Container } from "../../../../services/container.js";
 import type { ServiceToken } from "../../../../services/types/token.js";
 import type { StateToken } from "../../../../state/flare-state.js";
 import type { FlareHttpContext } from "../../transport/flare-http-context.js";
-import type { HandlerResult, MiddlewareOverride, ResponseLike } from "../../transport/types/response.js";
+import type { HandlerResult, MiddlewareOverride } from "../../transport/types/response.js";
 import { FlareBase } from "../../../../services/composition/flare-base.js";
 import { FlareResponse } from "../../transport/flare-response.js";
 
@@ -45,10 +45,6 @@ export abstract class MiddlewareBase extends FlareBase {
     super(container);
   }
 
-  #createResponse(body: ReadonlyJsonValue, status: number): ResponseLike {
-    return new FlareResponse(status, body);
-  }
-
   /**
    * Pre-handler hook. Return a {@link MiddlewareOverride} to short-circuit the route handler.
    */
@@ -64,22 +60,22 @@ export abstract class MiddlewareBase extends FlareBase {
    */
   public finally?(result: HandlerResult): MiddlewareOverride | Promise<MiddlewareOverride>;
 
-  protected badRequest(body: ReadonlyJsonValue): ResponseLike {
-    return this.#createResponse(body, 400);
+  protected badRequest<B extends ReadonlyJsonValue>(body: B): FlareResponse<400, B> {
+    return new FlareResponse(400, body);
   }
-  protected unauthorized(body: ReadonlyJsonValue): ResponseLike {
-    return this.#createResponse(body, 401);
+  protected unauthorized<B extends ReadonlyJsonValue>(body: B): FlareResponse<401, B> {
+    return new FlareResponse(401, body);
   }
-  protected forbidden(body: ReadonlyJsonValue): ResponseLike {
-    return this.#createResponse(body, 403);
+  protected forbidden<B extends ReadonlyJsonValue>(body: B): FlareResponse<403, B> {
+    return new FlareResponse(403, body);
   }
-  protected notFound(body: ReadonlyJsonValue): ResponseLike {
-    return this.#createResponse(body, 404);
+  protected notFound<B extends ReadonlyJsonValue>(body: B): FlareResponse<404, B> {
+    return new FlareResponse(404, body);
   }
-  protected tooManyRequests(body: ReadonlyJsonValue): ResponseLike {
-    return this.#createResponse(body, 429);
+  protected tooManyRequests<B extends ReadonlyJsonValue>(body: B): FlareResponse<429, B> {
+    return new FlareResponse(429, body);
   }
-  protected error(body: ReadonlyJsonValue): ResponseLike {
-    return this.#createResponse(body, 500);
+  protected error<B extends ReadonlyJsonValue>(body: B): FlareResponse<500, B> {
+    return new FlareResponse(500, body);
   }
 }

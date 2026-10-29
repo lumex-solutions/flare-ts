@@ -4,7 +4,10 @@
  */
 import { describe, it, expect } from "vitest";
 import type { RequestAdapter } from "../../../../../../src/lib/arcs/http/transport/types/adapter.js";
-import type { ResponseSerializers } from "../../../../../../src/lib/arcs/http/transport/types/response.js";
+import type {
+  HandlerResult,
+  ResponseSerializers,
+} from "../../../../../../src/lib/arcs/http/transport/types/response.js";
 import type { Pipeline } from "../../../../../../src/lib/arcs/http/types/pipeline.js";
 import { FlareHttpContext, HANDLER_ERRORED } from "../../../../../../src/lib/arcs/http/transport/flare-http-context.js";
 import { FlareRequest } from "../../../../../../src/lib/arcs/http/transport/flare-request.js";
@@ -19,6 +22,12 @@ const COMPILED_SERIALIZER = Symbol.for("@flare-ts/schema/compiled-serializer");
 // Build it as a partial and cast to Pipeline once per test for readability.
 function pipelineWith(serializers?: ResponseSerializers): Pipeline {
   return { responseSerializers: serializers } as unknown as Pipeline;
+}
+
+// A value outside HandlerResult, which a typed handler cannot return; normalize still handles it at
+// runtime, for JavaScript callers and casts.
+function untyped(value: object): HandlerResult {
+  return value as HandlerResult;
 }
 
 const requestAdapter: RequestAdapter = {
@@ -81,7 +90,7 @@ describe("normalizeHandlerResult", () => {
 
   it("Error instance: thrown", () => {
     const err = new Error("boom");
-    expect(() => normalizeHandlerResult(err, pipelineWith(), 0, contextFor())).toThrow(err);
+    expect(() => normalizeHandlerResult(untyped(err), pipelineWith(), 0, contextFor())).toThrow(err);
   });
 
   it("Plain object (ctor === Object): wraps in FlareResponse(200, value)", () => {
@@ -115,7 +124,7 @@ describe("normalizeHandlerResult", () => {
       a = 1;
     }
     const compiledInstance = new WithCompiled();
-    const compiledOut = normalizeHandlerResult(compiledInstance, pipelineWith(), 0, contextFor());
+    const compiledOut = normalizeHandlerResult(untyped(compiledInstance), pipelineWith(), 0, contextFor());
     expect(compiledOut).toBeInstanceOf(FlareResponse);
     expect((compiledOut as FlareResponse).body).toBe(`compiled:${JSON.stringify(compiledInstance)}`);
 
@@ -127,7 +136,7 @@ describe("normalizeHandlerResult", () => {
     }
     const pipelineSerializer = (v: unknown) => `pipeline:${JSON.stringify(v)}`;
     const overrideOut = normalizeHandlerResult(
-      new WithPipelineOverride(),
+      untyped(new WithPipelineOverride()),
       pipelineWith([{ 200: pipelineSerializer }]),
       0,
       contextFor(),
@@ -140,7 +149,7 @@ describe("normalizeHandlerResult", () => {
       c = 3;
     }
     const branded = new BrandedOnly();
-    const brandedOut = normalizeHandlerResult(branded, pipelineWith(), 0, contextFor());
+    const brandedOut = normalizeHandlerResult(untyped(branded), pipelineWith(), 0, contextFor());
     expect((brandedOut as FlareResponse).body).toBe(JSON.stringify(branded));
   });
 
@@ -181,7 +190,7 @@ describe("normalizeHandlerResult", () => {
     }
 
     // No pipeline serializer: JSON.stringify.
-    const defaultOut = normalizeHandlerResult(new Plain(42), pipelineWith(), 0, contextFor());
+    const defaultOut = normalizeHandlerResult(untyped(new Plain(42)), pipelineWith(), 0, contextFor());
     expect(defaultOut).toBeInstanceOf(FlareResponse);
     const defaultResp = defaultOut as FlareResponse;
     expect(defaultResp.body).toBe(JSON.stringify(new Plain(42)));
@@ -190,7 +199,7 @@ describe("normalizeHandlerResult", () => {
     // With pipeline serializer.
     const pipelineSerializer = (v: unknown) => `wrapped:${JSON.stringify(v)}`;
     const wrappedOut = normalizeHandlerResult(
-      new Plain(7),
+      untyped(new Plain(7)),
       pipelineWith([{ 200: pipelineSerializer }]),
       0,
       contextFor(),

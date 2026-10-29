@@ -3,6 +3,7 @@
  * and synthetic lifecycle hooks.
  */
 import { describe, it, expect, beforeEach } from "vitest";
+import { schema, str } from "@flare-ts/lib/schema";
 import type { ControllerClass } from "../../../../../../src/lib/arcs/http/composition/classes/controller-base.js";
 import type { ErrorHandlerClass } from "../../../../../../src/lib/arcs/http/composition/classes/error-handler-base.js";
 import type { MiddlewareClass } from "../../../../../../src/lib/arcs/http/composition/classes/middleware-base.js";
@@ -362,8 +363,8 @@ describe("synthetic route registration via HTTP method helpers", () => {
   });
 
   it("loose request fields: become the route's request descriptor", () => {
-    const responseSchema = {} as unknown as never;
-    base.get("/c", { response: { 200: responseSchema } }, () => null);
+    const responseSchema = schema({ id: str });
+    base.get("/c", { response: { 200: responseSchema } }, () => ({ id: "c" }));
 
     expect(base.conRegistrations[0]!.routes[0]!.descriptor).toEqual({ response: { 200: responseSchema } });
   });

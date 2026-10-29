@@ -23,6 +23,7 @@ import type { RequestDescriptor } from "./contract/http-contract.js";
 import type { HttpGroup } from "./group.js";
 import type { CorsConfig } from "./types/cors.js";
 import type {
+  CheckedController,
   HttpAfterHandler,
   HttpBeforeHandler,
   DescriptorOf,
@@ -34,6 +35,7 @@ import type {
   HttpMiddlewareOptions,
   HttpRouteHandler,
   HttpRouteOptions,
+  RouteReturn,
 } from "./types/handlers.js";
 import { FlareError } from "../../../errors/flare-error.js";
 import { assertRegistrationPath } from "../../../routing/path.js";
@@ -168,7 +170,7 @@ export abstract class HttpBase {
     this.#syntheticMiddleware("finally", options, handler);
   }
 
-  public controller(path: string, controller: ControllerClass): void {
+  public controller<C extends ControllerClass>(path: string, controller: C & NoInfer<CheckedController<C>>): void {
     this.#assertPath(path);
     if (!(controller.prototype instanceof ControllerBase)) {
       throw new Error(`Invalid controller argument for path ${path}. Must be a ControllerClass.`);
@@ -179,13 +181,13 @@ export abstract class HttpBase {
   }
 
   public get(path: string, handler: HttpRouteHandler): void;
-  public get<const O extends HttpRouteOptions>(
+  public get<const O extends HttpRouteOptions, R>(
     path: string,
     options: O,
     handler: (
       ctx: FlareHttpContext,
       scope: HttpHandlerScope<InjectOf<O>, DescriptorOf<O>>,
-    ) => HandlerResult | Promise<HandlerResult>,
+    ) => RouteReturn<R, DescriptorOf<O>>,
   ): void;
 
   public get(
@@ -197,13 +199,13 @@ export abstract class HttpBase {
   }
 
   public post(path: string, handler: HttpRouteHandler): void;
-  public post<const O extends HttpRouteOptions>(
+  public post<const O extends HttpRouteOptions, R>(
     path: string,
     options: O,
     handler: (
       ctx: FlareHttpContext,
       scope: HttpHandlerScope<InjectOf<O>, DescriptorOf<O>>,
-    ) => HandlerResult | Promise<HandlerResult>,
+    ) => RouteReturn<R, DescriptorOf<O>>,
   ): void;
 
   public post(
@@ -215,13 +217,13 @@ export abstract class HttpBase {
   }
 
   public put(path: string, handler: HttpRouteHandler): void;
-  public put<const O extends HttpRouteOptions>(
+  public put<const O extends HttpRouteOptions, R>(
     path: string,
     options: O,
     handler: (
       ctx: FlareHttpContext,
       scope: HttpHandlerScope<InjectOf<O>, DescriptorOf<O>>,
-    ) => HandlerResult | Promise<HandlerResult>,
+    ) => RouteReturn<R, DescriptorOf<O>>,
   ): void;
 
   public put(
@@ -233,13 +235,13 @@ export abstract class HttpBase {
   }
 
   public patch(path: string, handler: HttpRouteHandler): void;
-  public patch<const O extends HttpRouteOptions>(
+  public patch<const O extends HttpRouteOptions, R>(
     path: string,
     options: O,
     handler: (
       ctx: FlareHttpContext,
       scope: HttpHandlerScope<InjectOf<O>, DescriptorOf<O>>,
-    ) => HandlerResult | Promise<HandlerResult>,
+    ) => RouteReturn<R, DescriptorOf<O>>,
   ): void;
 
   public patch(
@@ -251,13 +253,13 @@ export abstract class HttpBase {
   }
 
   public delete(path: string, handler: HttpRouteHandler): void;
-  public delete<const O extends HttpRouteOptions>(
+  public delete<const O extends HttpRouteOptions, R>(
     path: string,
     options: O,
     handler: (
       ctx: FlareHttpContext,
       scope: HttpHandlerScope<InjectOf<O>, DescriptorOf<O>>,
-    ) => HandlerResult | Promise<HandlerResult>,
+    ) => RouteReturn<R, DescriptorOf<O>>,
   ): void;
 
   public delete(
@@ -269,13 +271,13 @@ export abstract class HttpBase {
   }
 
   public head(path: string, handler: HttpRouteHandler): void;
-  public head<const O extends HttpRouteOptions>(
+  public head<const O extends HttpRouteOptions, R>(
     path: string,
     options: O,
     handler: (
       ctx: FlareHttpContext,
       scope: HttpHandlerScope<InjectOf<O>, DescriptorOf<O>>,
-    ) => HandlerResult | Promise<HandlerResult>,
+    ) => RouteReturn<R, DescriptorOf<O>>,
   ): void;
 
   public head(
@@ -287,13 +289,13 @@ export abstract class HttpBase {
   }
 
   public options(path: string, handler: HttpRouteHandler): void;
-  public options<const O extends HttpRouteOptions>(
+  public options<const O extends HttpRouteOptions, R>(
     path: string,
     options: O,
     handler: (
       ctx: FlareHttpContext,
       scope: HttpHandlerScope<InjectOf<O>, DescriptorOf<O>>,
-    ) => HandlerResult | Promise<HandlerResult>,
+    ) => RouteReturn<R, DescriptorOf<O>>,
   ): void;
 
   public options(

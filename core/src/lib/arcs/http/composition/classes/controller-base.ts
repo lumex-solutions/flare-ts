@@ -46,61 +46,49 @@ export abstract class ControllerBase extends FlareBase {
     super(container);
   }
 
-  #createResponse(body: ReadonlyJsonValue | null, status: number): ResponseLike {
-    if (body === null) {
-      return new FlareResponse(status);
-    }
-
-    if (typeof body === "string") {
-      return new FlareResponse(status, body);
-    }
-
-    return new FlareResponse(status, body);
-  }
-
   /** Returns HTTP 200 with a JSON or text body. */
-  protected ok(body: ReadonlyJsonValue): ResponseLike {
-    return this.#createResponse(body, 200);
+  protected ok<B extends ReadonlyJsonValue>(body: B): FlareResponse<200, B> {
+    return new FlareResponse(200, body);
   }
   /** Returns HTTP 201 with a JSON or text body. */
-  protected created(body: ReadonlyJsonValue): ResponseLike {
-    return this.#createResponse(body, 201);
+  protected created<B extends ReadonlyJsonValue>(body: B): FlareResponse<201, B> {
+    return new FlareResponse(201, body);
   }
   /** Returns HTTP 204 with no body. */
-  protected noContent(): ResponseLike {
-    return this.#createResponse(null, 204);
+  protected noContent(): FlareResponse<204> {
+    return new FlareResponse(204);
   }
   /**
    * Returns an HTTP redirect (302 by default; 301/307/308 when `permanent` / `preserveMethod` are set).
    */
-  protected redirect(location: string, options?: RedirectOptions): ResponseLike {
+  protected redirect(location: string, options?: RedirectOptions): FlareResponse<301 | 302 | 307 | 308, null> {
     const permanent = options?.permanent === true;
     const preserveMethod = options?.preserveMethod === true;
     const status = permanent ? (preserveMethod ? 308 : 301) : preserveMethod ? 307 : 302;
     return new FlareResponse(status, null, { headers: { Location: location } });
   }
   /** Returns HTTP 400 with a JSON or text body. */
-  protected badRequest(body: ReadonlyJsonValue): ResponseLike {
-    return this.#createResponse(body, 400);
+  protected badRequest<B extends ReadonlyJsonValue>(body: B): FlareResponse<400, B> {
+    return new FlareResponse(400, body);
   }
   /** Returns HTTP 401 with a JSON or text body. */
-  protected unauthorized(body: ReadonlyJsonValue): ResponseLike {
-    return this.#createResponse(body, 401);
+  protected unauthorized<B extends ReadonlyJsonValue>(body: B): FlareResponse<401, B> {
+    return new FlareResponse(401, body);
   }
   /** Returns HTTP 403 with a JSON or text body. */
-  protected forbidden(body: ReadonlyJsonValue): ResponseLike {
-    return this.#createResponse(body, 403);
+  protected forbidden<B extends ReadonlyJsonValue>(body: B): FlareResponse<403, B> {
+    return new FlareResponse(403, body);
   }
   /** Returns HTTP 404 with a JSON or text body. */
-  protected notFound(body: ReadonlyJsonValue): ResponseLike {
-    return this.#createResponse(body, 404);
+  protected notFound<B extends ReadonlyJsonValue>(body: B): FlareResponse<404, B> {
+    return new FlareResponse(404, body);
   }
   /** Returns HTTP 429 with a JSON or text body. */
-  protected tooManyRequests(body: ReadonlyJsonValue): ResponseLike {
-    return this.#createResponse(body, 429);
+  protected tooManyRequests<B extends ReadonlyJsonValue>(body: B): FlareResponse<429, B> {
+    return new FlareResponse(429, body);
   }
   /** Returns HTTP 500 with a JSON or text body. */
-  protected error(body: ReadonlyJsonValue): ResponseLike {
-    return this.#createResponse(body, 500);
+  protected error<B extends ReadonlyJsonValue>(body: B): FlareResponse<500, B> {
+    return new FlareResponse(500, body);
   }
 }

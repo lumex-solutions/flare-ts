@@ -78,11 +78,12 @@ export type RequestDescriptor = {
   query?: Record<string, QueryPrimitive>;
 
   /**
-   * Schema tokens keyed by HTTP response status code.
+   * Schema tokens keyed by HTTP response status code: the body the handler sends with each status.
    *
-   * Describes the shape of responses the handler may return for each status code. Used for
-   * documentation, client code generation, and response validation. Only the codes you care about need
-   * to be specified. Any valid HTTP status code number may be used.
+   * The handler's return values are checked against them when it compiles: a body for a declared status
+   * must have that schema's type, a bare return is status 200, and a body on a status not listed here
+   * does not compile. At runtime each body is written with its schema's compiled serializer. The app
+   * graph reports them as JSON Schemas (`route.responses`).
    */
   response?: Partial<Record<number, OpaqueSchemaToken>>;
 

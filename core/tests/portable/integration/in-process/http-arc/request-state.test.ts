@@ -443,16 +443,14 @@ describe("Cross-Feature Interactions", () => {
       public static override deps = [];
       public static override state = [ScopedTenant];
 
-      public async after(result: unknown): Promise<unknown> {
+      public async after(): Promise<void> {
         const v = this.ctx.state.get(ScopedTenant);
         observations.push({ hook: "after", tenantId: v?.tenantId });
-        return result;
       }
 
-      public async finally(result: unknown): Promise<unknown> {
+      public async finally(): Promise<void> {
         const v = this.ctx.state.get(ScopedTenant);
         observations.push({ hook: "finally", tenantId: v?.tenantId });
-        return result;
       }
     }
 

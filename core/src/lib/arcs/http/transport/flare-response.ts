@@ -7,6 +7,9 @@ import type { ResponseHeaders, ResponseInit } from "./types/response.js";
 /** @internal */
 export const FINALIZE_JSON_BODY: unique symbol = Symbol("FINALIZE_JSON_BODY");
 
+// Type-only: carries a response's body type for route response checks; no response has it at runtime.
+declare const RESPONSE_BODY: unique symbol;
+
 /**
  * Outbound response value returned by Flare handlers and helper methods.
  *
@@ -15,9 +18,12 @@ export const FINALIZE_JSON_BODY: unique symbol = Symbol("FINALIZE_JSON_BODY");
  * {@link jsonBody} until the per-status serializer runs, at which point
  * `[FINALIZE_JSON_BODY]` writes the serialized payload to {@link body} and
  * updates Content-Length.
+ *
+ * `S` and `B` are the status and body types it was built with: a route that declares response schemas
+ * checks them against its schemas. A plain `FlareResponse` annotation is any response, and is not checked.
  */
-export class FlareResponse {
-  readonly status: number;
+export class FlareResponse<S extends number = number, B = unknown> {
+  readonly status: S;
   readonly headers: ResponseHeaders;
   readonly bodyStream: AsyncIterable<Uint8Array> | null;
   #body: Uint8Array | string | null;
@@ -30,12 +36,14 @@ export class FlareResponse {
     return this.#jsonBody;
   }
 
-  constructor(status: number);
-  constructor(status: number, body: ReadonlyJsonValue, init?: ResponseInit);
-  constructor(status: number, body: Uint8Array, init?: ResponseInit);
-  constructor(status: number, body: AsyncIterable<Uint8Array>, init?: ResponseInit);
+  declare readonly [RESPONSE_BODY]: B;
 
-  constructor(status: number, body?: ReadonlyJsonValue | Uint8Array | AsyncIterable<Uint8Array>, init?: ResponseInit) {
+  constructor(status: S);
+  constructor(status: S, body: B & ReadonlyJsonValue, init?: ResponseInit);
+  constructor(status: S, body: B & Uint8Array, init?: ResponseInit);
+  constructor(status: S, body: B & AsyncIterable<Uint8Array>, init?: ResponseInit);
+
+  constructor(status: S, body?: ReadonlyJsonValue | Uint8Array | AsyncIterable<Uint8Array>, init?: ResponseInit) {
     const headers = init?.headers;
     this.status = status;
     this.bodyStream = null;

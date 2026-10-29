@@ -185,6 +185,30 @@ describe("buildGraph routes", () => {
     expect(graph.routes[0]!.services).toEqual(["Signups", "Mailer"]);
   });
 
+  it("records JSON Schemas for the responses a route declares, by status, and none for a route that declares none", () => {
+    const Order = schema({ id: str, total: int });
+    const Problem = schema({ reason: str });
+    const graph = compiledGraph((http) => {
+      http.get(
+        "/orders/:id",
+        { route: { id: int }, response: { 200: Order, 409: Problem } },
+        () => ({ id: "o1", total: 3 }),
+      );
+      http.get("/health", () => null);
+    });
+
+    expect(httpRoute(graph, "GET /orders/:id").responses).toEqual({
+      200: {
+        type: "object",
+        properties: { id: { type: "string" }, total: { type: "integer" } },
+        required: ["id", "total"],
+      },
+      409: { type: "object", properties: { reason: { type: "string" } }, required: ["reason"] },
+    });
+    expect(Object.isFrozen(httpRoute(graph, "GET /orders/:id").responses)).toBe(true);
+    expect(httpRoute(graph, "GET /health").responses).toEqual({});
+  });
+
   it("records JSON Schemas for the request parts a route declares, and a streamed body as a binary string", () => {
     const NewUser = schema({ name: str.max(80) });
     const graph = compiledGraph((http) => {

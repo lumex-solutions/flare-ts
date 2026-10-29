@@ -118,8 +118,9 @@ function buildHost() {
 
   // Returns an Error instance: normalizeHandlerResult RETHROWS the Error so it
   // surfaces with the handler's original message intact (rather than being
-  // accidentally serialised as a 200 JSON body).
-  host.http.get("/error-return", () => new Error("returned-from-handler"));
+  // accidentally serialised as a 200 JSON body). Cast through unknown, as above,
+  // to model a buggy handler that escapes the type system.
+  host.http.get("/error-return", (() => new Error("returned-from-handler")) as unknown as HttpRouteHandler);
 
   return host;
 }
