@@ -356,7 +356,8 @@ describe("Failure Modes", () => {
     class NotPlain {
       constructor(public id: string) {}
     }
-    const ClassToken = flareState<NotPlain>("ClassToken");
+    // The token's type is plain; a class instance with the same fields still type-checks against it.
+    const ClassToken = flareState<{ id: string; }>("ClassToken");
     host.http.get("/class-set", (ctx) => {
       ctx.state.set(ClassToken, new NotPlain("x"));
       return new FlareResponse(200, { ok: true });
@@ -376,7 +377,7 @@ describe("Failure Modes", () => {
 
   it('setting an object with a circular reference throws "cannot contain circular references"', async () => {
     const host = testHost();
-    type CircularShape = { id: string; self?: unknown; };
+    type CircularShape = { id: string; self?: CircularShape; };
     const CircToken = flareState<CircularShape>("CircToken");
     host.http.get("/circ-set", (ctx) => {
       const obj: CircularShape = { id: "loop" };

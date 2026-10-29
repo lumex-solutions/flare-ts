@@ -103,7 +103,8 @@ describe("snapshotStateValue (module-private; exercised via set/get)", () => {
     class Service {
       kind = "svc";
     }
-    const token = flareState<Service>("svc") as TypedStateToken<Service>;
+    // The token's type is plain; a class instance with the same fields still type-checks against it.
+    const token = flareState<{ kind: string; }>("svc") as TypedStateToken<{ kind: string; }>;
     expect(() => map.set(token, new Service())).toThrow(
       "[flare] State values must be primitives, arrays, or plain objects. Store mutable resources in an injected service instead.",
     );

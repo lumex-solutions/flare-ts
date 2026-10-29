@@ -37,6 +37,8 @@
 
 - The request body limit answers with `ContentTooLargeError`: the 413 body is `{ "error": "ContentTooLargeError", "message": "Request body is larger than N bytes.", "detail": { "maxBytes": N } }` instead of `{ "error": "ContentTooLarge", "code": 413, "detail": ... }`.
 
+- `flareState<T>` requires `T` to be a `StateValue`: primitives, arrays, and plain objects, which is all that setting state accepted at runtime (anything else threw "State values must be primitives, arrays, or plain objects"). A state type holding a `Date`, a `Map`, or a class instance now fails to compile; keep a time as an ISO string or a number. A state shape declared as an interface fails too, since TypeScript gives interfaces no index signature; declare it as a type alias. `StateValue` is exported from the root.
+
 ### Added
 
 - Starter errors on `@flare-ts/core/errors` to throw directly or extend, so a domain error inherits the status: `BadRequestError` (400), `UnauthorizedError` (401), `ForbiddenError` (403), `NotFoundError` (404), `ConflictError` (409), `ContentTooLargeError` (413), `RateLimitedError` (429, takes `retryAfter` and sends `Retry-After`), and `ServiceUnavailableError` (503).

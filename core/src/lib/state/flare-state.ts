@@ -16,15 +16,32 @@ type WithLoggingBuilder<T, TReturn> = {
  * `DeepReadonly` to guarantee that request-scoped state cannot be mutated after it is
  * set.
  *
- * State values are stored as frozen snapshots. Keep state values as plain data:
- * primitives, arrays, and plain objects. Store mutable resources in an injected
- * service instead.
+ * State values are stored as frozen snapshots, so they are plain data ({@link StateValue}).
+ * Store mutable resources in an injected service instead.
  *
  * @typeParam T - The type to make deeply readonly.
  */
 export type DeepReadonly<T> = {
   readonly [K in keyof T]: T[K] extends object ? DeepReadonly<T[K]> : T[K];
 };
+
+/**
+ * A value request state can hold: primitives, arrays, and plain objects, nested to any depth.
+ *
+ * Setting state copies and freezes the value and throws on anything else, such as a `Date`, a `Map`,
+ * or a class instance; `flareState<T>` requires `T` to be a `StateValue` so that shows at compile time
+ * instead. Keep a time as an ISO string or a number. A state shape declared as an interface does not
+ * fit, since TypeScript gives interfaces no index signature; declare it as a type alias.
+ */
+export type StateValue =
+  | string
+  | number
+  | boolean
+  | bigint
+  | null
+  | undefined
+  | readonly StateValue[]
+  | { readonly [key: string]: StateValue; };
 
 /**
  * Opaque reference to a piece of request-scoped state.
@@ -166,10 +183,10 @@ export type InternalToken<T> = {
  *
  * @param name - Optional display name used in error messages. Should match the
  *   variable name the token is assigned to.
- * @typeParam T - The value type stored by this token.
+ * @typeParam T - The value type stored by this token: plain data, a {@link StateValue}.
  * @returns A builder for declaring defaults and derivations.
  */
-export function flareState<T>(name?: string): StateTokenBuilder<T> {
+export function flareState<T extends StateValue>(name?: string): StateTokenBuilder<T> {
   const token: InternalToken<T> = {
     name: name ?? "(anonymous state)",
     [_DEFAULT]: undefined,
