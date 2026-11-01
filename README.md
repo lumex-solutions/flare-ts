@@ -1,6 +1,5 @@
 <div align="center">
   <img src="./assets/flare-logo.png" alt="Flare" width="280" /><br/><br/>
-  <p>Composition-first TypeScript HTTP framework for Node.js and Cloudflare Workers.</p>
   <a href="https://github.com/lumex-solutions/flare-ts/actions/workflows/test.yml"><img src="https://github.com/lumex-solutions/flare-ts/actions/workflows/test.yml/badge.svg" alt="CI" /></a>
   <a href="https://www.npmjs.com/package/@flare-ts/core"><img src="https://img.shields.io/npm/v/@flare-ts/core.svg?label=%40flare-ts%2Fcore" alt="npm @flare-ts/core" /></a>
   <a href="https://www.npmjs.com/package/@flare-ts/lib"><img src="https://img.shields.io/npm/v/@flare-ts/lib.svg?label=%40flare-ts%2Flib" alt="npm @flare-ts/lib" /></a>
@@ -10,24 +9,37 @@
 
 ---
 
-**Composition-first TypeScript HTTP framework.** Register your application graph on `FlareHost`, validate it with `host.build()`, then run the same graph on Node.js or Cloudflare Workers.
-
-**Zero third-party runtime dependencies.** `@flare-ts/lib` ships with none; `@flare-ts/core` depends only on `@flare-ts/lib`. No Express, no Zod, no separate router package in your dependency tree.
+Flare is a TypeScript application framework for Node.js and Cloudflare Workers. Anything that can be worked out before traffic is worked out once, in `host.build()`. It validates the whole app, generates the router from your routes, generates a function for each route's middleware and handler, and compiles a serializer for each response schema. At request time, Flare matches the path and runs that route's function.
 
 ```ts
-import { FlareHost, FlareResponse } from "@flare-ts/core";
+import { FlareHost } from "@flare-ts/core";
+import { NotFoundError } from "@flare-ts/core/errors";
 import { node } from "@flare-ts/core/node";
+import { bool, int, schema, str } from "@flare-ts/lib/schema";
+
+const Todo = schema({ id: int, title: str, done: bool });
+const todos = new Map([[1, { id: 1, title: "Write the README", done: false }]]);
 
 const host = new FlareHost(node);
-host.http.get("/ping", () => new FlareResponse(200, { ok: true }));
 
-const app = host.build();
-app.run();
+host.http.get(
+  "/todos/:id",
+  { route: { id: int }, response: { 200: Todo } },
+  (_ctx, { input }) => {
+    const todo = todos.get(input.route.id);
+    if (!todo) throw new NotFoundError(`Todo ${input.route.id} not found`);
+    return todo;
+  },
+);
+
+host.build().run();
 ```
 
-**Pre-release (`0.1.x`).** Node and Cloudflare Workers are the supported runtimes. Bun and Deno adapters are planned. Expect breaking changes before `1.0`.
-
-### Sandbox
+```bash
+curl localhost:3000/todos/1    # 200 {"id":1,"title":"Write the README","done":false}
+curl localhost:3000/todos/2    # 404 {"error":"NotFoundError","message":"Todo 2 not found"}
+curl localhost:3000/todos/abc  # 400 {"error":"Invalid route parameters. ..."}
+```
 
 <div>
   <a href="https://sandbox.flare-ts.dev/">
@@ -35,223 +47,129 @@ app.run();
   </a>
 </div>
 
-Write and explore a Flare app in your browser and run it live on Cloudflare Workers. No install, no account. The sandbox is itself built with Flare on the same Cloudflare adapter it showcases.
+Write and run a Flare app in your browser. Apps run on Cloudflare Workers, and no account is needed.
 
-### Contents
+## Features
 
-- [Quick start](#quick-start)
-- [How Flare compares](#how-flare-compares)
-- [What you get](#what-you-get)
-- [Runtimes](#runtimes)
-- [Install](#install)
-- [Roadmap](#roadmap)
-- [Documentation](#documentation)
-- [Contributing](#contributing)
-- [License](#license)
+Imports are left out of these examples.
 
-## Quick start
+- **Request state.** Middleware passes data to handlers through typed state tokens. A middleware lists the tokens it sets in `provides`, and a route lists the tokens it reads in `state`. `build()` checks that some middleware running before the route sets every token the route reads. Values are frozen when they are set.
 
-```bash
-pnpm add @flare-ts/core @flare-ts/lib
-```
+  ```ts
+  const CurrentUser = flareState<{ id: string; role: string; }>("CurrentUser");
 
-The Node adapter requires **Node.js >= 22**. The packages also install with `npm install`, `yarn add`, or `bun add`.
+  class Auth extends MiddlewareBase {
+    static override deps = [Sessions];
+    static override state = [];
+    static override provides = [CurrentUser];
 
-```ts
-import { FlareHost, FlareResponse } from "@flare-ts/core";
-import { node } from "@flare-ts/core/node";
+    async before() {
+      const token = this.ctx.req.headers.get("authorization");
+      const user = await this.inject(Sessions).verify(token);
+      if (!user) throw new UnauthorizedError("Sign in first.");
+      this.ctx.state.set(CurrentUser, user);
+    }
+  }
 
-const host = new FlareHost(node);
+  host.http.use(Auth);
+  host.http.get("/me", { state: [CurrentUser] }, (ctx) => {
+    return ctx.state.require(CurrentUser);
+  });
+  ```
 
-host.http.get("/ping", () => new FlareResponse(200, { ok: true }));
+  Without `host.http.use(Auth)`, the build fails:
 
-const app = host.build();
-app.run(); // Node: binds the port from flare.json (default 3000)
-```
+  ```
+  [STATE_NOT_PROVIDED] /me requires state token CurrentUser that is not provided by any preceding middleware.
+  Hint: Register a middleware that lists CurrentUser in its static provides and runs before /me.
+  ```
 
-`host.build()` finalizes composition: it validates the application graph and compiles a route pipeline for every registered route. It is not a bundler step. It returns a runtime app, which you start with `app.run()` on Node or `app.export()` on Workers.
+- **Startup checks.** `host.build()` throws before the server starts if something is wired wrong. Here `UserRepo` was never registered:
 
-For inline routes, controllers, contracts, request state, and testing, see the [documentation](#documentation).
+  ```ts
+  host.http.get(
+    "/users/:id",
+    { route: { id: int }, inject: { users: UserRepo } },
+    (_ctx, { input, users }) => users.find(input.route.id),
+  );
 
----
+  host.build();
+  ```
 
-## How Flare compares
+  ```
+  [CONTROLLER_UNREGISTERED_DEP] Controller /users/:id depends on unregistered service UserRepo.
+  Hint: Register UserRepo with host.scoped() or host.singleton() before calling host.build().
+  ```
 
-The same endpoint, `GET /users/:id` returning `{ id }`, written in Hono, Fastify, and Flare. Route params arrive as strings on the wire. The question every framework answers differently is where you coerce them.
+- **Typed responses.** In the todo route above, this doesn't compile:
 
-### Raw string param
+  ```ts
+  return { id: todo.id, title: todo.title };
+  // the returned body does not match the 200 schema
+  ```
 
-No schema, no extra packages. The response `id` is the string `"42"`.
+- **Error classes.** Throw one and Flare sends its status and a JSON body:
 
-**Hono**
+  ```ts
+  class EmailTaken extends ConflictError<{ email: string; }> {}
 
-```ts
-import { Hono } from "hono";
+  throw new EmailTaken("Already invited", { detail: { email } });
+  // 409 {"error":"EmailTaken","message":"Already invited","detail":{"email":"ada@example.com"}}
+  ```
 
-const app = new Hono();
-app.get("/users/:id", (c) => c.json({ id: c.req.param("id") }));
-export default app;
-```
+- **WebSockets.** WebSocket routes use the same contracts as HTTP routes. Connections can join channels, and an HTTP handler can publish to a channel by injecting `WebSocketChannels`. Each connection can keep state in `ws.state`, and on Cloudflare that state survives Durable Object hibernation.
 
-**Fastify**
+  ```ts
+  host.ws.route("/chat/:room", {
+    params: { room: str },
+    channel: ({ input }) => input.params.room,
+  }).message((ws, { input }) => ws.publish(input.message.raw));
+  ```
 
-```ts
-import Fastify from "fastify";
+- **App graph.** `AppGraph` holds what `build()` produced, as plain data. Each route lists its middleware in run order, the JSON Schemas of its input and responses, the state it reads and writes, the services it uses, and the errors it declares. Each service lists its lifetime, dependencies, config sections, and the routes that use it. Inject it like any service, or read it from the test handle:
 
-const app = Fastify();
-app.get<{ Params: { id: string; }; }>(
-  "/users/:id",
-  async (req) => ({ id: req.params.id }),
-);
-await app.listen({ port: 3000 });
-```
+  ```ts
+  const { graph } = await host.build().test();
 
-**Flare**
+  graph.service(Mailer)?.usedBy;
+  // ["POST /invites", "POST /password-resets"]
 
-```ts
-import { FlareHost, FlareResponse } from "@flare-ts/core";
-import { node } from "@flare-ts/core/node";
+  graph.routes({ path: "/admin/**", through: RequireAdmin });
+  // every /admin route that runs RequireAdmin
+  ```
 
-const host = new FlareHost(node);
-host.http.get(
-  "/users/:id",
-  (ctx) => new FlareResponse(200, { id: ctx.req.rawRouteParams["id"] ?? null }),
-);
+- **Test suite.** `flareSuite(host)` adds Flare's checks to your vitest run, one test per check:
 
-const app = host.build();
-app.run();
-```
+  - `build`: the app builds with no validation errors.
+  - `bad-input`: each route gets generated bad input, such as text where a number belongs, a missing field, or a body that isn't JSON, and none of it gets a 500.
+  - `declared-errors`: routes throw only the error classes they declare.
+  - `error-names`: no two error classes send the same name.
+  - `health`: the health routes answer 200, when `host.http.health()` is registered.
+  - `services`: every service starts and stops cleanly.
+  - `policies`: rules you pass in, for example that every `/admin` route runs `RequireAdmin`.
 
-Without a contract, route params live on `ctx.req.rawRouteParams` as strings.
+  ```ts
+  flareSuite(host, { policies: [{ path: "/admin/**", runs: RequireAdmin }] });
+  ```
 
-### Coerced numeric param
+  A route registered outside the `/admin` group fails the policy test with `GET /admin/export skips it.`
 
-The same JSON shape with a numeric `id`: `{ "id": 42 }`. Each framework takes its idiomatic path. Hono adds `@hono/zod-validator` and `zod`; Fastify uses a JSON Schema on the route; Flare puts a primitive on the contract.
+- **Node and Cloudflare Workers.** Switch the adapter to `cf` and call `.export()` instead of `.run()`. Durable Objects are supported.
 
-**Hono**
+- **Also included:**
 
-```ts
-import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
+  - Class controllers with decorators, and route groups with their own middleware and CORS.
+  - Middleware with `before`, `after`, and `finally` hooks.
+  - CORS for the whole app or per group.
+  - Cookies and signed cookies.
+  - Streaming responses and Server-Sent Events.
+  - Health checks: `host.http.health()` adds `/health/live` and `/health/ready`, and `.check()` adds your own readiness checks.
+  - Typed config from `flare.json` and environment variables, validated at build.
+  - Structured logging in JSON or pretty format.
+  - `app.test()` sends requests through the real pipeline with no server, and `replace` swaps services for test doubles.
+  - Host extensions, so packages can add typed members to the host.
 
-const app = new Hono();
-app.get(
-  "/users/:id",
-  zValidator("param", z.object({ id: z.coerce.number() })),
-  (c) => c.json({ id: c.req.valid("param").id }),
-);
-export default app;
-```
-
-**Fastify**
-
-```ts
-import Fastify from "fastify";
-
-const app = Fastify();
-app.get<{ Params: { id: number; }; }>(
-  "/users/:id",
-  {
-    schema: {
-      params: {
-        type: "object",
-        required: ["id"],
-        properties: { id: { type: "integer" } },
-      },
-    },
-  },
-  async (req) => ({ id: req.params.id }),
-);
-await app.listen({ port: 3000 });
-```
-
-**Flare**
-
-```ts
-import { FlareHost, FlareResponse } from "@flare-ts/core";
-import { node } from "@flare-ts/core/node";
-import { int } from "@flare-ts/lib/schema";
-
-const getUser = { route: { id: int } };
-
-const host = new FlareHost(node);
-host.http.get(
-  "/users/:id",
-  { contract: getUser },
-  (ctx) => {
-    const { route } = ctx.extract(getUser);
-    return new FlareResponse(200, { id: route.id });
-  },
-);
-
-const app = host.build();
-app.run();
-```
-
-At the validated tier the handler bodies look similar across all three. What differs is where validation lives: a route schema, a validator middleware, or the `host.build()` composition step. In Flare it sits in the same graph as services, config, and serializers, and a wiring mistake fails `host.build()` before any traffic arrives.
-
----
-
-## What you get
-
-Flare registers config, services, and routes on a `FlareHost`. When you call `host.build()`, the framework checks the whole graph, so a broken HTTP boundary surfaces before traffic instead of on the first request that hits it.
-
-**Contracts that coerce.** Route params, query fields, and request bodies are parsed once per request, before the handler runs. `ctx.extract(descriptor)` returns typed `route`, `query`, and `body`. Optional per-status response shapes strip extra fields on the way out. See [Contracts](https://flare-ts.dev/core/http/contracts/).
-
-**Built-in schema library.** `@flare-ts/lib` provides primitives (`str`, `int`, `uuid`, `array`, `optional`, and more) and `model()` for request and response shapes. Contracts and serializers share one set of definitions, so there is no second validation library to keep in sync. See [Schema](https://flare-ts.dev/lib/schema/).
-
-**Whole-graph validation.** Missing service registrations, undeclared `inject()` or `config()` calls, dependency cycles, and state tokens that no middleware provides throw during `host.build()` as `FlareValidationError`. See [Composition](https://flare-ts.dev/concepts/composition/).
-
-**Explicit static DI.** Services and controllers declare `static deps`; inline routes declare `{ inject: [...] }`. The framework resolves only what you list. See [Dependency injection](https://flare-ts.dev/concepts/dependency-injection/).
-
-**Typed request state.** `flareState()` tokens carry defaults, derivations, and log-field mapping. Middleware writes state; handlers read frozen snapshots through `ctx.state`. Unsatisfiable state wiring is caught at `host.build()`. See [State](https://flare-ts.dev/core/http/state/).
-
-**Per-route pipeline compilation.** Each route compiles to a dedicated execution function covering middleware, handler, and serializers. The request path does not walk decorators or rebuild a pipeline per request. See [Arc model](https://flare-ts.dev/concepts/arc-model/).
-
-**One host, two runtimes.** The same controllers, services, contracts, and middleware run on Node and Cloudflare Workers. Swapping the adapter and choosing `.run()` or `.export()` is the only difference. See [Runtimes](#runtimes).
-
-**Integration tests on the composed app.** With `FLARE_MODE=test` set, `app.test()` returns a handle whose `fetch()` drives requests through the same pipelines production uses. No listen port, and an optional `{ replace }` map swaps in service doubles. See [Testing](https://flare-ts.dev/core/testing/).
-
----
-
-## Runtimes
-
-| Runtime            | Import                                           | Start                                                                                                              |
-| ------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| Node.js >= 22      | `import { node } from "@flare-ts/core/node"`     | `const app = host.build(); app.run()`                                                                              |
-| Cloudflare Workers | `import { cf } from "@flare-ts/core/cloudflare"` | `const app = host.build(); export default app.export()`                                                            |
-| Bun (planned)      | `@flare-ts/core/bun`                             | The adapter import exists but is not yet functional. Use the `node` or `cf` adapter for now.                       |
-| Deno (planned)     | `@flare-ts/core/deno`                            | The adapter import exists but is not yet functional, and is not in CI yet. Use the `node` or `cf` adapter for now. |
-
-On Workers, use the `cf` adapter. It reads config from `FLARE__`-prefixed values in the `wrangler.toml` `[vars]` table, because a Worker cannot read `flare.json` from disk at runtime:
-
-```ts
-import { FlareHost } from "@flare-ts/core";
-import { cf } from "@flare-ts/core/cloudflare";
-
-const host = new FlareHost(cf);
-// ...same registrations as Node...
-
-const app = host.build();
-export default app.export();
-```
-
-To embed `flare.json` values in the Worker bundle instead of reading them from `[vars]`, use `buildCf`:
-
-```ts
-import { FlareHost } from "@flare-ts/core";
-import { buildCf } from "@flare-ts/core/cloudflare";
-import flareJson from "./flare.json" with { type: "json" };
-
-const host = new FlareHost(buildCf(flareJson));
-// ...same registrations as Node...
-
-const app = host.build();
-export default app.export();
-```
-
----
+- **No dependencies.** `@flare-ts/core` depends only on `@flare-ts/lib`.
 
 ## Install
 
@@ -259,34 +177,51 @@ export default app.export();
 pnpm add @flare-ts/core @flare-ts/lib
 ```
 
-An optional `flare.json` sets the port, logging, and custom config sections, and gives you editor autocomplete through the bundled schema:
+Requires Node.js 22 or later. The Node adapter listens on port 3000 by default. Set `host.port` in `flare.json` to change it.
 
-```jsonc
-{
-  "$schema": "./node_modules/@flare-ts/core/flare.schema.json",
-  "host": { "port": 4000, "env": "development" },
-  "log": { "level": "debug", "format": "pretty" }
-}
-```
+Flare is pre-1.0, so minor versions can include breaking changes. They're listed in the [changelog](core/CHANGELOG.md).
 
----
+## Runtimes
+
+| Runtime            | Adapter                                          | Start                                          |
+| ------------------ | ------------------------------------------------ | ---------------------------------------------- |
+| Node.js 22+        | `import { node } from "@flare-ts/core/node"`     | `host.build().run()`                           |
+| Cloudflare Workers | `import { cf } from "@flare-ts/core/cloudflare"` | `export default host.build().export()`         |
+| Bun, Deno          | `@flare-ts/core/bun`, `@flare-ts/core/deno`      | Planned. The imports exist but don't work yet. |
+
+A Cloudflare host has no `host.singleton`, so code that relies on process-lifetime state won't type-check. Workers can't read `flare.json` at runtime. Pass it to `buildCf(flareJson)` to bundle it. See [Cloudflare Workers](https://flare-ts.dev/docs/runtimes/cloudflare/).
+
+## Performance
+
+[flare-bench](https://github.com/lumex-solutions/flare-bench) measures framework overhead with the [fastify/benchmarks](https://github.com/fastify/benchmarks) tool. Each framework serves one route, `GET /`, returning `{"hello":"world"}`. Flare's route uses a response schema.
+
+Median of five runs on a GitHub Actions `ubuntu-latest` runner (4 vCPU), Node 24.18.0, 2026-07-20:
+
+| Framework |      Version | Requests/s | Latency (ms) |
+| :-------- | -----------: | ---------: | -----------: |
+| node:http |      24.18.0 |     47,877 |        20.38 |
+| Flare     | 0.3.0-next.8 |     47,561 |        20.52 |
+| Fastify   |       5.10.0 |     46,732 |        20.87 |
+| Hono      |      4.12.28 |     40,006 |        24.51 |
+| Express   |        5.2.1 |     27,688 |        35.60 |
+
+Absolute numbers vary by machine.
 
 ## Roadmap
 
-A short look at where Flare is and where it's headed.
-Direction, not dates. The order and details will shift as we go.
+A short look at where Flare is and where it's headed. Direction, not dates. The order and details will shift as we go.
 
 ### Shipped today
 
-The HTTP layer is solid: routing, controllers, middleware, request state, and contracts, all validated at startup by `host.build()`. Dependency injection with scoped and singleton lifecycles. Typed config from `flare.json` and the environment. A structured logger. Schema and serialization in `@flare-ts/lib`, usable on their own. Runs on Node and Cloudflare Workers from one codebase.
+The HTTP layer is solid: routing, controllers, middleware, request state, contracts, and typed responses, all validated at startup by `host.build()`. WebSockets with channels, Server-Sent Events, signed cookies, and health checks. Error classes. The app graph and the prebuilt test suite. Dependency injection with scoped and singleton lifecycles. Typed config from `flare.json` and the environment. A structured logger. Host extensions. Schema and serialization in `@flare-ts/lib`, usable on their own. Runs on Node and Cloudflare Workers from one codebase, with Durable Objects on Cloudflare.
 
 ### Phase 1 - A complete, extensible framework
 
-Rounding out the HTTP layer with WebSockets, file uploads, signed cookies, and health checks. First-class authentication. A stable extension API so first-party and community packages plug into the host the same way. And the `flare` CLI for scaffolding, dev, and builds. The first official extension package lands here, proving the pattern the rest will follow.
+Rounding out the HTTP layer with file uploads. First-class authentication. A stable extension API so first-party and community packages plug into the host the same way. And the `flare` CLI for scaffolding, dev, and builds. The first official extension package lands here, proving the pattern the rest will follow.
 
 ### Phase 2 - Observability and the ecosystem
 
-A queryable observability layer built from what Flare already knows about your app, not bolted on through instrumentation. Then the packages fan out: databases, etc. wired into dependency injection and lifecycle, wrapped in a first-party package.
+A queryable observability layer built from what Flare already knows about your app, not bolted on through instrumentation. The app graph is the first piece; next is a package that stores logs linked to the routes, middleware, and services that wrote them. Then the packages fan out: databases, etc. wired into dependency injection and lifecycle, wrapped in a first-party package.
 
 ### Phase 3 - Background processing
 
@@ -294,21 +229,17 @@ Long-running workers as a first-class part of the app, sharing the same dependen
 
 ### Phase 4 - Scheduling, storage, and a stable 1.0
 
-Scheduled and recurring work on top of the worker model. Optional storage bindings(inspired by CF, pluggable storage interface for node) for key-value and object storage, one concept across every runtime. Then benchmarks, hardening, and a stable API for 1.0.
+Scheduled and recurring work on top of the worker model. Optional storage bindings (inspired by CF, pluggable storage interface for node) for key-value and object storage, one concept across every runtime. Then benchmarks, hardening, and a stable API for 1.0.
 
-And at some point Bun and Deno support will land, but that depends entirely on when I get the gumption to go down those rabbit holes. I have mentally planned a lot of those, but no deep dives. Intention is to support for v1.0, but no promises.
-
----
+And at some point Bun and Deno support will land, but that depends entirely on when I get the gumption to go down those rabbit holes. I have mentally planned a lot of those, but no deep dives. The intention is to support both for v1.0, but no promises.
 
 ## Documentation
 
-Full documentation is at [flare-ts.dev](https://flare-ts.dev).
-
----
+Full docs are at [flare-ts.dev](https://flare-ts.dev): [Why Flare](https://flare-ts.dev/docs/why-flare/), [Install](https://flare-ts.dev/docs/get-started/install/), [Your first app](https://flare-ts.dev/docs/get-started/first-app/), [HTTP](https://flare-ts.dev/docs/http/), [WebSockets](https://flare-ts.dev/docs/websockets/), [Schema](https://flare-ts.dev/docs/schema/), [Testing](https://flare-ts.dev/docs/testing/), [Runtimes](https://flare-ts.dev/docs/runtimes/).
 
 ## Contributing
 
-Contributions are welcome. The toolchain requires Node.js >= 22 and pnpm 10:
+See [CONTRIBUTING.md](CONTRIBUTING.md). You need Node.js 22+ and pnpm 10.
 
 ```bash
 pnpm install
@@ -316,10 +247,8 @@ pnpm test
 pnpm check
 ```
 
-Open issues and pull requests at [lumex-solutions/flare-ts](https://github.com/lumex-solutions/flare-ts).
-
----
+Issues and pull requests go to [lumex-solutions/flare-ts](https://github.com/lumex-solutions/flare-ts).
 
 ## License
 
-See the repository for license terms.
+[MIT](LICENSE)
