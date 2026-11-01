@@ -99,7 +99,7 @@
 
 - An app with no HTTP routes builds, and answers every HTTP request with a 404. An app with only WebSocket routes failed `host.build()` with `Router: no routes provided`.
 
-- The `channel` selector of `host.ws.route()` types `input` from the route's `params`, `query`, or `contract`, as the route's handlers do. It typed `input.params` as `Record<string, string | number>` whatever the route declared, so `channel: ({ input }) => input.params.room` did not compile. `WebSocketRouteOptions` no longer lists `channel`; `route()` and `controller()` declare it. `host.ws.controller()` keeps the untyped selector.
+- The `channel` selector of `host.ws.route()` types `input` from the route's `params`, `query`, or `contract`, as the route's handlers do. It typed `input.params` as `Record<string, string | number>` whatever the route declared, so `channel: ({ input }) => input.params.room` did not compile. `host.ws.controller()` types its options by the controller class's descriptor: the selector reads the class's input, and loose fields must restate the class's. `WebSocketRouteOptions` no longer lists `channel`; `route()` and `controller()` declare it.
 
 - With `log.enableContext` on, `handle.fetch()` runs each request under the same HTTP log context a server request runs under, so records logged during a test carry the request id and the fields state tokens add with `.withLogging()`.
 

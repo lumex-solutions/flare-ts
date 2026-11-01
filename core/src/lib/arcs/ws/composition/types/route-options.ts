@@ -6,7 +6,8 @@
  */
 import type { InjectMap } from "../../../../services/types/inject.js";
 import type { StateToken } from "../../../../state/flare-state.js";
-import type { WebSocketDescriptor, WebSocketToken } from "../contract/ws-contract.js";
+import type { WebSocketDescriptor, WebSocketInput, WebSocketToken } from "../contract/ws-contract.js";
+import type { WebSocketChannelSelector } from "./registration.js";
 
 /** The {@link WebSocketDescriptor} field names usable as loose inline route-option keys. */
 export type WebSocketKey = "incoming" | "outgoing" | "params" | "query" | "subprotocols";
@@ -60,10 +61,19 @@ export type WebSocketUpgradeOptions<I extends InjectMap = InjectMap> = {
 };
 
 /**
- * Controller-form options for `host.ws.controller`: everything but `inject`, which is forbidden here -
- * a controller class has no `scope` for named deps to attach to; its DI is `static deps`, read with
- * `this.inject`.
+ * Controller-form options for `host.ws.controller`, typed by the controller class's descriptor `T`: loose
+ * fields restate `T`'s, a `contract` is an entry for `T`, and the `channel` selector reads `T`'s input.
+ * `inject` is forbidden here - a controller class has no `scope` for named deps to attach to; its DI is
+ * `static deps`, read with `this.inject`.
  */
-export type WebSocketControllerRouteOptions =
-  | (LooseWebSocketRouteOptions & { readonly inject?: never; })
-  | (ContractWebSocketRouteOptions & { readonly inject?: never; });
+export type WebSocketControllerRouteOptions<T extends WebSocketDescriptor = WebSocketDescriptor> =
+  & Omit<WebSocketRouteOptionsBase, "inject">
+  & {
+    readonly inject?: never;
+    /** Channel(s) to subscribe the connection to at open, computed from its input (subscribe-at-open sugar). */
+    readonly channel?: WebSocketChannelSelector<WebSocketInput<T>>;
+  }
+  & (
+    | ({ readonly [K in WebSocketKey]?: T[K]; } & { readonly contract?: never; })
+    | ({ readonly contract: WebSocketToken<T>; } & { readonly [K in WebSocketKey]?: never; })
+  );

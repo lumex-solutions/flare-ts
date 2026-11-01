@@ -104,11 +104,11 @@ export abstract class WebSocketBase {
     path: string,
     cls: WebSocketControllerClass<T>,
   ): WebSocketControllerHandle<T>;
-  controller<O extends WebSocketControllerRouteOptions>(
+  controller<T extends WebSocketDescriptor>(
     path: string,
-    opts: O & { readonly channel?: WebSocketChannelSelector; },
-    cls: WebSocketControllerClass<DescriptorOf<O>>,
-  ): WebSocketControllerHandle<DescriptorOf<O>>;
+    opts: WebSocketControllerRouteOptions<NoInfer<T>>,
+    cls: WebSocketControllerClass<T>,
+  ): WebSocketControllerHandle<T>;
   controller(
     path: string,
     optsOrCls: ErasedRouteOptions | WebSocketControllerClass,

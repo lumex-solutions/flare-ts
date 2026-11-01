@@ -2,15 +2,15 @@
  * Compile-time tests for the WS route-options two-form split (HTTP parity): spell the descriptor
  * fields loose in the options, OR pass a socketContract entry as `contract:` - never both. Cross-arc
  * entries and whole contract maps are rejected. A route's `channel` selector reads the same typed input
- * its handlers do. The file passing `tsc` IS the assertion (the
- * `@ts-expect-error` lines fail the build if they stop erroring); the single runtime `it` only
- * anchors it as a vitest file. See WebSocketToken in ws-contract.ts.
+ * its handlers do, and a controller route's options are typed by its class's descriptor. The file
+ * passing `tsc` IS the assertion (the `@ts-expect-error` lines fail the build if they stop erroring);
+ * the single runtime `it` only anchors it as a vitest file. See WebSocketToken in ws-contract.ts.
  */
 process.env["FLARE_MODE"] = "test";
 
 import { describe, expect, it } from "vitest";
 import { int, str } from "@flare-ts/lib/schema";
-import { httpContract, socketContract } from "../../../../../src/index.js";
+import { httpContract, socketContract, WebSocketControllerBase } from "../../../../../src/index.js";
 import { testHost } from "../../../helpers/test-host.js";
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
@@ -59,6 +59,30 @@ host.ws.route("/channel-seat/:seat", {
   // @ts-expect-error - a channel name is a string, and an int param is a number
   channel: ({ input }) => input.params.seat,
 });
+
+// A controller route's options are typed by the class's descriptor: the channel selector reads its
+// input, and loose fields must restate the class's.
+const RoomParams = { params: { room: str } } as const;
+class RoomSocket extends WebSocketControllerBase<typeof RoomParams> {
+  static override deps = [];
+}
+class ChatSocket extends WebSocketControllerBase<typeof Chat.chat> {
+  static override deps = [];
+}
+
+host.ws.controller(
+  "/ctl-inline/:room",
+  { params: { room: str }, channel: ({ input }) => input.params.room },
+  RoomSocket,
+);
+host.ws.controller("/ctl-class/:room", { channel: ({ input }) => input.params.room }, RoomSocket);
+host.ws.controller("/ctl-entry/:room", { contract: Chat.chat, channel: ({ input }) => input.params.room }, ChatSocket);
+
+// @ts-expect-error - the options declare room as an int, and the class reads a string
+host.ws.controller("/ctl-mismatch/:room", { params: { room: int } }, RoomSocket);
+
+// @ts-expect-error - a controller has no scope for named deps; it reads static deps
+host.ws.controller("/ctl-inject", { inject: {} }, RoomSocket);
 
 describe("ws route options types", () => {
   it("compiles: inline vs entry acceptance and cross-arc rejection are enforced by tsc", () => {
