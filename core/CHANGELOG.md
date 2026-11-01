@@ -103,6 +103,8 @@
 
 - With `log.enableContext` on, `handle.fetch()` runs each request under the same HTTP log context a server request runs under, so records logged during a test carry the request id and the fields state tokens add with `.withLogging()`.
 
+- A WebSocket handler that throws is logged on every backing. On Node and on a resident Cloudflare socket, a throwing `message` handler closed the connection without a log line, and so did a throwing `open` on a resident Cloudflare socket; they now log "WebSocket message handler failed" and "WebSocket open handler failed", as a hibernating socket already did.
+
 ### Internal
 
 - Config is typed by what it holds: an adapter's raw `flareJsonFile` is a `Record<string, JsonValue>`, and the resolved config in adapter build contexts is a `FlareConfig`, so the Cloudflare build check reads `cookies.secret` and `websockets` without casts. Code that only reads config sections by key, such as the container and config validation, takes `Record<string, JsonValue>`.

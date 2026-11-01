@@ -14,7 +14,9 @@
  */
 import type { WsConnection } from "../../../connection.js";
 import type { IFlareWebSocket, WsLimitOptions } from "../../socket.js";
-import { closeForError } from "../../error-close.js";
+import { _log } from "../../../../../logger/bootstrap.js";
+import { toErrorField } from "../../../../../logger/fields.js";
+import { closeForError, failureLogLevel } from "../../error-close.js";
 import { CfWebSocket } from "./web-socket.js";
 
 /**
@@ -48,6 +50,7 @@ export function acceptCfWebSocket(
   let live = true; // cleared when open fails or after a handler aborts the connection
   let tail: Promise<void> = Promise.resolve(connection.open(cfSocket)).catch((err) => {
     live = false;
+    _log(failureLogLevel(err), "WebSocket open handler failed", { error: toErrorField(err) });
     const { code, reason } = closeForError(err, "Connection setup failed");
     cfSocket.close(code, reason);
   });
@@ -68,9 +71,10 @@ export function acceptCfWebSocket(
     tail = tail
       .then(() => (live ? connection.message(data) : undefined))
       .catch((err) => {
-        // Mirror Node: surface to connection.error and close with the code closeForError picks (1011 unless
-        // a 4xx or a closeCode class). Swallowed so the chain still delivers close.
+        // Mirror Node: log it, surface it to connection.error, and close with the code closeForError picks
+        // (1011 unless a 4xx or a closeCode class). Swallowed so the chain still delivers close.
         live = false;
+        _log(failureLogLevel(err), "WebSocket message handler failed", { error: toErrorField(err) });
         connection.error(err instanceof Error ? err : new Error(String(err)));
         const { code, reason } = closeForError(err, "Message handler failed");
         cfSocket.close(code, reason);

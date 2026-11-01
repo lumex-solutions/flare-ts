@@ -8,6 +8,7 @@ import type { WsConnection } from "../../../../../../../../src/lib/arcs/ws/conne
 import type { WsLimitOptions, WsTimingOptions } from "../../../../../../../../src/lib/arcs/ws/transport/socket.js";
 import { NodeWebSocket } from "../../../../../../../../src/lib/arcs/ws/transport/runtime/node/web-socket.js";
 import { WS_CLOSE, WS_OPCODE } from "../../../../../../../../src/lib/arcs/ws/transport/wire/protocol.js";
+import { clearBootstrapBuffer, peekBootstrapBuffer } from "../../../../../../../../src/lib/logger/bootstrap.js";
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -379,7 +380,8 @@ describe("NodeWebSocket errors", () => {
     expect(rec.closes[0]).toMatchObject({ code: WS_CLOSE.MESSAGE_TOO_BIG, wasClean: false });
   });
 
-  it("closes 1011 when a message handler throws", async () => {
+  it("closes 1011 and logs at error when a message handler throws", async () => {
+    clearBootstrapBuffer();
     const socket = new TestDuplex();
     const closes: Array<{ code: number; wasClean: boolean; }> = [];
     const errors: Error[] = [];
@@ -401,6 +403,9 @@ describe("NodeWebSocket errors", () => {
     expect(errors.map((e) => e.message)).toEqual(["handler boom"]);
     expect(closes[0]).toMatchObject({ code: WS_CLOSE.INTERNAL_ERROR, wasClean: false });
     expect(socket.wasDestroyed).toBe(true);
+    const logged = peekBootstrapBuffer().find((record) => record.message === "WebSocket message handler failed");
+    expect(logged).toMatchObject({ level: "error", meta: { error: { message: "handler boom" } } });
+    clearBootstrapBuffer();
   });
 
   it("surfaces a socket error to the connection and finalizes", () => {

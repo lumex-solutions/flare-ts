@@ -1,9 +1,15 @@
 /**
- * Unit tests for {@link acceptCfWebSocket}: open sequencing, message delivery, and serialization guarantees.
+ * Unit tests for {@link acceptCfWebSocket}: open sequencing, message delivery, serialization guarantees, and
+ * how a failing handler is logged and closed.
  */
 import { describe, expect, it } from "vitest";
 import type { WsConnection } from "../../../../../../../../src/lib/arcs/ws/connection.js";
 import { acceptCfWebSocket } from "../../../../../../../../src/lib/arcs/ws/transport/runtime/cloudflare/accept.js";
+import { ConflictError } from "../../../../../../../../src/lib/errors/conflict-error.js";
+import { clearBootstrapBuffer, peekBootstrapBuffer } from "../../../../../../../../src/lib/logger/bootstrap.js";
+
+const loggedLevel = (message: string): string | undefined =>
+  peekBootstrapBuffer().find((record) => record.message === message)?.level;
 
 type Listener = (event: unknown) => void;
 
@@ -122,12 +128,35 @@ describe("acceptCfWebSocket", () => {
     expect(handle.readyState).toBe(2);
   });
 
-  it("closes 1011 when the open builder rejects", async () => {
+  it("closes 1011 when the open builder rejects, and logs it at error", async () => {
+    clearBootstrapBuffer();
     const ws = new FakeNativeWs();
     const rec = recordingConnection(() => Promise.reject(new Error("setup boom")));
     acceptCfWebSocket(asNative(ws), rec.connection);
     await flush();
     expect(ws.closed?.code).toBe(1011);
+    expect(loggedLevel("WebSocket open handler failed")).toBe("error");
+    clearBootstrapBuffer();
+  });
+
+  it("logs a message handler that throws a 4xx FlareError at warn, and closes 4000 + status", async () => {
+    clearBootstrapBuffer();
+    const ws = new FakeNativeWs();
+    const connection = {
+      open: () => {},
+      message: () => {
+        throw new ConflictError("room full");
+      },
+      close() {},
+      error() {},
+    } as unknown as WsConnection;
+    acceptCfWebSocket(asNative(ws), connection);
+    await flush();
+    ws.emit("message", { data: "x" });
+    await flush();
+    expect(ws.closed?.code).toBe(4409);
+    expect(loggedLevel("WebSocket message handler failed")).toBe("warn");
+    clearBootstrapBuffer();
   });
 
   it("runs async message handlers in arrival order even when an earlier one settles later", async () => {

@@ -3,7 +3,9 @@ import type { Duplex } from "node:stream";
 import type { WsConnection } from "../../../connection.js";
 import type { IFlareWebSocket, WsLimitOptions, WsTimingOptions } from "../../socket.js";
 import type { AssemblyState, FrameHeader } from "../../wire/types.js";
-import { closeForError } from "../../error-close.js";
+import { _log } from "../../../../../logger/bootstrap.js";
+import { toErrorField } from "../../../../../logger/fields.js";
+import { closeForError, failureLogLevel } from "../../error-close.js";
 import { appendPayload, beginFrame, endFrame, newAssemblyState } from "../../wire/assembly.js";
 import {
   encodeBinary,
@@ -277,6 +279,7 @@ export class NodeWebSocket implements IFlareWebSocket {
         }
       }
     } catch (err) {
+      _log(failureLogLevel(err), "WebSocket message handler failed", { error: toErrorField(err) });
       this.#connection.error(err instanceof Error ? err : new Error(String(err)));
       const { code, reason } = closeForError(err, "Message handler failed");
       this.#fail(code, reason);
