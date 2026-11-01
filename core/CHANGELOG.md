@@ -87,6 +87,8 @@
 
 - Error contexts name an inline route's handler stage by its path, or its `name` option, instead of a generated `SyntheticGET /path` class name.
 
+- A route or middleware that reads a state token no earlier middleware provides fails the build with a `FlareValidationError` (`STATE_NOT_PROVIDED`, with a hint), logged at `error`, instead of a plain `Error` logged at `fatal`.
+
 ### Fixed
 
 - A route's response schema for a status no longer rewrites the error responses sent with that status. Once anything in the pipeline throws, the response, whether Flare's own `{ error, message, detail }` body or one your error handler returns, is written as plain JSON. Before, a route declaring `response: { 409: Conflict }` that threw a `ConflictError` sent `{"reason":"undefined"}`.

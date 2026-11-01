@@ -30,6 +30,7 @@ import { FlareResponse } from "../../../../../src/lib/arcs/http/transport/flare-
 import { NotFoundError } from "../../../../../src/lib/errors/not-found-error.js";
 import { Logger } from "../../../../../src/lib/logger/logger.js";
 import { mockContainer, mockContext } from "../../../../../src/lib/testing/mock.js";
+import { FlareValidationError } from "../../../../../src/lib/validation/flare-validation-error.js";
 import { testHost } from "../../../helpers/test-host.js";
 
 // Helpers
@@ -660,8 +661,9 @@ describe("middleware lifecycle hooks and state token requirements", () => {
     const cls = makeControllerCls("StateNeederController", [tok]);
     attachRoutes(cls, [{ method: "GET", path: "/needs", handler: function() {} }]);
 
+    expect(() => compileHttp([makeControllerReg(cls)], [])).toThrow(FlareValidationError);
     expect(() => compileHttp([makeControllerReg(cls)], [])).toThrow(
-      "StateNeederController requires state token UserId that is not provided by any preceding middleware. Please ensure that a preceding middleware in the chain provides this state token.",
+      "[STATE_NOT_PROVIDED] StateNeederController requires state token UserId that is not provided by any preceding middleware.",
     );
   });
 
@@ -689,7 +691,7 @@ describe("middleware lifecycle hooks and state token requirements", () => {
     attachRoutes(cls, [{ method: "GET", path: "/p", handler: function() {} }]);
 
     expect(() => compileHttp([makeControllerReg(cls)], [makeMwReg(ProviderAfter)])).toThrow(
-      "BeforePhaseController requires state token AfterOnly that is not provided by any preceding middleware. Please ensure that a preceding middleware in the chain provides this state token.",
+      "[STATE_NOT_PROVIDED] BeforePhaseController requires state token AfterOnly that is not provided by any preceding middleware.",
     );
   });
 

@@ -19,6 +19,7 @@ import type {
   MiddlewareRegistration,
 } from "./types/registration.js";
 import { buildRouter, scoreRoute, splitPath } from "../../routing/router.js";
+import { FlareValidationError } from "../../validation/flare-validation-error.js";
 import { compileCorsPolicy } from "./cors.js";
 import { compileExecFn } from "./exec-codegen.js";
 import { CHAR_CODE_COLON, CHAR_CODE_SLASH, CHAR_CODE_STAR } from "./http-arc.js";
@@ -363,9 +364,12 @@ function verifyProvidedState(
 ): void {
   for (const token of state) {
     if (!providedState.has(token)) {
-      throw new Error(
-        `${consumerName} requires state token ${token.name} that is not provided by any preceding middleware. Please ensure that a preceding middleware in the chain provides this state token.`,
-      );
+      throw new FlareValidationError([{
+        severity: "error",
+        code: "STATE_NOT_PROVIDED",
+        message: `${consumerName} requires state token ${token.name} that is not provided by any preceding middleware.`,
+        hint: `Register a middleware that lists ${token.name} in its static provides and runs before ${consumerName}.`,
+      }]);
     }
   }
 }

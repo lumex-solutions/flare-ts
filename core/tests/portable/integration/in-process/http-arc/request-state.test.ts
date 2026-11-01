@@ -12,8 +12,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { HttpLogContext } from "../../../../../src/lib/logger/types.js";
 import type { TestAppHandle } from "../../../../../src/testing.js";
 import { Get } from "../../../../../src/decorators.js";
+import { FlareValidationError } from "../../../../../src/errors.js";
 import { ControllerBase, flareState, FlareResponse, MiddlewareBase } from "../../../../../src/index.js";
 import { captureLogStore, runWithLogStore } from "../../../../../src/index.js";
+import { captureConsole } from "../../../helpers/console-capture.js";
 import { testHost } from "../../../helpers/test-host.js";
 
 /** Plain token with no default: drives middleware-set / controller-read and require-on-miss failure cases. */
@@ -413,12 +415,26 @@ describe("Failure Modes", () => {
     const host = testHost();
     host.http.controller("/", NeedsMissing);
 
-    // host.build() drives HttpArc[COMPILE_HTTP_ARC] which runs
-    // verifyProvidedState; with no middleware providing MissingToken, the
-    // compile step throws the verbatim diagnostic.
-    expect(() => host.build()).toThrow(
+    // host.build() drives HttpArc[COMPILE_HTTP_ARC] which runs verifyProvidedState; with no middleware
+    // providing MissingToken, the compile step throws a validation error and the host logs it as one.
+    const consoleOut = captureConsole();
+    let thrown: unknown;
+    try {
+      host.build();
+    } catch (err) {
+      thrown = err;
+    } finally {
+      consoleOut.restore();
+    }
+
+    expect(thrown).toBeInstanceOf(FlareValidationError);
+    expect((thrown as FlareValidationError).errors.map((e) => e.code)).toEqual(["STATE_NOT_PROVIDED"]);
+    expect((thrown as Error).message).toMatch(
       /NeedsMissing requires state token MissingToken that is not provided by any preceding middleware/,
     );
+    const records = [...consoleOut.log, ...consoleOut.error].join("\n");
+    expect(records).toContain("Host build failed with 1 validation error(s)");
+    expect(records).not.toContain('"level":"fatal"');
   });
 });
 

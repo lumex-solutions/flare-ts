@@ -20,6 +20,7 @@ import { COMPILE_HTTP_ARC } from "../../../arcs/http/http-arc.js";
 import { WebSocketChannels } from "../../../arcs/ws/channels/web-socket-channels.js";
 import { COMPILE_WS_ARC, WS_REGISTRATIONS } from "../../../arcs/ws/ws-arc.js";
 import { createConfigValidator } from "../../../validation/config/composite.js";
+import { FlareValidationError } from "../../../validation/flare-validation-error.js";
 import { createHttpValidator } from "../../../validation/http/composite.js";
 import { CaptiveDependencyValidator } from "../../../validation/service/captive-dependency-validator.js";
 import { DependencyValidator } from "../../../validation/service/dependency-validator.js";
@@ -66,13 +67,17 @@ export type CfValidationGraph = {
  * adapter-driven half of the seam; the generic arc treats them as opaque already-provided state.
  *
  * Errors thrown during DO arc compilation are re-thrown with the DO class name prepended so the
- * error message is anchored to the specific Durable Object (spec section 7).
+ * error message is anchored to the specific Durable Object (spec section 7); a validation error
+ * stays a {@link FlareValidationError}.
  */
 export function compileDurableArcs(graph: CfValidationGraph): void {
   for (const { cls, arc } of graph.durables) {
     try {
       arc[COMPILE_HTTP_ARC](staticStateTokens(cls));
     } catch (err) {
+      if (err instanceof FlareValidationError) {
+        throw new FlareValidationError(err.errors.map((e) => ({ ...e, message: `[${cls.name}] ${e.message}` })));
+      }
       const base = err instanceof Error ? err.message : String(err);
       throw new Error(`[${cls.name}] ${base}`);
     }

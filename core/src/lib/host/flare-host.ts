@@ -761,7 +761,15 @@ class FlareHostBase<TAdapter extends HostRuntimeAdapter<IFlareApp, LoggerTranspo
         durationMs: Date.now() - compileStart,
       });
     } catch (err) {
-      this.logger.fatal(err, "Host build failed during compilation.");
+      // A check that needs a route's compiled middleware chain (state provision) runs here, not in the
+      // validation pass above, and reports the same way.
+      if (err instanceof FlareValidationError) {
+        this.logger.error(
+          `Host build failed with ${err.errors.length} validation error(s) and ${warnings.length} warning(s).`,
+        );
+      } else {
+        this.logger.fatal(err, "Host build failed during compilation.");
+      }
       throw err;
     }
 
