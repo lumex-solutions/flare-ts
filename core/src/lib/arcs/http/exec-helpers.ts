@@ -151,7 +151,17 @@ export function handleControllerError(
   context: HttpErrorContext,
 ): ResponseLike {
   if (unhandledErrors !== false) {
-    logger.error(err, "Unhandled error", _errorContextMeta(context));
+    // A FlareError with a 4xx status is the client's error, thrown on purpose, so it logs at warn,
+    // like a request that fails contract validation.
+    if (err instanceof FlareError && isErrorStatus(err.status) && err.status < 500) {
+      logger.warn("Request failed with a 4xx error", {
+        ..._errorContextMeta(context),
+        status: err.status,
+        error: toErrorField(err),
+      });
+    } else {
+      logger.error(err, "Unhandled error", _errorContextMeta(context));
+    }
   }
 
   if (err instanceof FlareError) return flareErrorResponse(err);

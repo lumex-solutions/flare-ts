@@ -144,7 +144,8 @@ export type LogConfig = {
   /**
    * When `true` (the default), an error that reaches the framework's fallback response is logged at
    * `error` before the envelope replaces it: the request errored and no registered error handler
-   * produced a response for it. Set `false` to own that reporting entirely from an error handler.
+   * produced a response for it. A `FlareError` with a 4xx status logs at `warn` instead. Set `false`
+   * to own that reporting entirely from an error handler.
    */
   unhandledErrors: boolean;
   /** Per-transport minimum level overrides. Keys are transport `static name` values. */

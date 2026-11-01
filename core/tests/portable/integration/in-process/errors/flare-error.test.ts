@@ -1,8 +1,8 @@
 /**
  * Integration tests for FlareError responses: a route that throws one answers with its class's status
  * and wire name, plus the message and detail on a 4xx, through a real app's default error path; the
- * log record carries the error's cause chain. Uses in-process `app.test()` with a recording log
- * transport; transport framing is not the claim.
+ * log record carries the error's cause chain, at warn for a 4xx FlareError and at error otherwise.
+ * Uses in-process `app.test()` with a recording log transport; transport framing is not the claim.
  */
 process.env["FLARE_MODE"] = "test";
 
@@ -131,10 +131,31 @@ describe("Logging", () => {
     await app.fetch("GET /ledger");
 
     const logged = RecordingTransport.records.find((record) => record.message === "Unhandled error");
+    expect(logged?.level).toBe("error");
     expect(logged?.error).toMatchObject({
       name: "LedgerOffline",
       message: "Ledger unreachable",
       cause: { name: "Error", message: "connect ECONNREFUSED" },
     });
+  });
+
+  it("logs a 4xx FlareError at warn, with its status", async () => {
+    await app.fetch("POST /users");
+
+    expect(RecordingTransport.records.map((record) => record.message)).not.toContain("Unhandled error");
+    const logged = RecordingTransport.records.find((record) => record.message === "Request failed with a 4xx error");
+    expect(logged?.level).toBe("warn");
+    expect(logged?.meta).toMatchObject({
+      status: 409,
+      error: { name: "EmailTaken", message: "ada@example.com is already registered" },
+    });
+  });
+
+  it("logs an error that is not a FlareError at error", async () => {
+    await app.fetch("GET /report");
+
+    const logged = RecordingTransport.records.find((record) => record.message === "Unhandled error");
+    expect(logged?.level).toBe("error");
+    expect(logged?.error).toMatchObject({ name: "Error", message: "report renderer crashed" });
   });
 });

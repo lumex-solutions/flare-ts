@@ -87,6 +87,8 @@
 
 - Error contexts name an inline route's handler stage by its path, or its `name` option, instead of a generated `SyntheticGET /path` class name.
 
+- A `FlareError` with a 4xx status that no error handler answers is logged at `warn` as "Request failed with a 4xx error", with its status and the error in the record's meta. A 5xx `FlareError` and any other error still log at `error` as "Unhandled error". `log.unhandledErrors: false` still turns both off.
+
 - A route or middleware that reads a state token no earlier middleware provides fails the build with a `FlareValidationError` (`STATE_NOT_PROVIDED`, with a hint), logged at `error`, instead of a plain `Error` logged at `fatal`.
 
 ### Fixed

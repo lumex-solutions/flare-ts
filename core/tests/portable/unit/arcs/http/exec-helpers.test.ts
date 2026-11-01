@@ -164,7 +164,7 @@ describe("handleControllerError", () => {
     expect(resp.jsonBody).toEqual({ error: "Internal Server Error" });
   });
 
-  it("logs the error object once on both branches by default", () => {
+  it("logs an error that is not a FlareError once at error, with the error object", () => {
     const err = new Error("boom");
     const plain = callWith(err);
     expect(plain.records).toHaveLength(1);
@@ -173,9 +173,28 @@ describe("handleControllerError", () => {
     // field with name/message/stack; without it the throw is dropped and the 500 is undiagnosable.
     expect(plain.records[0]!.args[0]).toBe(err);
     expect(plain.records[0]!.args[2]).toMatchObject({ stage: "handler", target: "TestController" });
+  });
 
-    const flare = callWith(new ConflictError("already registered"));
-    expect(flare.records).toHaveLength(1);
+  it("logs a 5xx FlareError once at error", () => {
+    const { records } = callWith(new ServiceUnavailableError("ledger offline"));
+
+    expect(records).toHaveLength(1);
+    expect(records[0]!.level).toBe("error");
+    expect(records[0]!.args[1]).toBe("Unhandled error");
+  });
+
+  it("logs a 4xx FlareError once at warn, with its status and the error in meta", () => {
+    const { records } = callWith(new ConflictError("already registered"));
+
+    expect(records).toHaveLength(1);
+    expect(records[0]!.level).toBe("warn");
+    expect(records[0]!.args[0]).toBe("Request failed with a 4xx error");
+    expect(records[0]!.args[1]).toMatchObject({
+      stage: "handler",
+      target: "TestController",
+      status: 409,
+      error: { name: "ConflictError", message: "already registered" },
+    });
   });
 
   it("stays silent when log.unhandledErrors is false", () => {
