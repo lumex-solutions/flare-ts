@@ -8,7 +8,7 @@ import type { AppGraph } from "../graph/app-graph.js";
 import type { IFlareApp } from "../host/flare-app-base.js";
 import type { HostRuntimeAdapter } from "../host/types/adapter.js";
 import type { HostRuntimeLifecycle } from "../host/types/lifecycle.js";
-import type { LoggerTransportClass } from "../logger/types.js";
+import type { LogContext, LoggerTransportClass } from "../logger/types.js";
 import type { FlareService } from "../services/composition/flare-service.js";
 import type { ServiceClass } from "../services/types/service-class.js";
 import type { ServiceToken } from "../services/types/token.js";
@@ -16,6 +16,7 @@ import type { TestRequestInit } from "./types/flare-test-req.js";
 import { FlareHttpContext } from "../arcs/http/transport/flare-http-context.js";
 import { FlareResponse } from "../arcs/http/transport/flare-response.js";
 import { DRAIN_SET_COOKIES } from "../arcs/http/transport/types/cookies.js";
+import { loggerALS } from "../logger/context.js";
 import { FlareTestError } from "./flare-test-error.js";
 
 /** The app view TestAppHandle drives: a built app with its HTTP arc reachable. */
@@ -114,7 +115,20 @@ export class TestAppHandle {
 
     const ctx = new FlareHttpContext(flareReq);
 
-    const result = this.#app.http.fetch(ctx);
+    // Same log context a server request runs under, so records in tests carry the request id and the
+    // fields state tokens add with `.withLogging()`.
+    let result: ResponseLike | Promise<ResponseLike>;
+    if (this.#app.http.host.config.log?.enableContext) {
+      const logContext: LogContext = {
+        source: "flare:http",
+        requestId: flareReq.requestId,
+        method: flareReq.method,
+        url: flareReq.url,
+      };
+      result = loggerALS.run({ context: logContext }, () => this.#app.http.fetch(ctx));
+    } else {
+      result = this.#app.http.fetch(ctx);
+    }
     const resolved = result instanceof Promise ? await result : result;
     return this.#toResponse(resolved, ctx, flareReq.requestId);
   }

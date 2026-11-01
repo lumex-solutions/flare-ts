@@ -108,6 +108,8 @@ function buildHandle(opts: {
         }
         return opts.handlerResult ?? defaultResult;
       },
+      // Log context off: fetch runs the arc directly.
+      host: { config: {} },
     } as unknown as HttpArc,
   } as unknown as HostedAppLike;
 

@@ -148,10 +148,9 @@ describe("Primary Behavior", () => {
   });
 
   it(".withLogging(mapper) merges the mapped fields onto the async-local-storage logger store when the token is written", async () => {
-    // The test runtime does not wrap requests in runWithLogStore (that is a
-    // Node/CF runtime responsibility). Wrap the fetch ourselves so the
-    // middleware that sets LoggedState observes a live ALS store, then
-    // assert the mapper output landed on store.state.
+    // With log.enableContext off (the default), handle.fetch enters no log context.
+    // Wrap the fetch ourselves so the middleware that sets LoggedState observes a
+    // live ALS store, then assert the mapper output landed on store.state.
     const host = testHost();
     host.http.use(ProvideLoggedState);
     host.http.get("/logged", () => new FlareResponse(200, { ok: true }));
@@ -178,6 +177,26 @@ describe("Primary Behavior", () => {
       // must be present on the store's state object verbatim.
       expect(observedState!["user_id"]).toBe("u-9");
       expect(observedState!["role"]).toBe("admin");
+    } finally {
+      await localApp.stop();
+    }
+  });
+
+  it("with log.enableContext, handle.fetch runs the request under the HTTP log context, so .withLogging() fields reach it", async () => {
+    const host = testHost({ log: { enableContext: true } });
+    host.http.use(ProvideLoggedState);
+    host.http.get("/logged", () => {
+      const store = captureLogStore();
+      return new FlareResponse(200, { context: store?.context ?? null, state: store?.state ?? null });
+    });
+
+    const localApp = await host.build().test();
+    try {
+      const body = await (await localApp.fetch("GET /logged")).json();
+
+      expect(body.context).toMatchObject({ source: "flare:http", method: "GET", url: "/logged" });
+      expect(body.context.requestId).toEqual(expect.any(String));
+      expect(body.state).toEqual({ user_id: "u-9", role: "admin" });
     } finally {
       await localApp.stop();
     }
