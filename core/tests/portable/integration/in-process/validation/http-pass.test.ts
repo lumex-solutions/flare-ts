@@ -291,7 +291,7 @@ describe("Edge Cases", () => {
   );
 
   it(
-    "middleware without any routes fails build because Router requires at least one route",
+    "middleware without any routes builds",
     () => {
       class GlobalMw extends MiddlewareBase {
         public static override deps = [];
@@ -302,7 +302,7 @@ describe("Edge Cases", () => {
       const host = testHost();
       host.http.use(GlobalMw);
 
-      expect(() => host.build()).toThrow(/Router: no routes provided/);
+      expect(() => host.build()).not.toThrow();
     },
   );
 

@@ -95,6 +95,8 @@
 
 - A later inline route at a shared path now validates its own request contract. With `host.http.get("/users", ...)` registered first, `host.http.post("/users", { body: NewUser }, ...)` never applied its descriptor, so the body, query, and route parameters of every method after the first went unvalidated.
 
+- An app with no HTTP routes builds, and answers every HTTP request with a 404. An app with only WebSocket routes failed `host.build()` with `Router: no routes provided`.
+
 ### Internal
 
 - Config is typed by what it holds: an adapter's raw `flareJsonFile` is a `Record<string, JsonValue>`, and the resolved config in adapter build contexts is a `FlareConfig`, so the Cloudflare build check reads `cookies.secret` and `websockets` without casts. Code that only reads config sections by key, such as the container and config validation, takes `Record<string, JsonValue>`.

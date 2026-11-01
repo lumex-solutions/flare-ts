@@ -12,6 +12,8 @@ import { int } from "@flare-ts/lib/schema";
 import type { FlareHttpContext } from "../../../../../src/index.js";
 import type { TestAppHandle } from "../../../../../src/testing.js";
 import { httpContract, FlareResponse } from "../../../../../src/index.js";
+import { WsConnection } from "../../../../../src/lib/arcs/ws/connection.js";
+import { UPGRADE_WS } from "../../../../../src/lib/arcs/ws/ws-arc.js";
 import { testHost } from "../../../helpers/test-host.js";
 
 /** Splits a comma-separated Allow header value into trimmed method tokens. */
@@ -265,13 +267,31 @@ describe("Failure Modes", () => {
     expect(() => host.build()).toThrow("Router: 1025 routes exceeds maximum of 1024");
   });
 
-  it("building a router with zero routes throws", async () => {
+  it("an app with no HTTP routes builds and answers every request with 404", async () => {
     process.env["FLARE_MODE"] = "test";
     const host = testHost();
+    const local = await host.build().test();
 
-    // No controllers registered: the http arc compile path still runs and
-    // calls `buildRouter` with an empty route list, which throws.
-    expect(() => host.build()).toThrow("Router: no routes provided");
+    try {
+      expect((await local.fetch("GET /")).status).toBe(404);
+      expect((await local.fetch("POST /users")).status).toBe(404);
+    } finally {
+      await local.stop();
+    }
+  });
+
+  it("an app with only WebSocket routes builds and accepts connections", async () => {
+    process.env["FLARE_MODE"] = "test";
+    const host = testHost();
+    host.ws.route("/chat");
+    const local = await host.build().test();
+
+    try {
+      expect(host.ws[UPGRADE_WS]("/chat", new URLSearchParams())).toBeInstanceOf(WsConnection);
+      expect((await local.fetch("GET /chat")).status).toBe(404);
+    } finally {
+      await local.stop();
+    }
   });
 
   it("an unrecognised method on a matched route returns 405 with the right Allow header", async () => {

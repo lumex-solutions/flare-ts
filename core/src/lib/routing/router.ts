@@ -154,15 +154,20 @@ export function scoreRoute(path: string): number {
  * The array must be **pre-sorted by specificity** (most-specific first).
  * Bit position = array index = the value returned by {@link Router.match}.
  *
- * @param routes - Pre-sorted route patterns. Length must be in `[1, 1024]`.
+ * With no routes, the router matches nothing: an app with only WebSocket routes answers every HTTP
+ * request with a 404.
+ *
+ * @param routes - Pre-sorted route patterns. Length must be in `[0, 1024]`.
  * @param maxDepth - Maximum segment count across all routes; the caller derives it by scanning every route's segments.
  * @returns A compiled router ready for path matching.
- * @throws If no routes are provided or the count exceeds {@link MAX_ROUTES}.
+ * @throws If the count exceeds {@link MAX_ROUTES}.
  * @internal
  */
 export function buildRouter(routes: string[], maxDepth: number): Router {
   const N = routes.length;
-  if (N === 0) throw new Error("Router: no routes provided");
+  if (N === 0) {
+    return { match: () => -1, segStart: new Int16Array(0), segEnd: new Int16Array(0), routeCount: 0, W: 0, maxDepth };
+  }
   if (N > MAX_ROUTES) throw new Error(`Router: ${N} routes exceeds maximum of ${MAX_ROUTES}`);
 
   const W = Math.ceil(N / 32);

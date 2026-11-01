@@ -34,8 +34,12 @@ describe("scoreRoute", () => {
 });
 
 describe("buildRouter", () => {
-  it('empty routes: throws "no routes provided"', () => {
-    expect(() => buildRouter([], 0)).toThrow("Router: no routes provided");
+  it("empty routes: matches no path", () => {
+    const router = buildRouter([], 0);
+
+    expect(router.match("/")).toBe(-1);
+    expect(router.match("/users/1")).toBe(-1);
+    expect(router.routeCount).toBe(0);
   });
 
   it('more than MAX_ROUTES (1025): throws "exceeds maximum of 1024"', () => {
