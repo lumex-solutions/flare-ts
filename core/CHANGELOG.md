@@ -89,7 +89,7 @@
 
 - A `FlareError` with a 4xx status that no error handler answers is logged at `warn` as "Request failed with a 4xx error", with its status and the error in the record's meta. A 5xx `FlareError` and any other error still log at `error` as "Unhandled error". `log.unhandledErrors: false` still turns both off.
 
-- A route or middleware that reads a state token no earlier middleware provides fails the build with a `FlareValidationError` (`STATE_NOT_PROVIDED`, with a hint), logged at `error`, instead of a plain `Error` logged at `fatal`.
+- The build checks that run while routes compile fail with a `FlareValidationError`, with a code and a hint, logged at `error`, instead of a plain `Error` logged at `fatal`: a route or middleware reading a state token no earlier middleware provides (`STATE_NOT_PROVIDED`), two middleware providing one token (`DUPLICATE_STATE_PROVIDER`), middleware with no `before()`, `after()`, or `finally()` (`MIDDLEWARE_NO_HOOKS`), a group excluding middleware that is not registered (`GROUP_UNREGISTERED_EXCLUDE`), a controller with no routes (`CONTROLLER_NO_ROUTES`), a `float` route parameter (`ROUTE_PARAM_UNSUPPORTED_TYPE`), and one controller handling a method twice at a path (`DUPLICATE_ROUTE_METHOD`).
 
 ### Fixed
 

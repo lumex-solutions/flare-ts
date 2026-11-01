@@ -252,7 +252,7 @@ describe("compileHttp", () => {
     attachRoutes(cls, []); // empty route metadata
 
     expect(() => compileHttp([makeControllerReg(cls, { isolated: true })], [])).toThrow(
-      "Controller EmptyController has no route handlers. Add at least one decorated method.",
+      "[CONTROLLER_NO_ROUTES] Controller EmptyController has no route handlers.",
     );
   });
 
@@ -387,7 +387,7 @@ describe("pipeline middleware ordering and group scope", () => {
     });
 
     expect(() => compileHttp([ctrl], [makeMwReg(Registered)])).toThrow(
-      `[flare] Group tried to exclude middleware "Unregistered" but it is not registered in the global middleware chain.`,
+      `[GROUP_UNREGISTERED_EXCLUDE] Group tried to exclude middleware "Unregistered" but it is not registered in the global middleware chain.`,
     );
   });
 
@@ -676,7 +676,7 @@ describe("middleware lifecycle hooks and state token requirements", () => {
     attachRoutes(cls, [{ method: "GET", path: "/dup", handler: function() {} }]);
 
     expect(() => compileHttp([makeControllerReg(cls)], [makeMwReg(A), makeMwReg(B)])).toThrow(
-      "Duplicate state token provided by middleware DupB: DupToken already provided by middleware DupA. Each state token can only be provided by one middleware in the chain.",
+      "[DUPLICATE_STATE_PROVIDER] Duplicate state token provided by middleware DupB: DupToken already provided by middleware DupA.",
     );
   });
 
@@ -733,7 +733,7 @@ describe("middleware lifecycle hooks and state token requirements", () => {
     attachRoutes(cls, [{ method: "GET", path: "/em", handler: function() {} }]);
 
     expect(() => compileHttp([makeControllerReg(cls)], [makeMwReg(Empty)])).toThrow(
-      "Middleware EmptyMw must implement at least one of the before(), after(), or finally() lifecycle hooks.",
+      "[MIDDLEWARE_NO_HOOKS] Middleware EmptyMw must implement at least one of before(), after(), or finally().",
     );
   });
 });
@@ -798,7 +798,7 @@ describe("route compilation for methods, parameters, and segments", () => {
     ]);
 
     expect(() => compileHttp([makeControllerReg(cls, { isolated: true })], [])).toThrow(
-      "Duplicate route registration for GET /d. Each route can only have one handler per HTTP method.",
+      "[DUPLICATE_ROUTE_METHOD] Duplicate route registration for GET /d.",
     );
   });
 
@@ -812,7 +812,7 @@ describe("route compilation for methods, parameters, and segments", () => {
     attachRoutes(cls, [{ method: "GET", path: "/amount/:amount", handler: function handler() {} }]);
 
     expect(() => compileHttp([makeControllerReg(cls, { isolated: true })], [])).toThrow(
-      `Handler handler defines a route parameter "amount" with unsupported type "float". Route parameters can only be string or integer primitives.`,
+      `[ROUTE_PARAM_UNSUPPORTED_TYPE] Handler handler defines a route parameter "amount" with unsupported type "float".`,
     );
   });
 

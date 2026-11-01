@@ -248,8 +248,10 @@ function getMiddlewareIdxs(
       for (const excludedCls of excludeSet) {
         const found = middleware.some((reg) => reg.cls === excludedCls);
         if (!found) {
-          throw new Error(
-            `[flare] Group tried to exclude middleware "${excludedCls.name}" but it is not registered in the global middleware chain.`,
+          throw compileError(
+            "GROUP_UNREGISTERED_EXCLUDE",
+            `Group tried to exclude middleware "${excludedCls.name}" but it is not registered in the global middleware chain.`,
+            `Register ${excludedCls.name} with host.http.use(), or remove it from the group's exclude() list.`,
           );
         }
       }
@@ -317,8 +319,10 @@ function processMwRegistration(
   const fin = cls.prototype.finally;
 
   if (!before && !after && !fin) {
-    throw new Error(
-      `Middleware ${name} must implement at least one of the before(), after(), or finally() lifecycle hooks.`,
+    throw compileError(
+      "MIDDLEWARE_NO_HOOKS",
+      `Middleware ${name} must implement at least one of before(), after(), or finally().`,
+      `Add a before(), after(), or finally() method to ${name}, or stop registering it.`,
     );
   }
 
@@ -348,8 +352,10 @@ function processMwRegistration(
     for (const token of cls.provides) {
       const providerName = providedStateTokens.get(token);
       if (providerName) {
-        throw new Error(
-          `Duplicate state token provided by middleware ${name}: ${token.name} already provided by middleware ${providerName}. Each state token can only be provided by one middleware in the chain.`,
+        throw compileError(
+          "DUPLICATE_STATE_PROVIDER",
+          `Duplicate state token provided by middleware ${name}: ${token.name} already provided by middleware ${providerName}.`,
+          `Each state token can only be provided by one middleware in the chain. Remove ${token.name} from the provides of ${name} or ${providerName}.`,
         );
       }
       providedStateTokens.set(token, name);
@@ -364,19 +370,30 @@ function verifyProvidedState(
 ): void {
   for (const token of state) {
     if (!providedState.has(token)) {
-      throw new FlareValidationError([{
-        severity: "error",
-        code: "STATE_NOT_PROVIDED",
-        message: `${consumerName} requires state token ${token.name} that is not provided by any preceding middleware.`,
-        hint: `Register a middleware that lists ${token.name} in its static provides and runs before ${consumerName}.`,
-      }]);
+      throw compileError(
+        "STATE_NOT_PROVIDED",
+        `${consumerName} requires state token ${token.name} that is not provided by any preceding middleware.`,
+        `Register a middleware that lists ${token.name} in its static provides and runs before ${consumerName}.`,
+      );
     }
   }
 }
 
+/**
+ * A build error found while compiling, which needs the resolved middleware chain or routes and so
+ * cannot run in the validation pass; the host reports it the same way.
+ */
+function compileError(code: string, message: string, hint: string): FlareValidationError {
+  return new FlareValidationError([{ severity: "error", code, message, hint }]);
+}
+
 function compileRoutes(controller: ControllerRegistration): Route[] {
   if (controller.routes.length === 0) {
-    throw new Error(`Controller ${controller.name} has no route handlers. Add at least one decorated method.`);
+    throw compileError(
+      "CONTROLLER_NO_ROUTES",
+      `Controller ${controller.name} has no route handlers.`,
+      "Add at least one decorated method.",
+    );
   }
 
   const routeMap: Map<string, Route> = new Map();
@@ -426,8 +443,10 @@ function compileRoutes(controller: ControllerRegistration): Route[] {
 
     if (existingRoute) {
       if (existingRoute.handlers[methodIdx]) {
-        throw new Error(
-          `Duplicate route registration for ${route.method} ${fullPath}. Each route can only have one handler per HTTP method.`,
+        throw compileError(
+          "DUPLICATE_ROUTE_METHOD",
+          `Duplicate route registration for ${route.method} ${fullPath}.`,
+          "Each route can only have one handler per HTTP method.",
         );
       }
 
@@ -441,8 +460,10 @@ function compileRoutes(controller: ControllerRegistration): Route[] {
 
     Object.entries(requestDescriptor?.route || {}).forEach(([key, value]) => {
       if (value._type === "float") {
-        throw new Error(
-          `Handler ${route.handler.name} defines a route parameter "${key}" with unsupported type "float". Route parameters can only be string or integer primitives.`,
+        throw compileError(
+          "ROUTE_PARAM_UNSUPPORTED_TYPE",
+          `Handler ${route.handler.name} defines a route parameter "${key}" with unsupported type "float".`,
+          "Route parameters can only be string or integer primitives.",
         );
       }
     });
