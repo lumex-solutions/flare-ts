@@ -1,6 +1,6 @@
 /**
  * Unit tests for acceptNodeUpgrade handshake completion, rejection, error guards,
- * and open-handler failure paths against fake sockets.
+ * and open-handler failure paths (close code and log level) against fake sockets.
  */
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
@@ -9,6 +9,8 @@ import { describe, expect, it } from "vitest";
 import type { WsConnection } from "../../../../../../../../src/lib/arcs/ws/connection.js";
 import type { WsAcceptOptions } from "../../../../../../../../src/lib/arcs/ws/transport/socket.js";
 import { acceptNodeUpgrade } from "../../../../../../../../src/lib/arcs/ws/transport/runtime/node/accept.js";
+import { ConflictError } from "../../../../../../../../src/lib/errors/conflict-error.js";
+import { clearBootstrapBuffer, peekBootstrapBuffer } from "../../../../../../../../src/lib/logger/bootstrap.js";
 
 // Timers disabled (all 0): these tests use real timers and never advance them, so a live interval
 // would leak. The engine timer behaviour is covered with fake timers in web-socket.test.ts.
@@ -121,5 +123,23 @@ describe("acceptNodeUpgrade", () => {
     expect(closeFrame[0]).toBe(0x88);
     expect((closeFrame[2]! << 8) | closeFrame[3]!).toBe(1011);
     expect(sock.ended).toBe(true);
+  });
+
+  it("logs an open that throws a 4xx FlareError at warn, and any other error at error", () => {
+    const openWith = (err: Error): string | undefined => {
+      clearBootstrapBuffer();
+      const connection = asConnection({
+        ...NOOP,
+        open() {
+          throw err;
+        },
+      });
+      acceptNodeUpgrade(validReq(), asDuplex(new FakeDuplex()), undefined, connection, OPTS);
+      return peekBootstrapBuffer().find((record) => record.message === "WebSocket open handler failed")?.level;
+    };
+
+    expect(openWith(new ConflictError("room full"))).toBe("warn");
+    expect(openWith(new Error("open boom"))).toBe("error");
+    clearBootstrapBuffer();
   });
 });

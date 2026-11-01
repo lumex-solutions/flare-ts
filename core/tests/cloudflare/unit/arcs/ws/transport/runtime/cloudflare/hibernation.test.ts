@@ -30,6 +30,8 @@ import {
   deliverHibernated,
   openHibernatable,
 } from "../../../../../../../../src/lib/arcs/ws/transport/runtime/cloudflare/hibernation.js";
+import { ConflictError } from "../../../../../../../../src/lib/errors/conflict-error.js";
+import { clearBootstrapBuffer, peekBootstrapBuffer } from "../../../../../../../../src/lib/logger/bootstrap.js";
 import { Container } from "../../../../../../../../src/lib/services/container.js";
 import { FlareRegistrationMap } from "../../../../../../../../src/lib/services/registration-map.js";
 
@@ -390,6 +392,46 @@ describe("hibernation engine", () => {
 
     expect(socket.closed?.code).toBe(1008);
     expect(socket.sent).toEqual([]); // handler never ran
+  });
+
+  it("logs a message handler that throws a 4xx FlareError at warn, closing 4000 + status", async () => {
+    class RoomFull extends ConflictError {}
+    const pipeline = reg({
+      message: () => {
+        throw new RoomFull("room full");
+      },
+    });
+    const socket = new FakeNative();
+    await openHibernatable({
+      pipeline,
+      raw: RAW,
+      container: makeContainer(),
+      socket: asWs(socket),
+      index: freshIndex(),
+      acceptOptions: ACCEPT,
+      logContext: undefined,
+      id: "c",
+      protocol: "",
+    });
+    clearBootstrapBuffer();
+
+    const att = attachmentOf(socket);
+    await deliverHibernated({
+      pipeline,
+      raw: { params: att.p, query: new URLSearchParams(att.q) },
+      container: makeContainer(),
+      socket: asWs(socket),
+      index: freshIndex(),
+      acceptOptions: ACCEPT,
+      logContext: undefined,
+      attachment: att,
+      event: { kind: "message", data: "hi" },
+    });
+
+    expect(socket.closed).toEqual({ code: 4409, reason: "RoomFull" });
+    const logged = peekBootstrapBuffer().find((record) => record.message === "WebSocket message handler failed");
+    expect(logged?.level).toBe("warn");
+    clearBootstrapBuffer();
   });
 
   it("disposes the per-event container on close", async () => {

@@ -1,4 +1,7 @@
-/** The close a WebSocket sends when one of its handlers throws: its own code for a 4xx or a `closeCode` class, else 1011. */
+/**
+ * What a WebSocket does when one of its handlers throws: the close it sends (its own code for a 4xx or a
+ * `closeCode` class, else 1011) and the level the failure logs at.
+ */
 import { FlareError } from "../../../errors/flare-error.js";
 import { isErrorStatus } from "../../../errors/wire.js";
 import { isPrivateCloseCode, WS_CLOSE, WS_MAX_CLOSE_REASON_BYTES } from "./wire/protocol.js";
@@ -25,6 +28,14 @@ export function closeForError(
     }
   }
   return { code: WS_CLOSE.INTERNAL_ERROR, reason: fallbackReason };
+}
+
+/**
+ * Returns the level a handler failure logs at: `warn` for a FlareError with a 4xx status, which the client
+ * caused, as the HTTP arc logs one; `error` for anything else.
+ */
+export function failureLogLevel(err: unknown): "warn" | "error" {
+  return err instanceof FlareError && isErrorStatus(err.status) && err.status < 500 ? "warn" : "error";
 }
 
 // Not every backing truncates a reason for us (a native workerd socket throws on a long one), so trim the

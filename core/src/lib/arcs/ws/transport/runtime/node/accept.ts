@@ -11,7 +11,7 @@ import type { WsConnection } from "../../../connection.js";
 import type { IFlareWebSocket, WsAcceptOptions } from "../../socket.js";
 import { _log } from "../../../../../logger/bootstrap.js";
 import { toErrorField } from "../../../../../logger/fields.js";
-import { closeForError } from "../../error-close.js";
+import { closeForError, failureLogLevel } from "../../error-close.js";
 import { performHandshake } from "./handshake.js";
 import { NodeWebSocket } from "./web-socket.js";
 
@@ -51,7 +51,7 @@ export function acceptNodeUpgrade(
   // picks, matching the CF resident transport) rather than a bare destroy, so the client sees more than an
   // abrupt 1006.
   const openFailed = (error: unknown): void => {
-    _log("error", "WebSocket open handler failed", { error: toErrorField(error) });
+    _log(failureLogLevel(error), "WebSocket open handler failed", { error: toErrorField(error) });
     const { code, reason } = closeForError(error, "Connection setup failed");
     engine.close(code, reason);
   };
