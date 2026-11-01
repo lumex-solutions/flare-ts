@@ -1,14 +1,15 @@
 /**
  * Compile-time tests for the WS route-options two-form split (HTTP parity): spell the descriptor
  * fields loose in the options, OR pass a socketContract entry as `contract:` - never both. Cross-arc
- * entries and whole contract maps are rejected. The file passing `tsc` IS the assertion (the
+ * entries and whole contract maps are rejected. A route's `channel` selector reads the same typed input
+ * its handlers do. The file passing `tsc` IS the assertion (the
  * `@ts-expect-error` lines fail the build if they stop erroring); the single runtime `it` only
  * anchors it as a vitest file. See WebSocketToken in ws-contract.ts.
  */
 process.env["FLARE_MODE"] = "test";
 
 import { describe, expect, it } from "vitest";
-import { str } from "@flare-ts/lib/schema";
+import { int, str } from "@flare-ts/lib/schema";
 import { httpContract, socketContract } from "../../../../../src/index.js";
 import { testHost } from "../../../helpers/test-host.js";
 
@@ -39,6 +40,25 @@ host.ws.route("/bad-map", { contract: Chat });
 
 // @ts-expect-error - the two forms never mix: a `contract:` route cannot also spell loose keys.
 host.ws.route("/bad-mix", { contract: Chat.chat, params: { room: str } });
+
+// The channel selector reads the route's typed input, inline or through an entry.
+host.ws.route("/channel-inline/:room", {
+  params: { room: str },
+  channel: (scope) => {
+    type _room = Expect<Equal<typeof scope.input.params.room, string>>;
+    return scope.input.params.room;
+  },
+});
+host.ws.route("/channel-entry/:room", { contract: Chat.chat, channel: ({ input }) => input.params.room });
+
+// Without a params descriptor, the selector reads the raw path strings.
+host.ws.route("/channel-raw/:room", { channel: ({ input }) => input.params["room"] ?? "lobby" });
+
+host.ws.route("/channel-seat/:seat", {
+  params: { seat: int },
+  // @ts-expect-error - a channel name is a string, and an int param is a number
+  channel: ({ input }) => input.params.seat,
+});
 
 describe("ws route options types", () => {
   it("compiles: inline vs entry acceptance and cross-arc rejection are enforced by tsc", () => {

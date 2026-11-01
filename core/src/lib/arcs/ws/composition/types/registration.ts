@@ -42,8 +42,11 @@ export type WsRegistrationBase = {
   readonly hibernate: boolean;
 };
 
-/** The subscribe-at-open channel selector: computes the channel(s) this connection joins from its input. */
-export type WebSocketChannelSelector = (scope: { input: WsTypedInput; }) => string | readonly string[];
+/**
+ * The subscribe-at-open channel selector: computes the channel(s) this connection joins from its input.
+ * The registrar types `input` by the route's descriptor; the stored registration erases it to {@link WsTypedInput}.
+ */
+export type WebSocketChannelSelector<I = WsTypedInput> = (scope: { input: I; }) => string | readonly string[];
 
 /**
  * The lifecycle behaviors a function-form route registers via its `WebSocketRouteHandle`.

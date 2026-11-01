@@ -7,7 +7,6 @@
 import type { InjectMap } from "../../../../services/types/inject.js";
 import type { StateToken } from "../../../../state/flare-state.js";
 import type { WebSocketDescriptor, WebSocketToken } from "../contract/ws-contract.js";
-import type { WebSocketChannelSelector } from "./registration.js";
 
 /** The {@link WebSocketDescriptor} field names usable as loose inline route-option keys. */
 export type WebSocketKey = "incoming" | "outgoing" | "params" | "query" | "subprotocols";
@@ -18,8 +17,6 @@ export type WebSocketRouteOptionsBase<D extends InjectMap = InjectMap> = {
   readonly inject?: D;
   /** State tokens the connection's `ws.state` uses (build-validated). */
   readonly state?: readonly StateToken[];
-  /** Channel(s) to subscribe the connection to at open, computed from its input (subscribe-at-open sugar). */
-  readonly channel?: WebSocketChannelSelector;
   /**
    * On a Durable Object, whether this route hibernates (default `true`): the runtime owns the socket and the
    * DO may be evicted while idle, so you stop paying wall-clock during silence. Per-connection memory that

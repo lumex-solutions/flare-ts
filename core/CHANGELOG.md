@@ -97,6 +97,8 @@
 
 - An app with no HTTP routes builds, and answers every HTTP request with a 404. An app with only WebSocket routes failed `host.build()` with `Router: no routes provided`.
 
+- The `channel` selector of `host.ws.route()` types `input` from the route's `params`, `query`, or `contract`, as the route's handlers do. It typed `input.params` as `Record<string, string | number>` whatever the route declared, so `channel: ({ input }) => input.params.room` did not compile. `WebSocketRouteOptions` no longer lists `channel`; `route()` and `controller()` declare it. `host.ws.controller()` keeps the untyped selector.
+
 ### Internal
 
 - Config is typed by what it holds: an adapter's raw `flareJsonFile` is a `Record<string, JsonValue>`, and the resolved config in adapter build contexts is a `FlareConfig`, so the Cloudflare build check reads `cookies.secret` and `websockets` without casts. Code that only reads config sections by key, such as the container and config validation, takes `Record<string, JsonValue>`.

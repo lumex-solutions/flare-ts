@@ -7,8 +7,13 @@ import type { InjectMap } from "../../../services/types/inject.js";
 import type { ServiceToken } from "../../../services/types/token.js";
 import type { StateToken } from "../../../state/flare-state.js";
 import type { WebSocketControllerClass } from "./classes/controller-base.js";
-import type { WebSocketDescriptor, WebSocketToken } from "./contract/ws-contract.js";
-import type { WsHandlerFns, WsRegistration, WsRegistrationBase } from "./types/registration.js";
+import type { WebSocketDescriptor, WebSocketInput, WebSocketToken } from "./contract/ws-contract.js";
+import type {
+  WebSocketChannelSelector,
+  WsHandlerFns,
+  WsRegistration,
+  WsRegistrationBase,
+} from "./types/registration.js";
 import type {
   LooseWebSocketRouteOptions,
   WebSocketControllerRouteOptions,
@@ -31,6 +36,29 @@ type InjectOf<O> = O extends { inject: infer D extends InjectMap; } ? D : {};
 type DescriptorOf<O> = O extends { contract: WebSocketToken<infer C>; } ? C
   : Pick<O, Extract<keyof O, WebSocketKey>> extends infer P ? (P extends WebSocketDescriptor ? P : {})
   : {};
+
+/**
+ * The `channel` route option, whose selector reads the same `input` the route's handlers do. `params`,
+ * `query`, and `contract` each get their own type parameter: TypeScript infers those before it checks
+ * the selector, while the options object as a whole is still being inferred at that point.
+ */
+type ChannelOption<P, Q, C> = {
+  readonly params?: P;
+  readonly query?: Q;
+  readonly contract?: C;
+  /** Channel(s) to subscribe the connection to at open, computed from its input (subscribe-at-open sugar). */
+  readonly channel?: WebSocketChannelSelector<ChannelInput<P, Q, C>>;
+};
+
+/** The connect-time input a {@link ChannelOption} selector reads: the contract's, or the loose `params`/`query`. */
+type ChannelInput<P, Q, C> = C extends WebSocketToken<infer T> ? WebSocketInput<T>
+  : WebSocketInput<
+    & (P extends NonNullable<WebSocketDescriptor["params"]> ? { readonly params: P; } : {})
+    & (Q extends NonNullable<WebSocketDescriptor["query"]> ? { readonly query: Q; } : {})
+  >;
+
+/** The options the implementation receives once an overload has checked the call, the selector erased. */
+type ErasedRouteOptions = WebSocketRouteOptions & { readonly channel?: WebSocketChannelSelector; };
 
 const NO_SUBPROTOCOLS: readonly string[] = [];
 const NO_STATE: readonly StateToken[] = [];
@@ -59,8 +87,11 @@ export abstract class WebSocketBase {
 
   /** Registers a connection route at `path`, returning a {@link WebSocketRouteHandle} to attach behaviors to. */
   route(path: string): WebSocketRouteHandle<{}, {}>;
-  route<O extends WebSocketRouteOptions>(path: string, opts: O): WebSocketRouteHandle<InjectOf<O>, DescriptorOf<O>>;
-  route(path: string, opts?: WebSocketRouteOptions): WebSocketRouteHandle<InjectMap, WebSocketDescriptor> {
+  route<O extends WebSocketRouteOptions, P = undefined, Q = undefined, C = undefined>(
+    path: string,
+    opts: O & ChannelOption<P, Q, C>,
+  ): WebSocketRouteHandle<InjectOf<O>, DescriptorOf<O>>;
+  route(path: string, opts?: ErasedRouteOptions): WebSocketRouteHandle<InjectMap, WebSocketDescriptor> {
     const behaviors: WsHandlerFns = {};
     const registration: WsRegistration = { kind: "handlers", behaviors, ...this.#prepare(path, opts, undefined) };
     this.registrations.push(registration);
@@ -75,12 +106,12 @@ export abstract class WebSocketBase {
   ): WebSocketControllerHandle<T>;
   controller<O extends WebSocketControllerRouteOptions>(
     path: string,
-    opts: O,
+    opts: O & { readonly channel?: WebSocketChannelSelector; },
     cls: WebSocketControllerClass<DescriptorOf<O>>,
   ): WebSocketControllerHandle<DescriptorOf<O>>;
   controller(
     path: string,
-    optsOrCls: WebSocketRouteOptions | WebSocketControllerClass,
+    optsOrCls: ErasedRouteOptions | WebSocketControllerClass,
     maybeCls?: WebSocketControllerClass,
   ): WebSocketControllerHandle<WebSocketDescriptor> {
     // Overload resolution: the class is either the second arg or the sole arg when opts are omitted.
@@ -104,7 +135,7 @@ export abstract class WebSocketBase {
   /** Validates path + subprotocols + inject keys and resolves the descriptor/inject/state (merging controller statics). */
   #prepare(
     path: string,
-    opts: WebSocketRouteOptions | undefined,
+    opts: ErasedRouteOptions | undefined,
     cls: WebSocketControllerClass | undefined,
   ): WsRegistrationBase {
     assertRegistrationPath(path, "WebSocket path"); // fail fast on shape; detailed syntax checked at build
