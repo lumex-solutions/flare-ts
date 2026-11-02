@@ -82,9 +82,12 @@ jobs:
       # No --provenance flag: trusted publishing emits provenance automatically.
       # No NPM_TOKEN: OIDC uses a short-lived token, not a stored secret.
       #
-      # A version already on npm (published by hand before the tag was pushed)
-      # is skipped rather than re-staged, which the registry rejects with a 409.
-      # If the lookup itself fails, the step falls through to publishing.
+      # A version already on npm (published by hand, or approved after an earlier
+      # attempt) is skipped. `npm view` cannot see a version that is staged but not
+      # yet approved, so a 409 from staging (already staged or published) also counts
+      # as done: rerunning a half-finished release stages only what is missing.
+      # A 401 means npm refused this workflow's trusted-publishing token for that
+      # package: its Trusted Publisher settings on npmjs.com must match lib's.
 
       - name: Publish @flare-ts/lib
         working-directory: lib
@@ -95,7 +98,19 @@ jobs:
             exit 0
           fi
           pnpm pack --pack-destination .
-          npm stage publish flare-ts-lib-*.tgz --tag ${{ steps.dist_tag.outputs.tag }}
+          set +e
+          OUT=$(npm stage publish flare-ts-lib-*.tgz --tag ${{ steps.dist_tag.outputs.tag }} 2>&1)
+          CODE=$?
+          set -e
+          echo "$OUT"
+          if [ $CODE -ne 0 ] && grep -q "E409" <<< "$OUT"; then
+            echo "::notice::@flare-ts/lib@$VERSION is already staged or published, skipping publish."
+            exit 0
+          fi
+          if [ $CODE -ne 0 ] && grep -q "E401" <<< "$OUT"; then
+            echo "::error::npm refused the trusted-publishing token for @flare-ts/lib. On npmjs.com, its Trusted Publisher must be GitHub Actions, lumex-solutions/flare-ts, workflow release.yml."
+          fi
+          exit $CODE
 
       - name: Publish @flare-ts/core
         working-directory: core
@@ -106,4 +121,16 @@ jobs:
             exit 0
           fi
           pnpm pack --pack-destination .
-          npm stage publish flare-ts-core-*.tgz --tag ${{ steps.dist_tag.outputs.tag }}
+          set +e
+          OUT=$(npm stage publish flare-ts-core-*.tgz --tag ${{ steps.dist_tag.outputs.tag }} 2>&1)
+          CODE=$?
+          set -e
+          echo "$OUT"
+          if [ $CODE -ne 0 ] && grep -q "E409" <<< "$OUT"; then
+            echo "::notice::@flare-ts/core@$VERSION is already staged or published, skipping publish."
+            exit 0
+          fi
+          if [ $CODE -ne 0 ] && grep -q "E401" <<< "$OUT"; then
+            echo "::error::npm refused the trusted-publishing token for @flare-ts/core. On npmjs.com, its Trusted Publisher must be GitHub Actions, lumex-solutions/flare-ts, workflow release.yml."
+          fi
+          exit $CODE
