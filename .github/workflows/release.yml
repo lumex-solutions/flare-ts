@@ -11,11 +11,16 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write
 
+# One job verifies and packs, then one job per package stages its tarball, so "Re-run failed jobs"
+# repeats only what failed: a failed core publish reruns the core job alone, from the same tarball,
+# without installing, building, or testing again.
 jobs:
-  publish:
+  verify:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.versions.outputs.version }}
+      dist_tag: ${{ steps.dist_tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +28,7 @@ jobs:
       # so a forgotten version bump fails fast. core and lib share a version (fixed changeset group),
       # so both must equal the tag.
       - name: Verify tag matches package versions
+        id: versions
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           CORE_VERSION=$(node -p "require('./core/package.json').version")
@@ -32,6 +38,7 @@ jobs:
             echo "::error::Tag v$TAG_VERSION does not match package versions (core=$CORE_VERSION, lib=$LIB_VERSION). Run 'pnpm changeset:version', commit, and re-tag."
             exit 1
           fi
+          echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
 
       - uses: pnpm/action-setup@v4
         with:
@@ -41,11 +48,6 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          registry-url: https://registry.npmjs.org
-
-      # OIDC trusted publishing requires npm 11 or later.
-      - name: Upgrade npm
-        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -77,60 +79,79 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       # pnpm pack rewrites the `workspace:` protocol in core's dependency on lib
-      # to a concrete version range. We then publish the resulting tarball with
-      # the npm CLI so the OIDC trusted-publishing exchange runs through npm.
-      # No --provenance flag: trusted publishing emits provenance automatically.
-      # No NPM_TOKEN: OIDC uses a short-lived token, not a stored secret.
-      #
-      # A version already on npm (published by hand, or approved after an earlier
-      # attempt) is skipped. `npm view` cannot see a version that is staged but not
-      # yet approved, so a 409 from staging (already staged or published) also counts
-      # as done: rerunning a half-finished release stages only what is missing.
-      # A 401 means npm refused this workflow's trusted-publishing token for that
-      # package: its Trusted Publisher settings on npmjs.com must match lib's.
-
-      - name: Publish @flare-ts/lib
-        working-directory: lib
+      # to a concrete version range. The tarballs packed here are exactly what the
+      # publish jobs stage, on every attempt.
+      - name: Pack packages
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          if [ -n "$(npm view "@flare-ts/lib@$VERSION" version 2>/dev/null || true)" ]; then
-            echo "::notice::@flare-ts/lib@$VERSION is already on npm, skipping publish."
+          mkdir -p packs
+          (cd lib && pnpm pack --pack-destination ../packs)
+          (cd core && pnpm pack --pack-destination ../packs)
+
+      # overwrite: a rerun of this job replaces the previous attempt's tarballs.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: packs/*.tgz
+          if-no-files-found: error
+          overwrite: true
+
+  # One job per package (fail-fast off), so each is retried on its own. The npm CLI
+  # publishes the tarball so the OIDC trusted-publishing exchange runs through npm.
+  # No --provenance flag: trusted publishing emits provenance automatically.
+  # No NPM_TOKEN: OIDC uses a short-lived token, not a stored secret.
+  #
+  # A version already on npm (published by hand, or approved after an earlier
+  # attempt) is skipped. `npm view` cannot see a version that is staged but not
+  # yet approved, so a 409 from staging (already staged or published) also counts
+  # as done. A 401 means npm refused this workflow's trusted-publishing token for
+  # that package: its Trusted Publisher settings on npmjs.com must match lib's.
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [lib, core]
+    name: publish @flare-ts/${{ matrix.package }}
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # OIDC trusted publishing requires npm 11 or later.
+      - name: Upgrade npm
+        run: npm install -g npm@latest
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: packs
+
+      - name: Stage @flare-ts/${{ matrix.package }}
+        env:
+          NAME: "@flare-ts/${{ matrix.package }}"
+          VERSION: ${{ needs.verify.outputs.version }}
+          DIST_TAG: ${{ needs.verify.outputs.dist_tag }}
+          TARBALL: packs/flare-ts-${{ matrix.package }}-${{ needs.verify.outputs.version }}.tgz
+        run: |
+          if [ -n "$(npm view "$NAME@$VERSION" version 2>/dev/null || true)" ]; then
+            echo "::notice::$NAME@$VERSION is already on npm, skipping publish."
             exit 0
           fi
-          pnpm pack --pack-destination .
           set +e
-          OUT=$(npm stage publish flare-ts-lib-*.tgz --tag ${{ steps.dist_tag.outputs.tag }} 2>&1)
+          OUT=$(npm stage publish "$TARBALL" --tag "$DIST_TAG" 2>&1)
           CODE=$?
           set -e
           echo "$OUT"
           if [ $CODE -ne 0 ] && grep -q "E409" <<< "$OUT"; then
-            echo "::notice::@flare-ts/lib@$VERSION is already staged or published, skipping publish."
+            echo "::notice::$NAME@$VERSION is already staged or published, skipping publish."
             exit 0
           fi
           if [ $CODE -ne 0 ] && grep -q "E401" <<< "$OUT"; then
-            echo "::error::npm refused the trusted-publishing token for @flare-ts/lib. On npmjs.com, its Trusted Publisher must be GitHub Actions, lumex-solutions/flare-ts, workflow release.yml."
-          fi
-          exit $CODE
-
-      - name: Publish @flare-ts/core
-        working-directory: core
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          if [ -n "$(npm view "@flare-ts/core@$VERSION" version 2>/dev/null || true)" ]; then
-            echo "::notice::@flare-ts/core@$VERSION is already on npm, skipping publish."
-            exit 0
-          fi
-          pnpm pack --pack-destination .
-          set +e
-          OUT=$(npm stage publish flare-ts-core-*.tgz --tag ${{ steps.dist_tag.outputs.tag }} 2>&1)
-          CODE=$?
-          set -e
-          echo "$OUT"
-          if [ $CODE -ne 0 ] && grep -q "E409" <<< "$OUT"; then
-            echo "::notice::@flare-ts/core@$VERSION is already staged or published, skipping publish."
-            exit 0
-          fi
-          if [ $CODE -ne 0 ] && grep -q "E401" <<< "$OUT"; then
-            echo "::error::npm refused the trusted-publishing token for @flare-ts/core. On npmjs.com, its Trusted Publisher must be GitHub Actions, lumex-solutions/flare-ts, workflow release.yml."
+            echo "::error::npm refused the trusted-publishing token for $NAME. On npmjs.com, its Trusted Publisher must be GitHub Actions, lumex-solutions/flare-ts, workflow release.yml."
           fi
           exit $CODE
